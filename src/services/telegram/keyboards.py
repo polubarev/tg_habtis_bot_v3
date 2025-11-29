@@ -11,6 +11,7 @@ def build_date_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("Сегодня", callback_data="habits_date:today"),
             InlineKeyboardButton("Вчера", callback_data="habits_date:yesterday"),
         ],
+        [InlineKeyboardButton("Другая дата", callback_data="habits_date:custom")],
         [InlineKeyboardButton("Отмена", callback_data="habits_cancel")],
     ]
     return InlineKeyboardMarkup(buttons)

@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     # Google Cloud
     gcp_project_id: str | None = None
     gcp_region: str = "europe-west1"
+    google_credentials_path: str | None = None
 
     # Telegram
     telegram_bot_token: str | None = None

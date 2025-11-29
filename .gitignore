@@ -69,3 +69,6 @@ venv.bak/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Service account keys
+src/secrets/*.json

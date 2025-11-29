@@ -4,14 +4,23 @@ from fastapi.responses import JSONResponse
 from src.config.settings import Settings, get_settings
 from src.core.dependencies import verify_telegram_webhook
 from src.core.logging import setup_logging
+from functools import lru_cache
+
 from src.services.telegram.bot import TelegramBotService
 
 app = FastAPI(title="Habits & Diary Bot", version="0.1.0")
 setup_logging()
 
 
-def get_bot_service(settings: Settings = Depends(get_settings)) -> TelegramBotService:
-    return TelegramBotService(settings)
+@lru_cache()
+def get_bot_service_cached() -> TelegramBotService:
+    """Singleton bot service to preserve session state across requests."""
+
+    return TelegramBotService(get_settings())
+
+
+def get_bot_service(_: Settings = Depends(get_settings)) -> TelegramBotService:
+    return get_bot_service_cached()
 
 
 @app.get("/health")

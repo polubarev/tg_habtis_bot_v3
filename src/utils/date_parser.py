@@ -7,8 +7,8 @@ def parse_relative_date(label: str) -> date:
 
     now = datetime.utcnow().date()
     normalized = label.lower()
-    if normalized in {"today", "???????"}:
+    if normalized in {"today", "сегодня"}:
         return now
-    if normalized in {"yesterday", "?????"}:
+    if normalized in {"yesterday", "вчера"}:
         return now - timedelta(days=1)
     return date.fromisoformat(label)

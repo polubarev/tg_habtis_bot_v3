@@ -20,8 +20,20 @@ from src.services.telegram.handlers.habits import (
     habits_command,
     handle_habits_confirm,
     handle_habits_date_callback,
-    handle_habits_text,
 )
+from src.services.telegram.handlers.start import start_command
+from src.services.telegram.handlers.dream import dream_command
+from src.services.telegram.handlers.thought import thought_command
+from src.services.telegram.handlers.reflect import reflect_command
+from src.services.telegram.handlers.help import help_command
+from src.services.telegram.handlers.config import config_command
+from src.services.telegram.handlers.router import route_text, route_voice
+from src.services.telegram.handlers.habits_config import habits_config_command, handle_habits_config_callback
+from src.services.telegram.handlers.questions import questions_command, handle_questions_callback
+from src.services.storage.firestore.user_repo import UserRepository
+from src.services.storage.sheets.client import SheetsClient
+from src.services.llm.client import LLMClient
+from src.services.transcription.whisper import WhisperClient
 from src.services.telegram.handlers.start import start_command
 
 logger = logging.getLogger(__name__)
@@ -34,6 +46,16 @@ class TelegramBotService:
         self.settings = settings
         self.app: Application | None = None
         self.session_repo = SessionRepository()
+        self.user_repo = UserRepository()
+        self.sheets_client = SheetsClient(settings.google_credentials_path)
+        try:
+            self.llm_client = LLMClient()
+        except Exception:
+            self.llm_client = None
+        try:
+            self.whisper_client = WhisperClient()
+        except Exception:
+            self.whisper_client = None
 
     async def _ensure_app(self) -> None:
         if self.app:
@@ -48,8 +70,19 @@ class TelegramBotService:
         )
         # share services with handlers via bot_data
         self.app.bot_data["session_repo"] = self.session_repo
+        self.app.bot_data["user_repo"] = self.user_repo
+        self.app.bot_data["sheets_client"] = self.sheets_client
+        self.app.bot_data["llm_client"] = self.llm_client
+        self.app.bot_data["whisper_client"] = self.whisper_client
         self.app.add_handler(CommandHandler("start", start_command))
         self.app.add_handler(CommandHandler("habits", habits_command))
+        self.app.add_handler(CommandHandler("dream", dream_command))
+        self.app.add_handler(CommandHandler("thought", thought_command))
+        self.app.add_handler(CommandHandler("reflect", reflect_command))
+        self.app.add_handler(CommandHandler("config", config_command))
+        self.app.add_handler(CommandHandler("habits_config", habits_config_command))
+        self.app.add_handler(CommandHandler("questions", questions_command))
+        self.app.add_handler(CommandHandler("help", help_command))
         self.app.add_handler(
             CallbackQueryHandler(handle_habits_date_callback, pattern="^habits_date:|^habits_cancel$")
         )
@@ -57,7 +90,16 @@ class TelegramBotService:
             CallbackQueryHandler(handle_habits_confirm, pattern="^habits_confirm:")
         )
         self.app.add_handler(
-            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_habits_text)
+            CallbackQueryHandler(handle_habits_config_callback, pattern="^habit_cfg:")
+        )
+        self.app.add_handler(
+            CallbackQueryHandler(handle_questions_callback, pattern="^q_cfg:")
+        )
+        self.app.add_handler(
+            MessageHandler(filters.TEXT & ~filters.COMMAND, route_text)
+        )
+        self.app.add_handler(
+            MessageHandler(filters.VOICE, route_voice)
         )
         await self.app.initialize()
 

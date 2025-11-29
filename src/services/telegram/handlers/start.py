@@ -1,7 +1,12 @@
-from telegram import Update
+from telegram import ReplyKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
-from src.config.constants import MESSAGES_EN, MESSAGES_RU
+from src.config.constants import DEFAULT_HABIT_SCHEMA, DEFAULT_REFLECTION_QUESTIONS, MESSAGES_EN, MESSAGES_RU
+from src.models.user import CustomQuestion, UserProfile
+
+
+def _get_user_repo(context: ContextTypes.DEFAULT_TYPE):
+    return context.application.bot_data.get("user_repo")
 
 
 def _messages(update: Update):
@@ -15,4 +20,31 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if not update.message:
         return
     msgs = _messages(update)
-    await update.message.reply_text(msgs["welcome"])
+
+    user_repo = _get_user_repo(context)
+    sheet_missing = True
+    if user_repo and update.effective_user:
+        profile = await user_repo.get_by_telegram_id(update.effective_user.id)
+        if profile is None:
+            profile = UserProfile(
+                telegram_user_id=update.effective_user.id,
+                telegram_username=update.effective_user.username,
+                habit_schema=DEFAULT_HABIT_SCHEMA,
+                custom_questions=[
+                    CustomQuestion(**q, language="ru") for q in DEFAULT_REFLECTION_QUESTIONS
+                ],
+                onboarding_completed=True,
+            )
+            await user_repo.create(profile)
+        sheet_missing = not bool(profile.sheet_id)
+
+    keyboard_rows = [
+        ["/habits", "/config"],
+        ["/dream", "/thought"],
+        ["/reflect", "/questions"],
+        ["/habits_config", "/help"],
+    ]
+    keyboard = ReplyKeyboardMarkup(keyboard_rows, resize_keyboard=True)
+    await update.message.reply_text(msgs["welcome"], reply_markup=keyboard)
+    if sheet_missing:
+        await update.message.reply_text(msgs["sheet_reminder"])

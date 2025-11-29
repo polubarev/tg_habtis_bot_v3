@@ -1,5 +1,7 @@
 # Habits & Diary Telegram Bot 2.0 – Technical Documentation
 
+> MVP status (this codebase): implemented FastAPI webhook + python-telegram-bot with commands `/start`, `/help`, `/config`, `/habits`, `/dream`, `/thought`, `/reflect`; in-memory session/user store; optional Whisper transcription; optional LLM summary for habits; in-memory Sheets client emulating writes. Real Firestore/Sheets/LLM wiring and full validators are still placeholders.
+
 ## Table of Contents
 
 1. [Architecture Overview](#1-architecture-overview)

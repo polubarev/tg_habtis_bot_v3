@@ -4,9 +4,11 @@ from typing import Optional
 try:
     from langchain_openai import ChatOpenAI
     from langchain_core.language_models import BaseChatModel
-except Exception:  # pragma: no cover - optional import path compatibility
+    _IMPORT_ERROR = None
+except Exception as exc:  # pragma: no cover - optional import path compatibility
     ChatOpenAI = None
     BaseChatModel = object
+    _IMPORT_ERROR = exc
 
 from src.config.settings import get_settings
 from src.core.logging import get_logger
@@ -21,7 +23,10 @@ class LLMClient:
         settings = get_settings()
         self._model: Optional[BaseChatModel] = None
         if ChatOpenAI is None:
-            logger.warning("LangChain ChatOpenAI not available; LLM calls disabled")
+            logger.warning(
+                "LangChain ChatOpenAI not available; LLM calls disabled",
+                error=str(_IMPORT_ERROR) if _IMPORT_ERROR else None,
+            )
             return
         self._model = ChatOpenAI(
             model=settings.llm_model,
