@@ -34,7 +34,8 @@ class UserRepository(IUserRepository):
     async def create(self, user: UserProfile) -> UserProfile:
         if self.client and self.client.is_ready:
             try:
-                self.client.collection(self.collection_name).document(str(user.telegram_user_id)).set(user.model_dump())
+                data = user.model_dump(mode="json")
+                self.client.collection(self.collection_name).document(str(user.telegram_user_id)).set(data)
             except Exception as exc:
                 logger.warning("Firestore unavailable for users; falling back to memory", error=str(exc))
                 self.client = None
@@ -44,7 +45,8 @@ class UserRepository(IUserRepository):
     async def update(self, user: UserProfile) -> UserProfile:
         if self.client and self.client.is_ready:
             try:
-                self.client.collection(self.collection_name).document(str(user.telegram_user_id)).set(user.model_dump())
+                data = user.model_dump(mode="json")
+                self.client.collection(self.collection_name).document(str(user.telegram_user_id)).set(data)
             except Exception as exc:
                 logger.warning("Firestore unavailable for users; falling back to memory", error=str(exc))
                 self.client = None

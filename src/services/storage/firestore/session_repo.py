@@ -38,7 +38,8 @@ class SessionRepository(ISessionRepository):
     async def save(self, session: SessionData) -> None:
         if self.client and self.client.is_ready:
             try:
-                self.client.collection(self.collection_name).document(str(session.user_id)).set(session.model_dump())
+                data = session.model_dump(mode="json")
+                self.client.collection(self.collection_name).document(str(session.user_id)).set(data)
             except Exception as exc:
                 logger.warning("Firestore unavailable for sessions; falling back to memory", error=str(exc))
                 self.client = None

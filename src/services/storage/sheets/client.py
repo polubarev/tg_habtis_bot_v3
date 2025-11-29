@@ -75,10 +75,6 @@ class SheetsClient(ISheetsClient):
             entry.timestamp.isoformat(),
             entry.date.isoformat(),
             entry.raw_text,
-            entry.mood or "",
-            entry.is_lucid if entry.is_lucid is not None else "",
-            ",".join(entry.tags),
-            entry.summary or "",
         ]
         ws.append_row(row, value_input_option="USER_ENTERED")
 
@@ -88,8 +84,6 @@ class SheetsClient(ISheetsClient):
         row = [
             entry.timestamp.isoformat(),
             entry.raw_text,
-            ",".join(entry.tags),
-            entry.category or "",
         ]
         ws.append_row(row, value_input_option="USER_ENTERED")
 

@@ -64,12 +64,12 @@ async def handle_dream_text(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         date=datetime.now(timezone.utc).date(),
         raw_text=text,
     )
-    session.pending_entry = entry.model_dump()
+    session.pending_entry = entry.model_dump(mode="json")
     session.state = ConversationState.DREAM_AWAITING_CONFIRMATION
     if session_repo:
         await session_repo.save(session)
 
-    preview = json.dumps(entry.model_dump(), ensure_ascii=False, indent=2)
+    preview = json.dumps(entry.model_dump(), ensure_ascii=False, indent=2, default=str)
     await update.message.reply_text(
         _messages(update)["confirm_generic"].format(preview=preview),
         reply_markup=build_confirmation_keyboard(prefix="dream"),

@@ -35,10 +35,6 @@ class DreamEntry(BaseModel):
     timestamp: datetime
     date: date
     raw_text: str
-    mood: Optional[str] = None
-    is_lucid: Optional[bool] = None
-    tags: list[str] = Field(default_factory=list)
-    summary: Optional[str] = None
 
 
 class ThoughtEntry(BaseModel):
@@ -46,8 +42,6 @@ class ThoughtEntry(BaseModel):
 
     timestamp: datetime
     raw_text: str
-    tags: list[str] = Field(default_factory=list)
-    category: Optional[str] = None
 
 
 class ReflectionEntry(BaseModel):

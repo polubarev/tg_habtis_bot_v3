@@ -16,6 +16,7 @@ class ConversationState(str, Enum):
     DREAM_AWAITING_CONTENT = "dream_awaiting_content"
     DREAM_AWAITING_CONFIRMATION = "dream_awaiting_confirmation"
     THOUGHT_AWAITING_CONTENT = "thought_awaiting_content"
+    THOUGHT_AWAITING_CONFIRMATION = "thought_awaiting_confirmation"
     REFLECT_ANSWERING_QUESTIONS = "reflect_answering_questions"
     REFLECT_AWAITING_CONFIRMATION = "reflect_awaiting_confirmation"
     CONFIG_AWAITING_SHEET_URL = "config_awaiting_sheet_url"

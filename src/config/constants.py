@@ -81,17 +81,11 @@ DREAMS_SHEET_COLUMNS = [
     "timestamp",
     "date",
     "raw_text",
-    "mood",
-    "is_lucid",
-    "tags",
-    "summary",
 ]
 
 THOUGHTS_SHEET_COLUMNS = [
     "timestamp",
     "raw_text",
-    "tags",
-    "category",
 ]
 
 # Message templates (Russian)

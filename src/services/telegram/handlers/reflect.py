@@ -85,12 +85,12 @@ async def handle_reflect_text(update: Update, context: ContextTypes.DEFAULT_TYPE
     if session.current_question_index is not None and session.current_question_index >= len(questions):
         # finalize pending
         entry = ReflectionEntry(date=date.today(), answers=session.reflection_answers.copy())
-        session.pending_entry = entry.model_dump()
+        session.pending_entry = entry.model_dump(mode="json")
         session.state = ConversationState.REFLECT_AWAITING_CONFIRMATION
         session.current_question_index = None
         if session_repo:
             await session_repo.save(session)
-        preview = json.dumps(entry.model_dump(), ensure_ascii=False, indent=2)
+        preview = json.dumps(entry.model_dump(), ensure_ascii=False, indent=2, default=str)
         await update.message.reply_text(
             _messages(update)["confirm_generic"].format(preview=preview),
             reply_markup=build_confirmation_keyboard(prefix="reflect"),
