@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import json
 
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -6,6 +7,7 @@ from telegram.ext import ContextTypes
 from src.config.constants import MESSAGES_EN, MESSAGES_RU
 from src.models.entry import DreamEntry
 from src.models.session import ConversationState, SessionData
+from src.services.telegram.keyboards import build_confirmation_keyboard
 
 
 def _messages(update: Update):
@@ -52,6 +54,7 @@ async def handle_dream_text(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     if not sheet_id:
         await update.message.reply_text(_messages(update)["sheet_not_configured"])
         session.state = ConversationState.IDLE
+        session.pending_entry = None
         if session_repo:
             await session_repo.save(session)
         return True
@@ -61,11 +64,49 @@ async def handle_dream_text(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         date=datetime.now(timezone.utc).date(),
         raw_text=text,
     )
-    if sheets_client:
-        await sheets_client.append_dream_entry(sheet_id, entry)
-
-    session.state = ConversationState.IDLE
+    session.pending_entry = entry.model_dump()
+    session.state = ConversationState.DREAM_AWAITING_CONFIRMATION
     if session_repo:
         await session_repo.save(session)
-    await update.message.reply_text(_messages(update)["dream_saved"])
+
+    preview = json.dumps(entry.model_dump(), ensure_ascii=False, indent=2)
+    await update.message.reply_text(
+        _messages(update)["confirm_generic"].format(preview=preview),
+        reply_markup=build_confirmation_keyboard(prefix="dream"),
+    )
     return True
+
+
+async def handle_dream_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.callback_query or not update.effective_user:
+        return
+    query = update.callback_query
+    data = query.data or ""
+    if not data.startswith("dream_confirm:"):
+        return
+
+    session_repo, user_repo, sheets_client, _ = _get_repos(context)
+    session = await session_repo.get(update.effective_user.id) if session_repo else None
+    if session is None or session.state != ConversationState.DREAM_AWAITING_CONFIRMATION or not session.pending_entry:
+        await query.answer()
+        await query.edit_message_text(_messages(update)["error_occurred"])
+        return
+
+    decision = data.split(":", 1)[1]
+    if decision == "yes":
+        profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
+        sheet_id = profile.sheet_id if profile else None
+        if sheet_id and sheets_client:
+            entry = DreamEntry(**session.pending_entry)
+            await sheets_client.append_dream_entry(sheet_id, entry)
+            await query.edit_message_text(_messages(update)["dream_saved"])
+        else:
+            await query.edit_message_text(_messages(update)["sheet_not_configured"])
+    else:
+        await query.edit_message_text(_messages(update)["cancelled"])
+
+    session.state = ConversationState.IDLE
+    session.pending_entry = None
+    if session_repo:
+        await session_repo.save(session)
+    await query.answer()

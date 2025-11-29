@@ -17,6 +17,10 @@ structured data with an LLM, and writes everything to user-managed Google Sheets
 3) Share your target Google Sheet with the service account email (from the JSON) with **Editor** access.
 4) In Telegram, run `/config` and paste the Sheet link/ID. If sharing is missing, the bot will prompt you to grant access.
 
+## Persistence (Firestore)
+- Session/user state can persist across restarts if Firestore is available. Set `gcp_project_id` in `.env` and `google_credentials_path` to a service account with Firestore access. If Firestore API is disabled or unreachable, the bot automatically falls back to in-memory stores (state resets on restarts).
+- Collections used: `users`, `sessions` (see `src/config/settings.py` for names).
+
 ## Commands
 - `/start` — welcome, shows keyboard
 - `/config` — set/change Google Sheet (prompts to share with service account)

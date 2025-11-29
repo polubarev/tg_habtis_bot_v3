@@ -7,6 +7,8 @@ from src.config.constants import DEFAULT_REFLECTION_QUESTIONS, MESSAGES_EN, MESS
 from src.models.entry import ReflectionEntry
 from src.models.user import CustomQuestion
 from src.models.session import ConversationState, SessionData
+from src.services.telegram.keyboards import build_confirmation_keyboard
+import json
 
 
 def _messages(update: Update):
@@ -40,6 +42,10 @@ async def reflect_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await user_repo.update(profile)
         questions = profile.custom_questions
         await update.message.reply_text(_messages(update)["reflect_seeded"])
+    sheet_id = profile.sheet_id if profile else None
+    if not sheet_id:
+        await update.message.reply_text(_messages(update)["sheet_not_configured"])
+        return
     session = await session_repo.get(update.effective_user.id) if session_repo else None
     if session is None:
         session = SessionData(user_id=update.effective_user.id)
@@ -77,21 +83,56 @@ async def handle_reflect_text(update: Update, context: ContextTypes.DEFAULT_TYPE
         await session_repo.save(session)
 
     if session.current_question_index is not None and session.current_question_index >= len(questions):
-        # finalize
-        sheet_id = profile.sheet_id if profile else None
-        if not sheet_id:
-            await update.message.reply_text(_messages(update)["sheet_not_configured"])
-        else:
-            entry = ReflectionEntry(date=date.today(), answers=session.reflection_answers.copy())
-            if sheets_client:
-                await sheets_client.append_reflection_entry(sheet_id, entry)
-            await update.message.reply_text(_messages(update)["reflect_done"])
-        session.state = ConversationState.IDLE
+        # finalize pending
+        entry = ReflectionEntry(date=date.today(), answers=session.reflection_answers.copy())
+        session.pending_entry = entry.model_dump()
+        session.state = ConversationState.REFLECT_AWAITING_CONFIRMATION
         session.current_question_index = None
-        session.reflection_answers = {}
-        await session_repo.save(session)
+        if session_repo:
+            await session_repo.save(session)
+        preview = json.dumps(entry.model_dump(), ensure_ascii=False, indent=2)
+        await update.message.reply_text(
+            _messages(update)["confirm_generic"].format(preview=preview),
+            reply_markup=build_confirmation_keyboard(prefix="reflect"),
+        )
         return True
 
     # ask next
     await _ask_current_question(update, session, questions)
     return True
+
+
+async def handle_reflect_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.callback_query or not update.effective_user:
+        return
+    query = update.callback_query
+    data = query.data or ""
+    if not data.startswith("reflect_confirm:"):
+        return
+
+    session_repo, user_repo, sheets_client = _get_repos(context)
+    session = await session_repo.get(update.effective_user.id) if session_repo else None
+    if session is None or session.state != ConversationState.REFLECT_AWAITING_CONFIRMATION or not session.pending_entry:
+        await query.answer()
+        await query.edit_message_text(_messages(update)["error_occurred"])
+        return
+
+    decision = data.split(":", 1)[1]
+    if decision == "yes":
+        profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
+        sheet_id = profile.sheet_id if profile else None
+        if sheet_id and sheets_client:
+            entry = ReflectionEntry(**session.pending_entry)
+            await sheets_client.append_reflection_entry(sheet_id, entry)
+            await query.edit_message_text(_messages(update)["reflect_done"])
+        else:
+            await query.edit_message_text(_messages(update)["sheet_not_configured"])
+    else:
+        await query.edit_message_text(_messages(update)["cancelled"])
+
+    session.state = ConversationState.IDLE
+    session.pending_entry = None
+    session.reflection_answers = {}
+    if session_repo:
+        await session_repo.save(session)
+    await query.answer()

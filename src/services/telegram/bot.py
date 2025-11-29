@@ -22,9 +22,9 @@ from src.services.telegram.handlers.habits import (
     handle_habits_date_callback,
 )
 from src.services.telegram.handlers.start import start_command
-from src.services.telegram.handlers.dream import dream_command
-from src.services.telegram.handlers.thought import thought_command
-from src.services.telegram.handlers.reflect import reflect_command
+from src.services.telegram.handlers.dream import dream_command, handle_dream_confirm
+from src.services.telegram.handlers.thought import thought_command, handle_thought_confirm
+from src.services.telegram.handlers.reflect import reflect_command, handle_reflect_confirm
 from src.services.telegram.handlers.help import help_command
 from src.services.telegram.handlers.config import config_command
 from src.services.telegram.handlers.router import route_text, route_voice
@@ -35,6 +35,7 @@ from src.services.storage.sheets.client import SheetsClient
 from src.services.llm.client import LLMClient
 from src.services.transcription.whisper import WhisperClient
 from src.services.telegram.handlers.start import start_command
+from src.services.storage.firestore.client import FirestoreClient
 
 logger = logging.getLogger(__name__)
 
@@ -45,8 +46,9 @@ class TelegramBotService:
     def __init__(self, settings: Settings):
         self.settings = settings
         self.app: Application | None = None
-        self.session_repo = SessionRepository()
-        self.user_repo = UserRepository()
+        self.firestore_client = FirestoreClient(settings.google_credentials_path, settings.gcp_project_id)
+        self.session_repo = SessionRepository(self.firestore_client)
+        self.user_repo = UserRepository(self.firestore_client)
         self.sheets_client = SheetsClient(settings.google_credentials_path)
         try:
             self.llm_client = LLMClient()
@@ -94,6 +96,15 @@ class TelegramBotService:
         )
         self.app.add_handler(
             CallbackQueryHandler(handle_questions_callback, pattern="^q_cfg:")
+        )
+        self.app.add_handler(
+            CallbackQueryHandler(handle_dream_confirm, pattern="^dream_confirm:")
+        )
+        self.app.add_handler(
+            CallbackQueryHandler(handle_thought_confirm, pattern="^thought_confirm:")
+        )
+        self.app.add_handler(
+            CallbackQueryHandler(handle_reflect_confirm, pattern="^reflect_confirm:")
         )
         self.app.add_handler(
             MessageHandler(filters.TEXT & ~filters.COMMAND, route_text)

@@ -2,6 +2,7 @@
 from typing import Dict, List, Optional
 
 import gspread
+import json
 from google.auth.transport.requests import AuthorizedSession
 from google.oauth2.service_account import Credentials
 
@@ -98,7 +99,7 @@ class SheetsClient(ISheetsClient):
         ws.append_row(
             [
                 entry.date.isoformat(),
-                entry.answers,
+                json.dumps(entry.answers, ensure_ascii=False),
             ],
             value_input_option="USER_ENTERED",
         )

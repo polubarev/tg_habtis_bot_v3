@@ -103,7 +103,9 @@ MESSAGES_RU = {
         "• /dream — записать сон\n"
         "• /thought — быстрая заметка\n"
         "• /reflect — ответить на вопросы\n"
-        "• /config — указать Google Sheet\n\n"
+        "• /config — указать Google Sheet\n"
+        "• /habits_config — поля привычек\n"
+        "• /questions — свои вопросы\n\n"
         "Нажми /habits (или кнопку ниже), выбери дату и опиши день текстом/голосом. Я покажу черновик и спрошу подтверждение."
     ),
     "sheet_reminder": "Сначала укажи Google Sheet через /config. Пример: https://docs.google.com/spreadsheets/d/1AbCDefGh1234567890",
@@ -117,6 +119,7 @@ MESSAGES_RU = {
     "confirm_entry": "Проверь черновик:\nДата: {date}\nЧерновик: {raw}\nСводка: {diary}\n\nПодтвердить?",
     "saved_success": "✅ Сохранено!",
     "cancelled": "✖ Отменено.",
+    "confirm_generic": "Проверь и подтверди:\n{preview}",
     "error_occurred": "⚠ Произошла ошибка. Попробуй ещё раз.",
     "sheet_not_configured": "⚠ Сначала подключи Google Sheet через /config.",
     "ask_sheet": "Отправь ссылку или ID Google Sheets, куда писать данные.",
@@ -131,6 +134,7 @@ MESSAGES_RU = {
     "reflect_seeded": "Добавил вопросы по умолчанию. Можно снова вызвать /reflect.",
     "llm_disabled": "Без сводки: модель не настроена.",
     "voice_disabled": "Голос пока недоступен (нет ключа для STT). Отправь текст.",
+    "voice_transcribed": "Расшифровка голоса: {text}",
     "help": (
         "Команды:\n"
         "/start — приветствие и как работать\n"
@@ -166,7 +170,9 @@ MESSAGES_EN = {
         "• /dream — log a dream\n"
         "• /thought — quick note\n"
         "• /reflect — answer custom questions\n"
-        "• /config — set Google Sheet\n\n"
+        "• /config — set Google Sheet\n"
+        "• /habits_config — habit fields\n"
+        "• /questions — manage reflection questions\n\n"
         "Tap /habits (or the button below), pick a date, describe your day in text/voice. I'll show a draft and ask you to confirm."
     ),
     "sheet_reminder": "Please set your Google Sheet via /config first. Example: https://docs.google.com/spreadsheets/d/1AbCDefGh1234567890",
@@ -180,6 +186,7 @@ MESSAGES_EN = {
     "confirm_entry": "Review the draft:\nDate: {date}\nRaw: {raw}\nSummary: {diary}\n\nConfirm?",
     "saved_success": "✅ Saved!",
     "cancelled": "✖ Cancelled.",
+    "confirm_generic": "Review and confirm:\n{preview}",
     "error_occurred": "⚠ An error occurred. Please try again.",
     "sheet_not_configured": "⚠ Please configure Google Sheet first via /config.",
     "ask_sheet": "Send a Google Sheet link or ID to store your data.",
@@ -194,6 +201,7 @@ MESSAGES_EN = {
     "reflect_seeded": "Added default questions. Call /reflect again.",
     "llm_disabled": "Summary disabled: LLM not configured.",
     "voice_disabled": "Voice not available (no STT key). Please send text.",
+    "voice_transcribed": "Voice transcription: {text}",
     "help": (
         "Commands:\n"
         "/start — welcome\n"

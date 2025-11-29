@@ -20,10 +20,10 @@ def _messages(update: Update):
     return MESSAGES_RU if code.startswith("ru") else MESSAGES_EN
 
 
-async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_override: str | None = None) -> None:
     """Route plain text messages based on conversation state."""
 
-    text = update.message.text if update.message else None
+    text = text_override or (update.message.text if update.message else None)
     if not text:
         return
 
@@ -64,9 +64,8 @@ async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     result = await whisper_client.transcribe(bytes(data), format="ogg")
     if not result.text:
         return
-
-    # Reuse the text routing to respect active flow.
-    update.message.text = result.text
+    # Echo transcription to user
+    await update.message.reply_text(_messages(update)["voice_transcribed"].format(text=result.text))
 
     # Route with preference: habits voice handling first.
     session_repo = context.application.bot_data.get("session_repo")
@@ -74,5 +73,4 @@ async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if session and session.state == ConversationState.HABITS_AWAITING_CONTENT:
         await handle_habits_text(update, context, result.text, input_type=InputType.VOICE)  # type: ignore[arg-type]
         return
-
-    await route_text(update, context)
+    await route_text(update, context, text_override=result.text)

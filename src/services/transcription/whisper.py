@@ -42,6 +42,7 @@ class WhisperClient(ITranscriber):
                 payload = response.json()
                 text = payload.get("text")
                 language = payload.get("language")
+                logger.info("Transcription result", text=text, language=language)
                 return TranscriptionResult(text=text or "", language=language)
         except Exception as exc:  # pragma: no cover - networking
             logger.warning("Transcription failed", error=str(exc))
