@@ -1,9 +1,13 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
+from telegram.constants import ParseMode
 
-from src.config.constants import DEFAULT_HABIT_SCHEMA, MESSAGES_EN, MESSAGES_RU
+from src.config.constants import DEFAULT_HABIT_SCHEMA, HABITS_SHEET_COLUMNS, MESSAGES_EN, MESSAGES_RU
 from src.models.habit import HabitFieldConfig
 from src.models.session import ConversationState
+import json
+
+BASE_HABIT_FIELDS = set(HABITS_SHEET_COLUMNS)
 
 
 def _messages(update: Update):
@@ -78,7 +82,13 @@ async def handle_habits_config_callback(update: Update, context: ContextTypes.DE
         await session_repo.save(session)
 
     if action == "add":
-        await query.edit_message_text(_messages(update)["habit_add_prompt"])
+        if session:
+            session.temp_data.update({"habit_add_stage": "name", "habit_new_field": {}})
+            await session_repo.save(session)
+        await query.edit_message_text(
+            _messages(update)["habit_add_name_prompt"] + "\n\n" + _messages(update)["habit_add_json_example"],
+            parse_mode=ParseMode.MARKDOWN,
+        )
     elif action == "remove":
         await query.edit_message_text(_messages(update)["habit_remove_prompt"])
     elif action == "reset":
@@ -115,24 +125,193 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
 
     text = update.message.text or ""
     if action == "add":
-        parts = [p.strip() for p in text.split("|")]
-        if len(parts) < 2:
-            await update.message.reply_text(_messages(update)["habit_add_prompt"])
+        temp = session.temp_data or {}
+        stage = temp.get("habit_add_stage") or "name"
+        new_field = temp.get("habit_new_field") or {}
+
+        async def _finish_and_reset():
+            session.state = ConversationState.IDLE
+            session.temp_data = {}
+            if session_repo:
+                await session_repo.save(session)
+
+        def _parse_single_field(data):
+            if not isinstance(data, dict):
+                return None
+            name = str(data.get("name", "")).strip()
+            if not name or " " in name or name in BASE_HABIT_FIELDS or name in profile.habit_schema.fields:
+                return None
+            type_hint = str(data.get("type", "string")).lower()
+            type_value = None
+            if type_hint in {"int", "integer"}:
+                type_value = "integer"
+            elif type_hint in {"bool", "boolean"}:
+                type_value = "boolean"
+            elif type_hint in {"float", "double"}:
+                type_value = "float"
+            elif type_hint in {"string", "text", ""}:
+                type_value = "string"
+            if not type_value:
+                return None
+            minimum = data.get("minimum")
+            maximum = data.get("maximum")
+            if type_value in {"integer", "float"}:
+                try:
+                    minimum = int(minimum) if minimum is not None and type_value == "integer" else float(minimum) if minimum is not None else None
+                    maximum = int(maximum) if maximum is not None and type_value == "integer" else float(maximum) if maximum is not None else None
+                except Exception:
+                    return None
+                if minimum is not None and maximum is not None and maximum < minimum:
+                    return None
+            else:
+                minimum = None
+                maximum = None
+            cfg = HabitFieldConfig(
+                type=type_value,
+                description=str(data.get("description") or name),
+                minimum=minimum,
+                maximum=maximum,
+                required=bool(data.get("required", True)),
+            )
+            return name, cfg
+
+        def _try_parse_json(raw: str):
+            try:
+                data = json.loads(raw)
+            except Exception:
+                return None
+            if isinstance(data, list):
+                parsed = []
+                for item in data:
+                    result = _parse_single_field(item)
+                    if not result:
+                        return None
+                    parsed.append(result)
+                return parsed
+            return [_parse_single_field(data)]
+
+        # Stage 1: field name
+        if stage == "name":
+            parsed = _try_parse_json(text)
+            if parsed and all(parsed):
+                for name, cfg in parsed:
+                    profile.habit_schema.fields[name] = cfg
+                await user_repo.update(profile)
+                added_names = ", ".join(name for name, _ in parsed)
+                await update.message.reply_text(_messages(update)["habit_added"].format(name=added_names))
+                await _finish_and_reset()
+                return True
+            name = text.strip()
+            if not name:
+                await update.message.reply_text(_messages(update)["habit_add_name_prompt"], parse_mode=ParseMode.MARKDOWN)
+                return True
+            if " " in name:
+                await update.message.reply_text(_messages(update)["habit_add_name_prompt"], parse_mode=ParseMode.MARKDOWN)
+                return True
+            if name in BASE_HABIT_FIELDS or name in profile.habit_schema.fields:
+                await update.message.reply_text(_messages(update)["habit_add_name_prompt"], parse_mode=ParseMode.MARKDOWN)
+                return True
+            new_field["name"] = name
+            session.temp_data = {"habit_action": "add", "habit_add_stage": "description", "habit_new_field": new_field}
+            if session_repo:
+                await session_repo.save(session)
+            await update.message.reply_text(_messages(update)["habit_add_description_prompt"], parse_mode=ParseMode.MARKDOWN)
             return True
-        name, description = parts[0], parts[1]
-        type_hint = parts[2].lower() if len(parts) > 2 else "string"
-        type_value = "string"
-        if type_hint in {"int", "integer"}:
-            type_value = "integer"
-        elif type_hint in {"bool", "boolean"}:
-            type_value = "boolean"
-        profile.habit_schema.fields[name] = HabitFieldConfig(
-            type=type_value,
-            description=description,
-            required=True,
-        )
-        await user_repo.update(profile)
-        await update.message.reply_text(_messages(update)["habit_added"].format(name=name))
+
+        # Stage 2: description
+        if stage == "description":
+            description = text.strip()
+            if not description:
+                await update.message.reply_text(_messages(update)["habit_add_description_prompt"], parse_mode=ParseMode.MARKDOWN)
+                return True
+            new_field["description"] = description
+            session.temp_data = {"habit_action": "add", "habit_add_stage": "type", "habit_new_field": new_field}
+            if session_repo:
+                await session_repo.save(session)
+            await update.message.reply_text(_messages(update)["habit_add_type_prompt"], parse_mode=ParseMode.MARKDOWN)
+            return True
+
+        # Stage 3: type
+        if stage == "type":
+            type_hint = text.strip().lower() or "string"
+            type_value = None
+            if type_hint in {"int", "integer"}:
+                type_value = "integer"
+            elif type_hint in {"float", "double"}:
+                type_value = "float"
+            elif type_hint in {"bool", "boolean"}:
+                type_value = "boolean"
+            elif type_hint in {"string", "text", ""}:
+                type_value = "string"
+            if not type_value:
+                await update.message.reply_text(_messages(update)["habit_add_type_prompt"], parse_mode=ParseMode.MARKDOWN)
+                return True
+            new_field["type"] = type_value
+            if type_value == "integer":
+                session.temp_data = {"habit_action": "add", "habit_add_stage": "min", "habit_new_field": new_field}
+                if session_repo:
+                    await session_repo.save(session)
+                await update.message.reply_text(_messages(update)["habit_add_min_prompt"], parse_mode=ParseMode.MARKDOWN)
+                return True
+            if type_value == "float":
+                session.temp_data = {"habit_action": "add", "habit_add_stage": "min", "habit_new_field": new_field}
+                if session_repo:
+                    await session_repo.save(session)
+                await update.message.reply_text(_messages(update)["habit_add_min_prompt"], parse_mode=ParseMode.MARKDOWN)
+                return True
+            # finalize for non-int
+            profile.habit_schema.fields[new_field["name"]] = HabitFieldConfig(
+                type=type_value,
+                description=new_field.get("description", new_field["name"]),
+                required=True,
+            )
+            await user_repo.update(profile)
+            await update.message.reply_text(_messages(update)["habit_added"].format(name=new_field["name"]))
+            await _finish_and_reset()
+            return True
+
+        # Stage 4: min for integers
+        if stage == "min":
+            raw = text.strip()
+            min_value = None
+            if raw not in {"", "-"}:
+                try:
+                    min_value = int(raw) if new_field.get("type") == "integer" else float(raw)
+                except ValueError:
+                    await update.message.reply_text(_messages(update)["habit_add_min_prompt"], parse_mode=ParseMode.MARKDOWN)
+                    return True
+            new_field["minimum"] = min_value
+            session.temp_data = {"habit_action": "add", "habit_add_stage": "max", "habit_new_field": new_field}
+            if session_repo:
+                await session_repo.save(session)
+            await update.message.reply_text(_messages(update)["habit_add_max_prompt"], parse_mode=ParseMode.MARKDOWN)
+            return True
+
+        # Stage 5: max for integers
+        if stage == "max":
+            raw = text.strip()
+            max_value = None
+            if raw not in {"", "-"}:
+                try:
+                    max_value = int(raw) if new_field.get("type") == "integer" else float(raw)
+                except ValueError:
+                    await update.message.reply_text(_messages(update)["habit_add_max_prompt"], parse_mode=ParseMode.MARKDOWN)
+                    return True
+            min_value = new_field.get("minimum")
+            if min_value is not None and max_value is not None and max_value < min_value:
+                await update.message.reply_text(_messages(update)["habit_add_max_prompt"], parse_mode=ParseMode.MARKDOWN)
+                return True
+            profile.habit_schema.fields[new_field["name"]] = HabitFieldConfig(
+                type=new_field.get("type", "integer"),
+                description=new_field.get("description", new_field["name"]),
+                minimum=min_value,
+                maximum=max_value,
+                required=True,
+            )
+            await user_repo.update(profile)
+            await update.message.reply_text(_messages(update)["habit_added"].format(name=new_field["name"]))
+            await _finish_and_reset()
+            return True
     elif action == "remove":
         name = text.strip()
         if name in profile.habit_schema.fields:

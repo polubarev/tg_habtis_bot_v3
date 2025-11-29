@@ -51,7 +51,7 @@ The system is designed to be:
      - Connecting their Google Sheet (URL/ID).  
      - Reviewing or accepting default habit config.  
      - Adding custom questions.  
-   - Config can be updated any time via commands (e.g., `/config`, `/habits_config`, `/questions`).
+   - Config can be updated any time via commands (e.g., `/config`, `/habits_config`, `/reflect_config`).
 
 ---
 
@@ -178,8 +178,8 @@ The bot must validate the sheet structure on first use and create missing tabs/c
    - Parses messages and routes them to command handlers.
 
 2. **Command & Dialog Layer**
-   - Implements commands: `/start`, `/habits`, `/dream`, `/thought`, `/reflect`, `/questions`, `/help`, etc.  
-   - Handles multi-step flows (date selection → data collection → confirmation → write to sheet).  
+   - Implements commands: `/start`, `/habits`, `/dream`, `/thought`, `/reflect`, `/reflect_config`, `/help`, etc.  
+   - Handles multistep flows (date selection → data collection → confirmation → write to sheet).  
    - Stores minimal session state (e.g., expected next step, selected date) in a backend store.
 
 3. **LLM Layer (OpenRouter + LangChain)**
@@ -251,4 +251,3 @@ A typical Russian-language interaction could look like this:
 ---
 
 This document is the working project description/spec for implementing the bot from scratch in a clean, modular way with OpenRouter + LangChain + structured output, a clear habit config schema, and explicit separation of `raw_diary` from LLM-generated `diary`.
-

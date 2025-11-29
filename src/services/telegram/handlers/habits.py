@@ -14,6 +14,9 @@ from src.models.enums import InputType
 from src.services.llm.extractors.habit_extractor import HabitExtractor
 
 
+BASE_HABIT_FIELDS = set(HABITS_SHEET_COLUMNS)
+
+
 def _get_lang(update: Update) -> str:
     code = (update.effective_user.language_code or "").lower() if update.effective_user else ""
     return "ru" if code.startswith("ru") else "en"
@@ -172,7 +175,7 @@ async def handle_habits_text(
         default_fields = list(DEFAULT_HABIT_SCHEMA.fields.keys())
         if set(schema_fields) == set(default_fields):
             schema_fields = []
-    field_order = schema_fields
+    field_order = [f for f in schema_fields if f not in BASE_HABIT_FIELDS]
     if llm_client:
         try:
             extractor = HabitExtractor(llm_client)
@@ -229,7 +232,7 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
     session_repo = _get_session_repo(context)
     user_repo = _get_user_repo(context)
     sheets_client = _get_sheets_client(context)
-    base_fields = {"timestamp", "date", "raw_diary", "diary"}
+    base_fields = BASE_HABIT_FIELDS
     # If user has no schema, keep only base columns.
     default_dynamic: list[str] = []
     session = await session_repo.get(update.effective_user.id) if session_repo else None
@@ -248,6 +251,20 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
                 if profile and profile.habit_schema and profile.habit_schema.fields
                 else default_dynamic
             )
+            session_fields = [
+                f
+                for f in (session.pending_entry.get("field_order") or [])
+                if f not in base_fields
+            ]
+            field_order = session_fields or field_order
+            extra_pending_fields = [
+                k
+                for k in session.pending_entry.keys()
+                if k not in base_fields
+                and k not in {"input_type", "field_order"}
+                and k not in field_order
+            ]
+            field_order = field_order + extra_pending_fields
             created_at = datetime.fromisoformat(session.pending_entry.get("timestamp")) if session.pending_entry.get("timestamp") else datetime.utcnow()
             entry = HabitEntry(
                 date=date.fromisoformat(session.pending_entry.get("date")),
@@ -256,12 +273,12 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
                 extra_fields={
                     k: v
                     for k, v in session.pending_entry.items()
-                    if k not in {"date", "raw_diary", "diary", "timestamp"}
+                    if k not in base_fields | {"input_type", "field_order"}
                 },
                 input_type=InputType(session.pending_entry.get("input_type") or InputType.TEXT),
                 created_at=created_at,
             )
-            await sheets_client.append_habit_entry(sheet_id, HABITS_SHEET_COLUMNS[1:], entry)
+            await sheets_client.append_habit_entry(sheet_id, field_order, entry)
             await query.edit_message_text(_messages(update)["saved_success"])
         else:
             await query.edit_message_text(_messages(update)["sheet_not_configured"])

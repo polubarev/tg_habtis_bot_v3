@@ -42,7 +42,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     keyboard_rows = [
         ["/habits", "/config"],
         ["/dream", "/thought"],
-        ["/reflect", "/questions"],
+        ["/reflect", "/reflect_config"],
         ["/habits_config", "/help"],
     ]
     keyboard = ReplyKeyboardMarkup(keyboard_rows, resize_keyboard=True)

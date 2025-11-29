@@ -1,5 +1,6 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
+from telegram.constants import ParseMode
 
 from src.config.constants import DEFAULT_REFLECTION_QUESTIONS, MESSAGES_EN, MESSAGES_RU
 from src.models.session import ConversationState
@@ -78,7 +79,13 @@ async def handle_questions_callback(update: Update, context: ContextTypes.DEFAUL
         await session_repo.save(session)
 
     if action == "add":
-        await query.edit_message_text(_messages(update)["question_add_prompt"])
+        if session:
+            session.temp_data.update({"q_add_stage": "id", "q_new": {}})
+            await session_repo.save(session)
+        await query.edit_message_text(
+            _messages(update)["question_add_id_prompt"] + "\n\n" + _messages(update)["question_add_json_example"],
+            parse_mode=ParseMode.MARKDOWN,
+        )
     elif action == "remove":
         await query.edit_message_text(_messages(update)["question_remove_prompt"])
     elif action == "reset":
@@ -115,14 +122,108 @@ async def handle_questions_text(update: Update, context: ContextTypes.DEFAULT_TY
 
     text = update.message.text or ""
     if action == "add":
-        parts = [p.strip() for p in text.split("|")]
-        if len(parts) < 2:
-            await update.message.reply_text(_messages(update)["question_add_prompt"])
+        temp = session.temp_data or {}
+        stage = temp.get("q_add_stage") or "id"
+        q_new = temp.get("q_new") or {}
+
+        async def _finish():
+            session.state = ConversationState.IDLE
+            session.temp_data = {}
+            if session_repo:
+                await session_repo.save(session)
+
+        def _try_parse_json(raw: str):
+            import json
+
+            try:
+                data = json.loads(raw)
+            except Exception:
+                return None
+            if not isinstance(data, dict):
+                return None
+            q_id_val = str(data.get("id", "")).strip()
+            if not q_id_val or " " in q_id_val:
+                return None
+            if any(q.id == q_id_val for q in profile.custom_questions):
+                return None
+            lang_val = str(data.get("language") or profile.language or "en").lower()
+            if lang_val not in {"en", "ru"}:
+                return None
+            active_val = bool(data.get("active", True))
+            q_text_val = str(data.get("text", "")).strip()
+            if not q_text_val:
+                return None
+            return CustomQuestion(id=q_id_val, text=q_text_val, language=lang_val, active=active_val)
+
+        if stage == "id":
+            parsed = _try_parse_json(text)
+            if parsed:
+                profile.custom_questions.append(parsed)
+                await user_repo.update(profile)
+                await update.message.reply_text(_messages(update)["question_added"].format(id=parsed.id))
+                await _finish()
+                return True
+            q_id = text.strip()
+            if not q_id or " " in q_id:
+                await update.message.reply_text(_messages(update)["question_add_id_prompt"], parse_mode=ParseMode.MARKDOWN)
+                return True
+            if any(q.id == q_id for q in profile.custom_questions):
+                await update.message.reply_text(_messages(update)["question_add_id_prompt"], parse_mode=ParseMode.MARKDOWN)
+                return True
+            q_new["id"] = q_id
+            session.temp_data = {"q_action": "add", "q_add_stage": "text", "q_new": q_new}
+            if session_repo:
+                await session_repo.save(session)
+            await update.message.reply_text(_messages(update)["question_add_text_prompt"], parse_mode=ParseMode.MARKDOWN)
             return True
-        q_id, q_text = parts[0], parts[1]
-        profile.custom_questions.append(CustomQuestion(id=q_id, text=q_text, language=profile.language))
-        await user_repo.update(profile)
-        await update.message.reply_text(_messages(update)["question_added"].format(id=q_id))
+
+        if stage == "text":
+            q_text = text.strip()
+            if not q_text:
+                await update.message.reply_text(_messages(update)["question_add_text_prompt"], parse_mode=ParseMode.MARKDOWN)
+                return True
+            q_new["text"] = q_text
+            session.temp_data = {"q_action": "add", "q_add_stage": "lang", "q_new": q_new}
+            if session_repo:
+                await session_repo.save(session)
+            await update.message.reply_text(_messages(update)["question_add_lang_prompt"], parse_mode=ParseMode.MARKDOWN)
+            return True
+
+        if stage == "lang":
+            lang = text.strip().lower() or profile.language or "en"
+            if lang not in {"en", "ru"}:
+                await update.message.reply_text(_messages(update)["question_add_lang_prompt"], parse_mode=ParseMode.MARKDOWN)
+                return True
+            q_new["language"] = lang
+            session.temp_data = {"q_action": "add", "q_add_stage": "active", "q_new": q_new}
+            if session_repo:
+                await session_repo.save(session)
+            await update.message.reply_text(_messages(update)["question_add_active_prompt"], parse_mode=ParseMode.MARKDOWN)
+            return True
+
+        if stage == "active":
+            ans = text.strip().lower()
+            active = True
+            if ans in {"no", "n", "false", "0"}:
+                active = False
+            elif ans in {"yes", "y", "true", "1", ""}:
+                active = True
+            else:
+                await update.message.reply_text(_messages(update)["question_add_active_prompt"], parse_mode=ParseMode.MARKDOWN)
+                return True
+            q_new["active"] = active
+            profile.custom_questions.append(
+                CustomQuestion(
+                    id=q_new.get("id"),
+                    text=q_new.get("text"),
+                    language=q_new.get("language", profile.language),
+                    active=active,
+                )
+            )
+            await user_repo.update(profile)
+            await update.message.reply_text(_messages(update)["question_added"].format(id=q_new.get("id")))
+            await _finish()
+            return True
     elif action == "remove":
         q_id = text.strip()
         before = len(profile.custom_questions)

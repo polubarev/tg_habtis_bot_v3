@@ -83,7 +83,7 @@ class TelegramBotService:
         self.app.add_handler(CommandHandler("reflect", reflect_command))
         self.app.add_handler(CommandHandler("config", config_command))
         self.app.add_handler(CommandHandler("habits_config", habits_config_command))
-        self.app.add_handler(CommandHandler("questions", questions_command))
+        self.app.add_handler(CommandHandler("reflect_config", questions_command))
         self.app.add_handler(CommandHandler("help", help_command))
         self.app.add_handler(
             CallbackQueryHandler(handle_habits_date_callback, pattern="^habits_date:|^habits_cancel$")

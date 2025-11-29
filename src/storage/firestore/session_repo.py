@@ -1,7 +1,7 @@
 
 from typing import Optional
 
-from src.models.session import ConversationSession
+from src.models.session import ConversationState
 
 
 class SessionRepository:
@@ -10,10 +10,10 @@ class SessionRepository:
     def __init__(self, client):
         self.client = client
 
-    def get(self, user_id: int) -> Optional[ConversationSession]:
+    def get(self, user_id: int) -> Optional[ConversationState]:
         # TODO: implement Firestore access
         return None
 
-    def save(self, session: ConversationSession) -> None:
+    def save(self, session: ConversationState) -> None:
         # TODO: implement Firestore access
         _ = session

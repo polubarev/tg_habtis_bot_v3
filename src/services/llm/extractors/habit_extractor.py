@@ -2,6 +2,7 @@
 from typing import Any, Dict, Optional
 
 from pydantic import create_model
+from langchain_core.messages import HumanMessage, SystemMessage
 
 from src.config.constants import DEFAULT_HABIT_SCHEMA
 from src.core.exceptions import ExtractionError
@@ -40,22 +41,22 @@ class HabitExtractor:
 
         schema_dict = schema.model_dump() if hasattr(schema, "model_dump") else {}
         structured_model = self._build_model(schema)
-        messages = [
-            {"role": "system", "content": HABIT_EXTRACTION_SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": (
-                    f"Language: {language}\n"
-                    f"Schema:\n{schema_dict}\n"
-                    f"Text:\n{raw_text}\n"
-                    "Return JSON only with fields from schema."
-                ),
-            },
-        ]
 
         try:
             chain = self.client.with_structured_output(structured_model or dict)
-            result = await chain.ainvoke(messages)
+            result = await chain.ainvoke(
+                [
+                    SystemMessage(content=HABIT_EXTRACTION_SYSTEM_PROMPT),
+                    HumanMessage(
+                        content=(
+                            f"Language: {language}\n"
+                            f"Schema:\n{schema_dict}\n"
+                            f"Text:\n{raw_text}\n"
+                            "Return ONLY the structured JSON response matching the schema."
+                        )
+                    ),
+                ]
+            )
             if structured_model and hasattr(result, "model_dump"):
                 return result.model_dump()
             return result or {}

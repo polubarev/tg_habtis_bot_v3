@@ -29,7 +29,7 @@ structured data with an LLM, and writes everything to user-managed Google Sheets
 - `/thought` — quick note
 - `/reflect` — answer custom questions
 - `/habits_config` — add/remove/reset habit fields
-- `/questions` — manage reflection questions
+- `/reflect_config` — manage reflection questions
 - `/help` — help text + keyboard
 
 ## Next steps

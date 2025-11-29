@@ -18,7 +18,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         [
             ["/habits", "/config"],
             ["/dream", "/thought"],
-            ["/reflect", "/questions"],
+            ["/reflect", "/reflect_config"],
             ["/habits_config", "/help"],
         ],
         resize_keyboard=True,
