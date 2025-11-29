@@ -91,15 +91,15 @@ THOUGHTS_SHEET_COLUMNS = [
 
 # Message templates (Russian)
 MESSAGES_RU = {
-    "welcome": "\\u041f\\u0440\\u0438\\u0432\\u0435\\u0442! \\u042f \\u043f\\u043e\\u043c\\u043e\\u0433\\u0443 \\u0432\\u0435\\u0441\\u0442\\u0438 \\u0434\\u043d\\u0435\\u0432\\u043d\\u0438\\u043a \\u0438 \\u043e\\u0442\\u0441\\u043b\\u0435\\u0436\\u0438\\u0432\\u0430\\u0442\\u044c \\u043f\\u0440\\u0438\\u0432\\u044b\\u0447\\u043a\\u0438.",
-    "select_date": "\\u0417\\u0430 \\u043a\\u0430\\u043a\\u0443\\u044e \\u0434\\u0430\\u0442\\u0443 \\u0445\\u043e\\u0447\\u0435\\u0448\\u044c \\u0441\\u0434\\u0435\\u043b\\u0430\\u0442\\u044c \\u0437\\u0430\\u043f\\u0438\\u0441\\u044c?",
-    "describe_day": "\\u041e\\u043f\\u0438\\u0448\\u0438 \\u0441\\u0432\\u043e\\u0439 \\u0434\\u0435\\u043d\\u044c \\u0434\\u043b\\u044f {date} \\u0442\\u0435\\u043a\\u0441\\u0442\\u043e\\u043c \\u0438\\u043b\\u0438 \\u0433\\u043e\\u043b\\u043e\\u0441\\u043e\\u043c.",
-    "processing": "\\u23f3 \\u041e\\u0431\\u0440\\u0430\\u0431\\u0430\\u0442\\u044b\\u0432\\u0430\\u044e...",
-    "confirm_entry": "\\u041f\\u0440\\u043e\\u0432\\u0435\\u0440\\u044c \\u0438 \\u043f\\u043e\\u0434\\u0442\\u0432\\u0435\\u0440\\u0434\\u0438:\\n\\n```json\\n{json_data}\\n```",
-    "saved_success": "\\u2705 \\u0421\\u043e\\u0445\\u0440\\u0430\\u043d\\u0435\\u043d\\u043e!",
-    "cancelled": "\\u2716 \\u041e\\u0442\\u043c\\u0435\\u043d\\u0435\\u043d\\u043e.",
-    "error_occurred": "\\u26a0 \\u041f\\u0440\\u043e\\u0438\\u0437\\u043e\\u0448\\u043b\\u0430 \\u043e\\u0448\\u0438\\u0431\\u043a\\u0430. \\u041f\\u043e\\u043f\\u0440\\u043e\\u0431\\u0443\\u0439 \\u0435\\u0449\\u0451 \\u0440\\u0430\\u0437.",
-    "sheet_not_configured": "\\u26a0 \\u0421\\u043d\\u0430\\u0447\\u0430\\u043b\\u0430 \\u043f\\u043e\\u0434\\u043a\\u043b\\u044e\\u0447\\u0438 Google Sheet \\u0447\\u0435\\u0440\\u0435\\u0437 /config.",
+    "welcome": "Привет! Я помогу вести дневник и отслеживать привычки.",
+    "select_date": "За какую дату хочешь сделать запись?",
+    "describe_day": "Опиши свой день для {date} текстом или голосом.",
+    "processing": "⏳ Обрабатываю...",
+    "confirm_entry": "Проверь и подтверди:\n\n```json\n{json_data}\n```",
+    "saved_success": "✅ Сохранено!",
+    "cancelled": "✖ Отменено.",
+    "error_occurred": "⚠ Произошла ошибка. Попробуй ещё раз.",
+    "sheet_not_configured": "⚠ Сначала подключи Google Sheet через /config.",
 }
 
 # Message templates (English)
@@ -107,10 +107,10 @@ MESSAGES_EN = {
     "welcome": "Hello! I'll help you keep a diary and track habits.",
     "select_date": "Which date do you want to record?",
     "describe_day": "Describe your day for {date} using text or voice.",
-    "processing": "\\u23f3 Processing...",
-    "confirm_entry": "Review and confirm:\\n\\n```json\\n{json_data}\\n```",
-    "saved_success": "\\u2705 Saved!",
-    "cancelled": "\\u2716 Cancelled.",
-    "error_occurred": "\\u26a0 An error occurred. Please try again.",
-    "sheet_not_configured": "\\u26a0 Please configure Google Sheet first via /config.",
+    "processing": "⏳ Processing...",
+    "confirm_entry": "Review and confirm:\n\n```json\n{json_data}\n```",
+    "saved_success": "✅ Saved!",
+    "cancelled": "✖ Cancelled.",
+    "error_occurred": "⚠ An error occurred. Please try again.",
+    "sheet_not_configured": "⚠ Please configure Google Sheet first via /config.",
 }
