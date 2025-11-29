@@ -1,7 +1,7 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-*.class
+*$py.class
 
 # C extensions
 *.so
@@ -43,7 +43,6 @@ coverage.xml
 
 # Environments
 .env
-.env.*
 .venv
 venv/
 ENV/
