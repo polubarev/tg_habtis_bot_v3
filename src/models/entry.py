@@ -17,15 +17,26 @@ class HabitEntry(BaseModel):
     source: str = "telegram"
     input_type: InputType = InputType.TEXT
 
-    def to_sheet_row(self, field_order: list[str]) -> list[Any]:
-        row = [self.date.isoformat()]
-        for field in field_order:
-            if field == "raw_diary":
+    def to_sheet_row(self, field_order: list[str], base_header: list[str] | None = None) -> list[Any]:
+        """Convert entry to row aligned with header."""
+
+        base_header = base_header or ["date", "raw_diary", "diary"]
+        row: list[Any] = []
+        for field in base_header:
+            if field == "timestamp":
+                row.append(self.created_at.isoformat())
+            elif field == "date":
+                row.append(self.date.isoformat())
+            elif field == "raw_diary":
                 row.append(self.raw_diary)
             elif field == "diary":
                 row.append(self.diary or "")
             else:
                 row.append(self.extra_fields.get(field, ""))
+        for field in field_order:
+            if field in base_header:
+                continue
+            row.append(self.extra_fields.get(field, ""))
         return row
 
 
@@ -41,6 +52,7 @@ class ThoughtEntry(BaseModel):
     """A lightweight note or thought entry."""
 
     timestamp: datetime
+    date: date
     raw_text: str
 
 

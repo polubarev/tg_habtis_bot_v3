@@ -1,8 +1,9 @@
 from telegram import ReplyKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
-from src.config.constants import DEFAULT_HABIT_SCHEMA, DEFAULT_REFLECTION_QUESTIONS, MESSAGES_EN, MESSAGES_RU
+from src.config.constants import DEFAULT_REFLECTION_QUESTIONS, MESSAGES_EN, MESSAGES_RU
 from src.models.user import CustomQuestion, UserProfile
+from src.models.habit import HabitSchema
 
 
 def _get_user_repo(context: ContextTypes.DEFAULT_TYPE):
@@ -29,7 +30,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             profile = UserProfile(
                 telegram_user_id=update.effective_user.id,
                 telegram_username=update.effective_user.username,
-                habit_schema=DEFAULT_HABIT_SCHEMA,
+                habit_schema=HabitSchema(fields={}),  # start empty; user config adds fields
                 custom_questions=[
                     CustomQuestion(**q, language="ru") for q in DEFAULT_REFLECTION_QUESTIONS
                 ],

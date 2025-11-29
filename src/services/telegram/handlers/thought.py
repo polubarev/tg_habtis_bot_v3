@@ -59,6 +59,7 @@ async def handle_thought_text(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     entry = ThoughtEntry(
         timestamp=datetime.now(timezone.utc),
+        date=datetime.now(timezone.utc).date(),
         raw_text=text,
     )
     session.pending_entry = entry.model_dump(mode="json")

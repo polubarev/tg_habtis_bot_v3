@@ -1,16 +1,17 @@
-from datetime import date
+from datetime import date, datetime
+import json
 from typing import Any, Dict
 
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from src.config.constants import HABITS_SHEET_COLUMNS, MESSAGES_EN, MESSAGES_RU
+from src.config.constants import DEFAULT_HABIT_SCHEMA, HABITS_SHEET_COLUMNS, MESSAGES_EN, MESSAGES_RU
 from src.models.session import ConversationState, SessionData
 from src.services.telegram.keyboards import build_confirmation_keyboard, build_date_keyboard
 from src.utils.date_parser import parse_relative_date
 from src.models.entry import HabitEntry
 from src.models.enums import InputType
-from datetime import datetime
+from src.services.llm.extractors.habit_extractor import HabitExtractor
 
 
 def _get_lang(update: Update) -> str:
@@ -160,37 +161,56 @@ async def handle_habits_text(
     diary_text = raw_text
 
     llm_client = _get_llm_client(context)
+    extraction: Dict[str, Any] = {}
+    profile = await _get_user_repo(context).get_by_telegram_id(update.effective_user.id) if _get_user_repo(context) else None
+    habit_schema = profile.habit_schema if profile else None
+    schema_fields: list[str] = (
+        list(habit_schema.fields.keys()) if habit_schema and habit_schema.fields else []
+    )
+    # If schema matches the baked-in default, treat it as empty until user customizes.
+    if habit_schema and habit_schema.fields:
+        default_fields = list(DEFAULT_HABIT_SCHEMA.fields.keys())
+        if set(schema_fields) == set(default_fields):
+            schema_fields = []
+    field_order = schema_fields
     if llm_client:
         try:
-            diary_text = await llm_client.model.apredict(
-                "Summarize the day briefly, keep language as input. Text:\n\n" + raw_text
-            )
+            extractor = HabitExtractor(llm_client)
+            extraction = await extractor.extract(raw_text, language=_get_lang(update), schema=habit_schema or None)
         except Exception:
-            diary_text = raw_text
+            extraction = {}
     else:
         if update.message:
             await update.message.reply_text(_messages(update)["llm_disabled"])
 
+    diary_text = extraction.get("diary") or raw_text
+
     entry_data: Dict[str, Any] = {
+        "timestamp": datetime.utcnow().isoformat(),
         "date": selected_date.isoformat(),
         "raw_diary": raw_text,
         "diary": diary_text,
         "input_type": input_type.value,
+        "field_order": field_order,
     }
+    for k, v in extraction.items():
+        if k not in {"timestamp", "date", "raw_diary", "diary", "input_type"}:
+            entry_data[k] = v
     session.pending_entry = entry_data
     session.state = ConversationState.HABITS_AWAITING_CONFIRMATION
     if session_repo:
         await session_repo.save(session)
 
     msgs = _messages(update)
-    preview = msgs["confirm_entry"].format(
-        date=entry_data["date"],
-        raw=entry_data["raw_diary"].replace("{", "{{").replace("}", "}}"),
-        diary=(entry_data["diary"] or "").replace("{", "{{").replace("}", "}}"),
-    )
+    preview_obj = {k: v for k, v in entry_data.items() if k not in {"input_type", "field_order"}}
+    preview = json.dumps(preview_obj, ensure_ascii=False, indent=2, default=str)
     if update.message:
         await update.message.reply_text(
-            preview,
+            msgs["confirm_entry"].format(date=entry_data["date"], raw=entry_data["raw_diary"], diary=entry_data["diary"])
+            + "\n\n"
+            + "```json\n"
+            + preview
+            + "\n```",
             reply_markup=build_confirmation_keyboard(prefix="habits"),
         )
     return True
@@ -209,7 +229,9 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
     session_repo = _get_session_repo(context)
     user_repo = _get_user_repo(context)
     sheets_client = _get_sheets_client(context)
-    field_order = HABITS_SHEET_COLUMNS[1:]
+    base_fields = {"timestamp", "date", "raw_diary", "diary"}
+    # If user has no schema, keep only base columns.
+    default_dynamic: list[str] = []
     session = await session_repo.get(update.effective_user.id) if session_repo else None
     if session is None or not session.pending_entry:
         await query.answer()
@@ -221,17 +243,23 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
         profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
         sheet_id = profile.sheet_id if profile else None
         if sheet_id and sheets_client:
-            if profile and profile.habit_schema and profile.habit_schema.fields:
-                extra = [f for f in profile.habit_schema.fields.keys() if f not in field_order]
-                field_order = field_order + extra
+            field_order = (
+                [f for f in (profile.habit_schema.fields.keys()) if f not in base_fields]
+                if profile and profile.habit_schema and profile.habit_schema.fields
+                else default_dynamic
+            )
+            created_at = datetime.fromisoformat(session.pending_entry.get("timestamp")) if session.pending_entry.get("timestamp") else datetime.utcnow()
             entry = HabitEntry(
                 date=date.fromisoformat(session.pending_entry.get("date")),
                 raw_diary=session.pending_entry.get("raw_diary", ""),
                 diary=session.pending_entry.get("diary"),
                 extra_fields={
-                    k: v for k, v in session.pending_entry.items() if k not in {"date", "raw_diary", "diary"}
+                    k: v
+                    for k, v in session.pending_entry.items()
+                    if k not in {"date", "raw_diary", "diary", "timestamp"}
                 },
                 input_type=InputType(session.pending_entry.get("input_type") or InputType.TEXT),
+                created_at=created_at,
             )
             await sheets_client.append_habit_entry(sheet_id, HABITS_SHEET_COLUMNS[1:], entry)
             await query.edit_message_text(_messages(update)["saved_success"])
