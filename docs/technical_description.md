@@ -89,7 +89,7 @@ User                    Bot                   Firestore           LLM           
   │                      │                       │                 │                  │
   │──── [voice msg] ────▶│                       │                 │                  │
   │                      │════ transcribe() ════▶│                 │                  │
-  │                      │◀═══ raw_text ════════│                 │                  │
+  │                      │◀═══ record ════════│                 │                  │
   │                      │──── get_config() ────▶│                 │                  │
   │                      │◀──── habit_schema ────│                 │                  │
   │                      │                       │──── extract()──▶│                  │
@@ -359,7 +359,7 @@ from pydantic import BaseModel, Field
 class HabitEntry(BaseModel):
     """A single habit entry to be written to Google Sheets."""
     date: date
-    raw_diary: str  # Original user input (text or transcription)
+    raw_record: str  # Original user input (text or transcription)
     diary: Optional[str] = None  # LLM-generated summary
     
     # Dynamic fields based on user's habit schema
@@ -375,8 +375,8 @@ class HabitEntry(BaseModel):
         """Convert entry to a row for Google Sheets."""
         row = [self.date.isoformat()]
         for field in field_order:
-            if field == "raw_diary":
-                row.append(self.raw_diary)
+            if field == "raw_record":
+                row.append(self.raw_record)
             elif field == "diary":
                 row.append(self.diary or "")
             else:
@@ -388,7 +388,7 @@ class DreamEntry(BaseModel):
     """A dream log entry."""
     timestamp: datetime
     date: date
-    raw_text: str
+    record: str
     
     # LLM-extracted metadata (optional)
     mood: Optional[str] = None
@@ -402,7 +402,7 @@ class DreamEntry(BaseModel):
 class ThoughtEntry(BaseModel):
     """A quick thought or note."""
     timestamp: datetime
-    raw_text: str
+    record: str
     tags: list[str] = Field(default_factory=list)
     category: Optional[str] = None  # "idea", "reminder", "observation"
 
@@ -674,7 +674,7 @@ DEFAULT_HABIT_SCHEMA = HabitSchema(
             description="Brief LLM-generated summary of the day in the same language as input.",
             required=False,
         ),
-        "raw_diary": HabitFieldConfig(
+        "raw_record": HabitFieldConfig(
             type="string",
             description="Original user input or transcription. Never modified by LLM.",
         ),
@@ -692,14 +692,14 @@ HABITS_SHEET_COLUMNS = [
     "sex",
     "masturbation",
     "day_importance",
-    "raw_diary",
+    "raw_record",
     "diary",
 ]
 
 DREAMS_SHEET_COLUMNS = [
     "timestamp",
     "date",
-    "raw_text",
+    "record",
     "mood",
     "is_lucid",
     "tags",
@@ -708,7 +708,7 @@ DREAMS_SHEET_COLUMNS = [
 
 THOUGHTS_SHEET_COLUMNS = [
     "timestamp",
-    "raw_text",
+    "record",
     "tags",
     "category",
 ]
@@ -1666,8 +1666,8 @@ class HabitsSheetService:
         for col in columns:
             if col == "date":
                 row.append(entry.date.isoformat())
-            elif col == "raw_diary":
-                row.append(entry.raw_diary)
+            elif col == "raw_record":
+                row.append(entry.raw_record)
             elif col == "diary":
                 row.append(entry.diary or "")
             elif col in entry.extra_fields:
@@ -1786,8 +1786,8 @@ def build_habit_extraction_schema(
     field_definitions = {}
     
     for field_name, field_config in habit_schema.fields.items():
-        # Skip raw_diary - it's always the original input, not extracted
-        if field_name == "raw_diary":
+        # Skip raw_record - it's always the original input, not extracted
+        if field_name == "raw_record":
             continue
         
         # Skip diary if not requested
@@ -1986,8 +1986,8 @@ class HabitExtractor(IHabitExtractor):
         """Build human-readable schema description for prompt."""
         lines = []
         for name, config in schema.fields.items():
-            if name == "raw_diary":
-                continue  # Skip raw_diary in description
+            if name == "raw_record":
+                continue  # Skip raw_record in description
             
             type_str = config.type
             if isinstance(type_str, list):
@@ -2580,7 +2580,7 @@ async def process_habit_content(
         # Build entry
         entry_data = {
             "date": session.selected_date,
-            "raw_diary": content,  # Always original text
+            "raw_record": content,  # Always original text
             "diary": extracted.get("diary"),
             "extra_fields": {
                 k: v for k, v in extracted.items()
@@ -2601,7 +2601,7 @@ async def process_habit_content(
         display_data = {
             "date": session.selected_date.isoformat(),
             **extracted,
-            "raw_diary": content[:200] + "..." if len(content) > 200 else content,
+            "raw_record": content[:200] + "..." if len(content) > 200 else content,
         }
         
         json_str = json.dumps(display_data, ensure_ascii=False, indent=2)
@@ -2633,7 +2633,7 @@ async def confirm_habit_entry(
         # Build entry from pending data
         entry = HabitEntry(
             date=session.pending_entry["date"],
-            raw_diary=session.pending_entry["raw_diary"],
+            raw_record=session.pending_entry["raw_record"],
             diary=session.pending_entry.get("diary"),
             extra_fields=session.pending_entry.get("extra_fields", {}),
             input_type=session.pending_entry.get("input_type", "text"),
@@ -3666,11 +3666,11 @@ class TestHabitSchemaBuilder:
     """Tests for dynamic schema building."""
     
     def test_builds_correct_fields(self):
-        """Should build schema with all non-raw_diary fields."""
+        """Should build schema with all non-raw_record fields."""
         schema = build_habit_extraction_schema(DEFAULT_HABIT_SCHEMA)
         
-        # Check that raw_diary is excluded
-        assert "raw_diary" not in schema.model_fields
+        # Check that raw_record is excluded
+        assert "raw_record" not in schema.model_fields
         
         # Check expected fields exist
         expected_fields = [
@@ -4629,7 +4629,7 @@ def format_habit_entry_for_display(
         "masturbation": "🔒 Мастурбация",
         "day_importance": "⭐ Важность дня",
         "diary": "📝 Дневник",
-        "raw_diary": "📄 Оригинал",
+        "raw_record": "📄 Оригинал",
     }
     
     # Labels for English
@@ -4643,7 +4643,7 @@ def format_habit_entry_for_display(
         "masturbation": "🔒 Masturbation",
         "day_importance": "⭐ Day importance",
         "diary": "📝 Diary",
-        "raw_diary": "📄 Original",
+        "raw_record": "📄 Original",
     }
     
     labels = labels_ru if language == "ru" else labels_en
@@ -4794,7 +4794,7 @@ def format_error_message(error: Exception, language: str = "ru") -> str:
 | sex | INTEGER | 0 or 1 |
 | masturbation | INTEGER | Count |
 | day_importance | INTEGER | 1-3 |
-| raw_diary | TEXT | Original user input |
+| raw_record | TEXT | Original user input |
 | diary | TEXT | LLM summary |
 
 **Tab: Dreams**
@@ -4802,7 +4802,7 @@ def format_error_message(error: Exception, language: str = "ru") -> str:
 |--------|------|-------------|
 | timestamp | DATETIME | When recorded |
 | date | DATE | Dream date |
-| raw_text | TEXT | Original description |
+| record | TEXT | Original description |
 | mood | TEXT | Extracted mood |
 | is_lucid | BOOLEAN | Lucid dream flag |
 | tags | TEXT | Comma-separated tags |
@@ -4812,7 +4812,7 @@ def format_error_message(error: Exception, language: str = "ru") -> str:
 | Column | Type | Description |
 |--------|------|-------------|
 | timestamp | DATETIME | When recorded |
-| raw_text | TEXT | Original thought |
+| record | TEXT | Original thought |
 | tags | TEXT | Comma-separated tags |
 | category | TEXT | idea/reminder/etc. |
 

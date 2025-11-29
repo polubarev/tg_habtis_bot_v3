@@ -81,31 +81,35 @@ async def handle_habits_config_callback(update: Update, context: ContextTypes.DE
         session.temp_data = {"habit_action": action}
         await session_repo.save(session)
 
-    if action == "add":
-        if session:
-            session.temp_data.update({"habit_add_stage": "name", "habit_new_field": {}})
-            await session_repo.save(session)
-        await query.edit_message_text(
-            _messages(update)["habit_add_name_prompt"] + "\n\n" + _messages(update)["habit_add_json_example"],
-            parse_mode=ParseMode.MARKDOWN,
-        )
-    elif action == "remove":
-        await query.edit_message_text(_messages(update)["habit_remove_prompt"])
-    elif action == "reset":
-        if profile and user_repo:
-            profile.habit_schema = DEFAULT_HABIT_SCHEMA
-            await user_repo.update(profile)
-        await query.edit_message_text(_messages(update)["habit_reset"])
-        if session_repo and session:
-            session.state = ConversationState.IDLE
-            session.temp_data = {}
-            await session_repo.save(session)
-    elif action == "cancel":
-        await query.edit_message_text(_messages(update)["cancelled_config"])
-        if session_repo and session:
-            session.state = ConversationState.IDLE
-            session.temp_data = {}
-            await session_repo.save(session)
+    try:
+        if action == "add":
+            if session:
+                session.temp_data.update({"habit_add_stage": "name", "habit_new_field": {}})
+                await session_repo.save(session)
+            await query.edit_message_text(
+                _messages(update)["habit_add_name_prompt"] + "\n\n" + _messages(update)["habit_add_json_example"],
+                parse_mode=ParseMode.MARKDOWN,
+            )
+        elif action == "remove":
+            await query.edit_message_text(_messages(update)["habit_remove_prompt"])
+        elif action == "reset":
+            if profile and user_repo:
+                profile.habit_schema = DEFAULT_HABIT_SCHEMA
+                await user_repo.update(profile)
+            await query.edit_message_text(_messages(update)["habit_reset"])
+            if session_repo and session:
+                session.state = ConversationState.IDLE
+                session.temp_data = {}
+                await session_repo.save(session)
+        elif action == "cancel":
+            await query.edit_message_text(_messages(update)["cancelled_config"])
+            if session_repo and session:
+                session.state = ConversationState.IDLE
+                session.temp_data = {}
+                await session_repo.save(session)
+    except Exception:
+        # ignore edit collisions (e.g., message not modified/expired)
+        pass
 
 
 async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:

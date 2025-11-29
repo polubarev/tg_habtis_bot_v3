@@ -60,6 +60,15 @@ def _parse_custom_date(text: str) -> date | None:
         return None
 
 
+def _safe_answer(query) -> None:
+    """Best-effort answer to avoid errors on stale callback queries."""
+
+    try:
+        return query.answer()
+    except Exception:
+        return None
+
+
 async def habits_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Entry point for the /habits flow."""
 
@@ -71,6 +80,9 @@ async def habits_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     session = await session_repo.get(user_id) if session_repo else None
     if session is None:
         session = SessionData(user_id=user_id)
+    # start fresh to avoid dragging previous raw updates into a new flow
+    session.temp_data = {}
+    session.pending_entry = None
     session.state = ConversationState.HABITS_AWAITING_DATE
     session.selected_date = None
     if session_repo:
@@ -88,7 +100,7 @@ async def handle_habits_date_callback(update: Update, context: ContextTypes.DEFA
     query = update.callback_query
     data = query.data or ""
     if data == "habits_cancel":
-        await query.answer()
+        _safe_answer(query)
         await query.edit_message_text(_messages(update)["cancelled"])
         return
     if not data.startswith("habits_date:"):
@@ -104,7 +116,7 @@ async def handle_habits_date_callback(update: Update, context: ContextTypes.DEFA
         session.state = ConversationState.HABITS_AWAITING_DATE
         if session_repo:
             await session_repo.save(session)
-        await query.answer()
+        _safe_answer(query)
         await query.edit_message_text("Введи дату в формате YYYY-MM-DD (или dd.mm.yyyy).")
         return
 
@@ -115,7 +127,10 @@ async def handle_habits_date_callback(update: Update, context: ContextTypes.DEFA
         await session_repo.save(session)
 
     msgs = _messages(update)
-    await query.answer()
+    try:
+        _safe_answer(query)
+    except Exception:
+        pass
     await query.edit_message_text(msgs["describe_day"].format(date=selected.isoformat()))
 
 
@@ -162,6 +177,10 @@ async def handle_habits_text(
     raw_text = text or (update.message.text if update.message else "") or ""
     selected_date = session.selected_date or date.today()
     diary_text = raw_text
+    previous_raw = (session.temp_data or {}).get("previous_raw_record")
+    combined_text = raw_text
+    if previous_raw:
+        combined_text = f"{previous_raw}\n\n[Update]\n{raw_text}"
 
     llm_client = _get_llm_client(context)
     extraction: Dict[str, Any] = {}
@@ -171,33 +190,30 @@ async def handle_habits_text(
         list(habit_schema.fields.keys()) if habit_schema and habit_schema.fields else []
     )
     # If schema matches the baked-in default, treat it as empty until user customizes.
-    if habit_schema and habit_schema.fields:
-        default_fields = list(DEFAULT_HABIT_SCHEMA.fields.keys())
-        if set(schema_fields) == set(default_fields):
-            schema_fields = []
+    # keep schema_fields as-is; diary is now part of default schema
     field_order = [f for f in schema_fields if f not in BASE_HABIT_FIELDS]
     if llm_client:
         try:
             extractor = HabitExtractor(llm_client)
-            extraction = await extractor.extract(raw_text, language=_get_lang(update), schema=habit_schema or None)
+            extraction = await extractor.extract(combined_text, language=_get_lang(update), schema=habit_schema or None)
         except Exception:
             extraction = {}
     else:
         if update.message:
             await update.message.reply_text(_messages(update)["llm_disabled"])
 
-    diary_text = extraction.get("diary") or raw_text
+    diary_text = extraction.get("diary") or combined_text
 
     entry_data: Dict[str, Any] = {
         "timestamp": datetime.utcnow().isoformat(),
         "date": selected_date.isoformat(),
-        "raw_diary": raw_text,
+        "raw_record": combined_text,
         "diary": diary_text,
         "input_type": input_type.value,
         "field_order": field_order,
     }
     for k, v in extraction.items():
-        if k not in {"timestamp", "date", "raw_diary", "diary", "input_type"}:
+        if k not in {"timestamp", "date", "raw_record", "diary", "input_type"}:
             entry_data[k] = v
     session.pending_entry = entry_data
     session.state = ConversationState.HABITS_AWAITING_CONFIRMATION
@@ -209,12 +225,13 @@ async def handle_habits_text(
     preview = json.dumps(preview_obj, ensure_ascii=False, indent=2, default=str)
     if update.message:
         await update.message.reply_text(
-            msgs["confirm_entry"].format(date=entry_data["date"], raw=entry_data["raw_diary"], diary=entry_data["diary"])
+            msgs["confirm_entry"]
             + "\n\n"
             + "```json\n"
             + preview
             + "\n```",
             reply_markup=build_confirmation_keyboard(prefix="habits"),
+            parse_mode="Markdown",
         )
     return True
 
@@ -237,7 +254,7 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
     default_dynamic: list[str] = []
     session = await session_repo.get(update.effective_user.id) if session_repo else None
     if session is None or not session.pending_entry:
-        await query.answer()
+        _safe_answer(query)
         await query.edit_message_text(_messages(update)["error_occurred"])
         return
 
@@ -268,7 +285,7 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
             created_at = datetime.fromisoformat(session.pending_entry.get("timestamp")) if session.pending_entry.get("timestamp") else datetime.utcnow()
             entry = HabitEntry(
                 date=date.fromisoformat(session.pending_entry.get("date")),
-                raw_diary=session.pending_entry.get("raw_diary", ""),
+                raw_record=session.pending_entry.get("raw_record", ""),
                 diary=session.pending_entry.get("diary"),
                 extra_fields={
                     k: v
@@ -283,9 +300,20 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
         else:
             await query.edit_message_text(_messages(update)["sheet_not_configured"])
     else:
-        await query.edit_message_text(_messages(update)["cancelled"])
+        # allow user to resend/correct; keep previous raw for context
+        if session.pending_entry:
+            if session.temp_data is None:
+                session.temp_data = {}
+            session.temp_data["previous_raw_record"] = session.pending_entry.get("raw_record", "")
+        session.pending_entry = {}
+        session.state = ConversationState.HABITS_AWAITING_CONTENT
+        if session_repo:
+            await session_repo.save(session)
+        await query.edit_message_text(_messages(update)["habits_update_prompt"])
+        _safe_answer(query)
+        return
 
     session.reset()
     if session_repo:
         await session_repo.save(session)
-    await query.answer()
+    _safe_answer(query)

@@ -8,7 +8,7 @@
 
 The project is a Telegram bot that helps users keep a daily diary and track habits using both text and audio messages. The bot uses an LLM (via OpenRouter + LangChain with structured output) to extract structured habit data from free-form descriptions and saves:
 
-- **raw_diary** – the original text (from text input or speech transcription); never modified by the LLM.  
+- **raw_record** – the original text (from text input or speech transcription); never modified by the LLM.  
 - **diary** – a brief LLM-generated summary of the day (optional, language-preserving, may be omitted if not needed).
 
 All data (habits, diary, dreams, thoughts, answers to custom questions) is stored in a user-defined **Google Sheet**. The bot is optimized for Russian-speaking users but should work with other languages as well.
@@ -27,7 +27,7 @@ The system is designed to be:
    - User runs `/habits`.  
    - Chooses a date (e.g., "today", "yesterday", or a specific date).  
    - Sends a free-form description as text or voice.  
-   - System transcribes voice (if needed), keeps the transcription as `raw_diary`, and uses the LLM to extract structured habit data and (optionally) produce a summarized `diary`.  
+   - System transcribes voice (if needed), keeps the transcription as `raw_record`, and uses the LLM to extract structured habit data and (optionally) produce a summarized `diary`.  
    - Bot shows extracted JSON and asks for confirmation.  
    - On confirmation, data is appended to the user’s Google Sheet.
 
@@ -99,7 +99,7 @@ Each user has a **habit configuration** that defines which fields the LLM should
     "maximum": 3,
     "description": "A subjective rating of the day's importance on a scale from 1 (not important) to 3 (very important)."
   },
-  "raw_diary": {
+  "raw_record": {
     "type": "string",
     "description": "The original text description of the day, taken directly from the user input or speech transcription, without any modification by the LLM."
   }
@@ -108,10 +108,10 @@ Each user has a **habit configuration** that defines which fields the LLM should
 
 Notes:
 
-- `raw_diary` is **always** the original content, either:  
+- `raw_record` is **always** the original content, either:  
   - text message from the user, or  
   - transcription result from the speech-to-text API.  
-- `diary` can be an LLM-generated summary. If hallucination risk is considered too high, `diary` can be optional or simply equal to `raw_diary`.
+- `diary` can be an LLM-generated summary. If hallucination risk is considered too high, `diary` can be optional or simply equal to `raw_record`.
 - The schema can be extended or edited by the user in a future config UI.
 
 ---
@@ -130,14 +130,14 @@ Each user defines or confirms a Google Sheet where data will be stored. Recommen
      - `sex`  
      - `masturbation`  
      - `day_importance`  
-     - `raw_diary`  
+     - `raw_record`  
      - `diary`
 
 2. **Dreams**
-   - Columns: `timestamp`, `date`, `raw_text`, `mood`, `lucid`, `tags`, etc.
+   - Columns: `timestamp`, `date`, `record`, `mood`, `lucid`, `tags`, etc.
 
 3. **Thoughts**
-   - Columns: `timestamp`, `raw_text`, `tags`.
+   - Columns: `timestamp`, `record`, `tags`.
 
 4. **Reflections**
    - Columns: `date`, one column per custom question ID or stable name.
@@ -157,11 +157,11 @@ The bot must validate the sheet structure on first use and create missing tabs/c
 - **LLM:** OpenRouter + LangChain  
   - LangChain used for:
     - Prompt construction based on the user’s current schema.  
-    - Enforcing **structured output** (Pydantic / JSON schema) so that the LLM responses map cleanly to fields like `morning_exercises`, `alcohol`, `mood`, `raw_diary`, etc.  
+    - Enforcing **structured output** (Pydantic / JSON schema) so that the LLM responses map cleanly to fields like `morning_exercises`, `alcohol`, `mood`, `raw_record`, etc.  
 - **Transcription (speech-to-text):**  
   - Any reliable API provider (e.g. Whisper API, Google Cloud Speech-to-Text).  
   - Must support Russian well, as most users will be Russian speakers.  
-  - Output of STT is stored in `raw_diary` (or `raw_dream`, `raw_thought` for other flows).
+  - Output of STT is stored in `raw_record` (or `raw_dream`, `raw_thought` for other flows).
 - **Storage:**  
   - Google Sheets API for main user data.  
   - Optional Firestore/Datastore for user config and session state.
@@ -197,7 +197,7 @@ The bot must validate the sheet structure on first use and create missing tabs/c
    - Downloads voice messages from Telegram.  
    - Sends audio to the chosen STT provider.  
    - Returns transcript (preferably with language info).  
-   - Transcript is stored as `raw_diary` / `raw_text` before any LLM processing.
+   - Transcript is stored as `raw_record` / `record` before any LLM processing.
 
 5. **Google Sheets Layer**
    - API wrapper functions like:  
@@ -222,7 +222,7 @@ The bot must validate the sheet structure on first use and create missing tabs/c
 
 Because the LLM can hallucinate, especially for free-text fields, the design explicitly separates:
 
-- **`raw_diary`** – ground truth input from the user (text or transcription), never edited by the LLM.  
+- **`raw_record`** – ground truth input from the user (text or transcription), never edited by the LLM.  
 - **`diary`** – optional summary that can be ignored or regenerated in the future if needed.
 
 Additional measures:
@@ -240,14 +240,14 @@ A typical Russian-language interaction could look like this:
 1. User: `/habits`  
 2. Bot: «За какую дату ты хочешь записать привычки?»  
 3. User: «Вчера»  
-4. Bot: «Опиши свой день за 2025-11-27 текстом или голосом. Я сохраню оригинальный текст как `raw_diary` и извлеку значения привычек.»  
+4. Bot: «Опиши свой день за 2025-11-27 текстом или голосом. Я сохраню оригинальный текст как `raw_record` и извлеку значения привычек.»  
 5. User: отправляет голосовое сообщение.  
 6. Bot:  
-   - транскрибирует аудио → `raw_diary`.  
+   - транскрибирует аудио → `raw_record`.  
    - запускает LLM для извлечения структуры на основе текущего конфига.  
    - отправляет пользователю JSON с данными + краткий `diary` (если включено).  
 7. Пользователь подтверждает → данные пишутся в Google Sheet.
 
 ---
 
-This document is the working project description/spec for implementing the bot from scratch in a clean, modular way with OpenRouter + LangChain + structured output, a clear habit config schema, and explicit separation of `raw_diary` from LLM-generated `diary`.
+This document is the working project description/spec for implementing the bot from scratch in a clean, modular way with OpenRouter + LangChain + structured output, a clear habit config schema, and explicit separation of `raw_record` from LLM-generated `diary`.

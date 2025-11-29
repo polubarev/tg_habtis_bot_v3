@@ -61,8 +61,7 @@ async def handle_dream_text(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
     entry = DreamEntry(
         timestamp=datetime.now(timezone.utc),
-        date=datetime.now(timezone.utc).date(),
-        raw_text=text,
+        record=text,
     )
     session.pending_entry = entry.model_dump(mode="json")
     session.state = ConversationState.DREAM_AWAITING_CONFIRMATION

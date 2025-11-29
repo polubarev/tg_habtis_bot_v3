@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 from telegram import Update
+from telegram.error import NetworkError
 from telegram.ext import (
     Application,
     ApplicationBuilder,
@@ -61,6 +62,15 @@ class TelegramBotService:
 
     async def _ensure_app(self) -> None:
         if self.app:
+            if not getattr(self.app, "_initialized", False):
+                try:
+                    await self.app.initialize()
+                except NetworkError as exc:
+                    logger.warning("Telegram init failed (network)", error=str(exc))
+                    return
+                except Exception:
+                    logger.exception("Telegram init failed")
+                    return
             return
         if not self.settings.telegram_bot_token:
             logger.warning("Telegram bot token not configured; update handling is disabled.")
@@ -112,7 +122,16 @@ class TelegramBotService:
         self.app.add_handler(
             MessageHandler(filters.VOICE, route_voice)
         )
-        await self.app.initialize()
+        try:
+            await self.app.initialize()
+        except NetworkError as exc:
+            logger.warning("Telegram init failed (network)", error=str(exc))
+            self.app = None
+            return
+        except Exception:
+            logger.exception("Telegram init failed")
+            self.app = None
+            return
 
     async def handle_update(self, update_payload: dict[str, Any]) -> None:
         await self._ensure_app()

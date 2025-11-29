@@ -41,7 +41,7 @@ class SheetsClient(ISheetsClient):
         ss = self._open(sheet_id)
         existing = {ws.title: ws for ws in ss.worksheets()}
         for title, header in [
-            ("Habits", ["timestamp", "date", "raw_diary", "diary"]),  # dynamic fields added on append
+            ("Habits", ["timestamp", "date", "raw_record", "diary"]),  # dynamic fields added on append
             ("Dreams", DREAMS_SHEET_COLUMNS),
             ("Thoughts", THOUGHTS_SHEET_COLUMNS),
             ("Reflections", ["date", "answers_json"]),
@@ -55,16 +55,18 @@ class SheetsClient(ISheetsClient):
                 if not current:
                     ws.append_row(header)
                 else:
-                    missing = [col for col in header if col not in current]
-                    if missing:
-                        new_header = current + missing
+                    # migrate legacy raw_diary -> raw_record if needed
+                    migrated = [("raw_record" if col == "raw_diary" else col) for col in current]
+                    missing = [col for col in header if col not in migrated]
+                    if missing or migrated != current:
+                        new_header = migrated + [m for m in missing if m not in migrated]
                         ws.update("1:1", [new_header])
 
     async def append_habit_entry(self, sheet_id: str, field_order: list[str], entry: HabitEntry) -> None:
         ss = self._open(sheet_id)
         ws = ss.worksheet("Habits")
         header = ws.row_values(1)
-        base_header = ["timestamp", "date", "raw_diary", "diary"]
+        base_header = ["timestamp", "date", "raw_record", "diary"]
         if not header:
             ws.append_row(base_header + field_order)
             header = ws.row_values(1)
@@ -80,8 +82,7 @@ class SheetsClient(ISheetsClient):
         ws = ss.worksheet("Dreams")
         row = [
             entry.timestamp.isoformat(),
-            entry.date.isoformat(),
-            entry.raw_text,
+            entry.record,
         ]
         ws.append_row(row, value_input_option="USER_ENTERED")
 
@@ -90,8 +91,7 @@ class SheetsClient(ISheetsClient):
         ws = ss.worksheet("Thoughts")
         row = [
             entry.timestamp.isoformat(),
-            entry.date.isoformat(),
-            entry.raw_text,
+            entry.record,
         ]
         ws.append_row(row, value_input_option="USER_ENTERED")
 

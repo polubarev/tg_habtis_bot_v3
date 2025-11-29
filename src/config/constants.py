@@ -13,11 +13,7 @@ DEFAULT_HABIT_SCHEMA = HabitSchema(
             description="Brief diary summary in the same language as input.",
             required=False,
         ),
-        "raw_diary": HabitFieldConfig(
-            type="string",
-            description="Original user input or transcription. Never modified by LLM.",
-        ),
-    },
+    },  # base fields (timestamp, date, raw_record) are always present
     version=1,
 )
 
@@ -25,20 +21,18 @@ DEFAULT_HABIT_SCHEMA = HabitSchema(
 HABITS_SHEET_COLUMNS = [
     "timestamp",
     "date",
-    "raw_diary",
+    "raw_record",
     "diary",
 ]
 
 DREAMS_SHEET_COLUMNS = [
     "timestamp",
-    "date",
-    "raw_text",
+    "record",
 ]
 
 THOUGHTS_SHEET_COLUMNS = [
     "timestamp",
-    "date",
-    "raw_text",
+    "record",
 ]
 
 # Message templates (Russian)
@@ -63,9 +57,10 @@ MESSAGES_RU = {
     "select_date": "За какую дату хочешь сделать запись?",
     "describe_day": "Опиши свой день для {date} текстом или голосом.",
     "processing": "⏳ Обрабатываю...",
-    "confirm_entry": "Проверь черновик:\nДата: {date}\nЧерновик: {raw}\nСводка: {diary}\n\nПодтвердить?",
+    "confirm_entry": "📝 *Черновик*\nПосмотри JSON ниже и подтверди.",
     "saved_success": "✅ Сохранено!",
     "cancelled": "✖ Отменено.",
+    "habits_update_prompt": "✏️ Отправь правки или новый текст. Я пересоберу черновик с учётом предыдущего сообщения.",
     "confirm_generic": "Проверь и подтверди:\n{preview}",
     "error_occurred": "⚠ Произошла ошибка. Попробуй ещё раз.",
     "sheet_not_configured": "⚠ Сначала подключи Google Sheet через /config.",
@@ -149,9 +144,10 @@ MESSAGES_EN = {
     "select_date": "Which date do you want to record?",
     "describe_day": "Describe your day for {date} using text or voice.",
     "processing": "⏳ Processing...",
-    "confirm_entry": "Review the draft:\nDate: {date}\nRaw: {raw}\nSummary: {diary}\n\nConfirm?",
+    "confirm_entry": "📝 *Draft*\nReview the JSON below and confirm.",
     "saved_success": "✅ Saved!",
     "cancelled": "✖ Cancelled.",
+    "habits_update_prompt": "✏️ Send corrections or a new message. I’ll rebuild the draft using the previous text as context.",
     "confirm_generic": "Review and confirm:\n{preview}",
     "error_occurred": "⚠ An error occurred. Please try again.",
     "sheet_not_configured": "⚠ Please configure Google Sheet first via /config.",
