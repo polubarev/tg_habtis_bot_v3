@@ -57,5 +57,5 @@ class ThoughtEntry(BaseModel):
 class ReflectionEntry(BaseModel):
     """Answers to custom reflection questions."""
 
-    date: date
+    timestamp: datetime
     answers: dict[str, str] = Field(default_factory=dict)

@@ -12,6 +12,7 @@ from src.utils.date_parser import parse_relative_date
 from src.models.entry import HabitEntry
 from src.models.enums import InputType
 from src.services.llm.extractors.habit_extractor import HabitExtractor
+from src.services.telegram.utils import resolve_user_timezone
 
 
 BASE_HABIT_FIELDS = set(HABITS_SHEET_COLUMNS)
@@ -185,6 +186,7 @@ async def handle_habits_text(
     llm_client = _get_llm_client(context)
     extraction: Dict[str, Any] = {}
     profile = await _get_user_repo(context).get_by_telegram_id(update.effective_user.id) if _get_user_repo(context) else None
+    user_tz = resolve_user_timezone(profile)
     habit_schema = profile.habit_schema if profile else None
     schema_fields: list[str] = (
         list(habit_schema.fields.keys()) if habit_schema and habit_schema.fields else []
@@ -205,7 +207,7 @@ async def handle_habits_text(
     diary_text = extraction.get("diary") or combined_text
 
     entry_data: Dict[str, Any] = {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(user_tz).isoformat(),
         "date": selected_date.isoformat(),
         "raw_record": combined_text,
         "diary": diary_text,

@@ -71,7 +71,7 @@ MESSAGES_RU = {
     "dream_saved": "✅ Сон сохранён.",
     "thought_prompt": "Окей, напиши мысль или заметку (текст/голос).",
     "thought_saved": "✅ Мысль сохранена.",
-    "reflect_intro": "Отвечай на вопросы по одному. Напиши ответ:",
+    "reflect_intro": "Ответь на вопросы одним сообщением (текст или голос). Список вопросов:\n{questions}\n\nОтправь один ответ — я разберу его и заполню ответы.",
     "reflect_done": "✅ Ответы сохранены.",
     "reflect_seeded": "Добавил вопросы по умолчанию. Можно снова вызвать /reflect.",
     "llm_disabled": "Без сводки: модель не настроена.",
@@ -95,10 +95,16 @@ MESSAGES_RU = {
     "habit_add_min_prompt": "⭐️ *Шаг 4: Минимум*\nМинимальное число? Напиши или '-' чтобы пропустить.",
     "habit_add_max_prompt": "⭐️ *Шаг 5: Максимум*\nМаксимальное число? Напиши или '-' чтобы пропустить.",
     "habit_add_json_example": (
-        "Можно сразу отправить JSON (один объект или список):\n"
+        "Можно сразу отправить JSON (один объект или список). Примеры:\n"
         "```json\n"
-        '{"name":"water","description":"Стаканы воды","type":"int","minimum":0,"maximum":20,"required":true}\n'
-        "```"
+        '['
+        '{"name":"water","description":"Стаканы воды","type":"int","minimum":0,"maximum":20,"required":true},'
+        '{"name":"weight","description":"Вес в кг","type":"number","minimum":0,"maximum":400,"required":true},'
+        '{"name":"mood","description":"Как ты себя чувствуешь","type":"string","required":true},'
+        '{"name":"fasted","description":"Была ли голодовка","type":"boolean","required":false},'
+        '{"name":"pain","description":"Уровень боли 0-10 (опционально)","type":["integer","null"],"minimum":0,"maximum":10,"required":false}'
+        ']'
+        "\n```"
     ),
     "habit_remove_prompt": "Отправь имя поля, которое удалить.",
     "habit_added": "Поле добавлено: {name}",
@@ -158,7 +164,7 @@ MESSAGES_EN = {
     "dream_saved": "✅ Dream saved.",
     "thought_prompt": "Share your thought or note (text/voice).",
     "thought_saved": "✅ Thought saved.",
-    "reflect_intro": "Answer the questions one by one. Please send your answer:",
+    "reflect_intro": "Answer all questions in one message (text or voice). Questions:\n{questions}\n\nSend a single reply — I'll parse it into answers.",
     "reflect_done": "✅ Answers saved.",
     "reflect_seeded": "Added default questions. Call /reflect again.",
     "llm_disabled": "Summary disabled: LLM not configured.",
@@ -182,10 +188,16 @@ MESSAGES_EN = {
     "habit_add_min_prompt": "⭐️ *Step 4: Minimum*\nMin number? Send a value or '-' to skip.",
     "habit_add_max_prompt": "⭐️ *Step 5: Maximum*\nMax number? Send a value or '-' to skip.",
     "habit_add_json_example": (
-        "You can also send full JSON (single object or list):\n"
+        "You can also send full JSON (single object or list). Examples:\n"
         "```json\n"
-        '{"name":"water","description":"Glasses of water","type":"int","minimum":0,"maximum":20,"required":true}\n'
-        "```"
+        '['
+        '{"name":"water","description":"Glasses of water","type":"int","minimum":0,"maximum":20,"required":true},'
+        '{"name":"weight","description":"Weight in kg","type":"number","minimum":0,"maximum":400,"required":true},'
+        '{"name":"mood","description":"How you feel","type":"string","required":true},'
+        '{"name":"fasted","description":"Fasted today","type":"boolean","required":false},'
+        '{"name":"pain","description":"Pain level 0-10 (optional)","type":["integer","null"],"minimum":0,"maximum":10,"required":false}'
+        ']'
+        "\n```"
     ),
     "habit_remove_prompt": "Send the field name to remove.",
     "habit_added": "Field added: {name}",

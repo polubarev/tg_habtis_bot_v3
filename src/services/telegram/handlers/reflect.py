@@ -1,4 +1,5 @@
-from datetime import date
+from datetime import datetime
+import re
 
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -8,6 +9,9 @@ from src.models.entry import ReflectionEntry
 from src.models.user import CustomQuestion
 from src.models.session import ConversationState, SessionData
 from src.services.telegram.keyboards import build_confirmation_keyboard
+from src.services.llm.extractors.reflection_extractor import ReflectionExtractor
+from src.services.telegram.utils import resolve_user_timezone
+from src.services.telegram.utils import resolve_user_timezone
 import json
 
 
@@ -21,6 +25,7 @@ def _get_repos(context: ContextTypes.DEFAULT_TYPE):
         context.application.bot_data.get("session_repo"),
         context.application.bot_data.get("user_repo"),
         context.application.bot_data.get("sheets_client"),
+        context.application.bot_data.get("llm_client"),
     )
 
 
@@ -29,9 +34,9 @@ async def reflect_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     if not update.effective_user or not update.message:
         return
-    session_repo, user_repo, _ = _get_repos(context)
+    session_repo, user_repo, _, llm_client = _get_repos(context)
     profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
-    questions = profile.custom_questions if profile else []
+    questions = [q for q in (profile.custom_questions if profile else []) if q.active]
     if not questions:
         if profile is None:
             await update.message.reply_text("Нет вопросов для размышлений. Добавь их в /config.")
@@ -40,7 +45,7 @@ async def reflect_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             CustomQuestion(**q, language=profile.language) for q in DEFAULT_REFLECTION_QUESTIONS
         ]
         await user_repo.update(profile)
-        questions = profile.custom_questions
+        questions = [q for q in profile.custom_questions if q.active]
         await update.message.reply_text(_messages(update)["reflect_seeded"])
     sheet_id = profile.sheet_id if profile else None
     if not sheet_id:
@@ -50,17 +55,13 @@ async def reflect_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if session is None:
         session = SessionData(user_id=update.effective_user.id)
     session.state = ConversationState.REFLECT_ANSWERING_QUESTIONS
-    session.current_question_index = 0
+    session.current_question_index = None
     session.reflection_answers = {}
+    session.temp_data = session.temp_data or {}
+    session.temp_data["reflect_questions"] = [q.text for q in questions]
     await session_repo.save(session)
-    await update.message.reply_text(_messages(update)["reflect_intro"])
-    await _ask_current_question(update, session, questions)
-
-
-async def _ask_current_question(update: Update, session, questions) -> None:
-    idx = session.current_question_index or 0
-    if idx < len(questions):
-        await update.message.reply_text(questions[idx].text)
+    question_lines = "\n".join(f"{idx+1}. {q.text}" for idx, q in enumerate(questions))
+    await update.message.reply_text(_messages(update)["reflect_intro"].format(questions=question_lines))
 
 
 async def handle_reflect_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> bool:
@@ -68,37 +69,60 @@ async def handle_reflect_text(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     if not update.effective_user or not update.message:
         return False
-    session_repo, user_repo, sheets_client = _get_repos(context)
+    session_repo, user_repo, sheets_client, llm_client = _get_repos(context)
     session = await session_repo.get(update.effective_user.id) if session_repo else None
     if session is None or session.state != ConversationState.REFLECT_ANSWERING_QUESTIONS:
         return False
 
     profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
-    questions = profile.custom_questions if profile else []
-    idx = session.current_question_index or 0
-    if idx < len(questions):
-        q = questions[idx]
-        session.reflection_answers[q.id] = text
-        session.current_question_index = idx + 1
-        await session_repo.save(session)
-
-    if session.current_question_index is not None and session.current_question_index >= len(questions):
-        # finalize pending
-        entry = ReflectionEntry(date=date.today(), answers=session.reflection_answers.copy())
-        session.pending_entry = entry.model_dump(mode="json")
-        session.state = ConversationState.REFLECT_AWAITING_CONFIRMATION
-        session.current_question_index = None
-        if session_repo:
-            await session_repo.save(session)
-        preview = json.dumps(entry.model_dump(), ensure_ascii=False, indent=2, default=str)
-        await update.message.reply_text(
-            _messages(update)["confirm_generic"].format(preview=preview),
-            reply_markup=build_confirmation_keyboard(prefix="reflect"),
-        )
+    questions = session.temp_data.get("reflect_questions") if session and session.temp_data else []
+    if not questions:
+        questions = [q.text for q in (profile.custom_questions if profile else []) if q.active]
+    if not questions:
+        await update.message.reply_text(_messages(update)["error_occurred"])
         return True
 
-    # ask next
-    await _ask_current_question(update, session, questions)
+    lang = "ru" if (update.effective_user and (update.effective_user.language_code or "").lower().startswith("ru")) else "en"
+    answers = {}
+    if llm_client:
+        try:
+            extractor = ReflectionExtractor(llm_client)
+            answers = await extractor.extract(text, questions, language=lang)
+        except Exception:
+            answers = {}
+
+    normalized: dict[str, str] = {}
+    for q in questions:
+        val = ""
+        if isinstance(answers, dict):
+            val = answers.get(q, "")
+        if val is None or (isinstance(val, str) and not val.strip()):
+            val = text
+        normalized[q] = str(val)
+    answers = normalized
+
+    # Heuristic split for two-question flows when LLM returns the same blob
+    if len(questions) == 2 and all(v == text for v in answers.values()):
+        parts = re.split(r"\s+а\s+", text, maxsplit=1, flags=re.IGNORECASE)
+        if len(parts) != 2:
+            parts = re.split(r"\s+and\s+", text, maxsplit=1, flags=re.IGNORECASE)
+        if len(parts) == 2:
+            answers[questions[0]] = parts[0].strip()
+            answers[questions[1]] = parts[1].strip()
+
+    user_tz = resolve_user_timezone(profile)
+    entry = ReflectionEntry(timestamp=datetime.now(user_tz), answers=answers)
+    session.pending_entry = entry.model_dump(mode="json")
+    session.state = ConversationState.REFLECT_AWAITING_CONFIRMATION
+    session.current_question_index = None
+    session.reflection_answers = answers
+    if session_repo:
+        await session_repo.save(session)
+    preview = json.dumps(entry.model_dump(), ensure_ascii=False, indent=2, default=str)
+    await update.message.reply_text(
+        _messages(update)["confirm_generic"].format(preview=preview),
+        reply_markup=build_confirmation_keyboard(prefix="reflect"),
+    )
     return True
 
 
@@ -110,7 +134,7 @@ async def handle_reflect_confirm(update: Update, context: ContextTypes.DEFAULT_T
     if not data.startswith("reflect_confirm:"):
         return
 
-    session_repo, user_repo, sheets_client = _get_repos(context)
+    session_repo, user_repo, sheets_client, _ = _get_repos(context)
     session = await session_repo.get(update.effective_user.id) if session_repo else None
     if session is None or session.state != ConversationState.REFLECT_AWAITING_CONFIRMATION or not session.pending_entry:
         await query.answer()

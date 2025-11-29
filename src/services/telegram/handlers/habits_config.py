@@ -128,6 +128,14 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
         return False
 
     text = update.message.text or ""
+    # allow cancelling the flow via text
+    if text.strip().lower() in {"cancel", "/cancel", "отмена"}:
+        session.state = ConversationState.IDLE
+        session.temp_data = {}
+        if session_repo:
+            await session_repo.save(session)
+        await update.message.reply_text(_messages(update)["cancelled_config"])
+        return True
     if action == "add":
         temp = session.temp_data or {}
         stage = temp.get("habit_add_stage") or "name"
@@ -143,26 +151,66 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
             if not isinstance(data, dict):
                 return None
             name = str(data.get("name", "")).strip()
-            if not name or " " in name or name in BASE_HABIT_FIELDS or name in profile.habit_schema.fields:
+            if not name or " " in name:
                 return None
-            type_hint = str(data.get("type", "string")).lower()
+
+            def _map_type(t):
+                t_str = str(t).strip().lower()
+                if t_str in {"int", "integer"}:
+                    return "integer"
+                if t_str in {"float", "double", "number"}:
+                    return "number"
+                if t_str in {"bool", "boolean"}:
+                    return "boolean"
+                if t_str in {"string", "text", ""}:
+                    return "string"
+                if t_str == "null":
+                    return "null"
+                return None
+
+            type_spec = data.get("type", "string")
+            nullable = False
+            base_type = None
             type_value = None
-            if type_hint in {"int", "integer"}:
-                type_value = "integer"
-            elif type_hint in {"bool", "boolean"}:
-                type_value = "boolean"
-            elif type_hint in {"float", "double"}:
-                type_value = "float"
-            elif type_hint in {"string", "text", ""}:
-                type_value = "string"
-            if not type_value:
-                return None
+            if isinstance(type_spec, list):
+                mapped = []
+                for item in type_spec:
+                    m = _map_type(item)
+                    if not m:
+                        return None
+                    mapped.append(m)
+                if "null" in mapped:
+                    nullable = True
+                    mapped = [t for t in mapped if t != "null"]
+                if len(mapped) != 1:
+                    return None
+                base_type = mapped[0]
+                type_value = [base_type, "null"] if nullable else base_type
+            else:
+                mapped = _map_type(type_spec)
+                if not mapped or mapped == "null":
+                    return None
+                base_type = mapped
+                type_value = mapped
+
             minimum = data.get("minimum")
             maximum = data.get("maximum")
-            if type_value in {"integer", "float"}:
+            if base_type in {"integer", "number"}:
                 try:
-                    minimum = int(minimum) if minimum is not None and type_value == "integer" else float(minimum) if minimum is not None else None
-                    maximum = int(maximum) if maximum is not None and type_value == "integer" else float(maximum) if maximum is not None else None
+                    minimum = (
+                        int(minimum)
+                        if minimum is not None and base_type == "integer"
+                        else float(minimum)
+                        if minimum is not None
+                        else None
+                    )
+                    maximum = (
+                        int(maximum)
+                        if maximum is not None and base_type == "integer"
+                        else float(maximum)
+                        if maximum is not None
+                        else None
+                    )
                 except Exception:
                     return None
                 if minimum is not None and maximum is not None and maximum < minimum:
@@ -241,8 +289,8 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
             type_value = None
             if type_hint in {"int", "integer"}:
                 type_value = "integer"
-            elif type_hint in {"float", "double"}:
-                type_value = "float"
+            elif type_hint in {"float", "double", "number"}:
+                type_value = "number"
             elif type_hint in {"bool", "boolean"}:
                 type_value = "boolean"
             elif type_hint in {"string", "text", ""}:
@@ -251,13 +299,7 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                 await update.message.reply_text(_messages(update)["habit_add_type_prompt"], parse_mode=ParseMode.MARKDOWN)
                 return True
             new_field["type"] = type_value
-            if type_value == "integer":
-                session.temp_data = {"habit_action": "add", "habit_add_stage": "min", "habit_new_field": new_field}
-                if session_repo:
-                    await session_repo.save(session)
-                await update.message.reply_text(_messages(update)["habit_add_min_prompt"], parse_mode=ParseMode.MARKDOWN)
-                return True
-            if type_value == "float":
+            if type_value in {"integer", "number"}:
                 session.temp_data = {"habit_action": "add", "habit_add_stage": "min", "habit_new_field": new_field}
                 if session_repo:
                     await session_repo.save(session)
@@ -280,7 +322,9 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
             min_value = None
             if raw not in {"", "-"}:
                 try:
-                    min_value = int(raw) if new_field.get("type") == "integer" else float(raw)
+                    base_type = new_field.get("type")
+                    base_type = base_type[0] if isinstance(base_type, list) else base_type
+                    min_value = int(raw) if base_type == "integer" else float(raw)
                 except ValueError:
                     await update.message.reply_text(_messages(update)["habit_add_min_prompt"], parse_mode=ParseMode.MARKDOWN)
                     return True
@@ -297,7 +341,9 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
             max_value = None
             if raw not in {"", "-"}:
                 try:
-                    max_value = int(raw) if new_field.get("type") == "integer" else float(raw)
+                    base_type = new_field.get("type")
+                    base_type = base_type[0] if isinstance(base_type, list) else base_type
+                    max_value = int(raw) if base_type == "integer" else float(raw)
                 except ValueError:
                     await update.message.reply_text(_messages(update)["habit_add_max_prompt"], parse_mode=ParseMode.MARKDOWN)
                     return True

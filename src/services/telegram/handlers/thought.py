@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 import json
 
 from telegram import Update
@@ -8,6 +8,7 @@ from src.config.constants import MESSAGES_EN, MESSAGES_RU
 from src.models.entry import ThoughtEntry
 from src.models.session import ConversationState, SessionData
 from src.services.telegram.keyboards import build_confirmation_keyboard
+from src.services.telegram.utils import resolve_user_timezone
 
 
 def _messages(update: Update):
@@ -57,10 +58,8 @@ async def handle_thought_text(update: Update, context: ContextTypes.DEFAULT_TYPE
             await session_repo.save(session)
         return True
 
-    entry = ThoughtEntry(
-        timestamp=datetime.now(timezone.utc),
-        record=text,
-    )
+    user_tz = resolve_user_timezone(profile)
+    entry = ThoughtEntry(timestamp=datetime.now(user_tz), record=text)
     session.pending_entry = entry.model_dump(mode="json")
     session.state = ConversationState.THOUGHT_AWAITING_CONFIRMATION
     if session_repo:
