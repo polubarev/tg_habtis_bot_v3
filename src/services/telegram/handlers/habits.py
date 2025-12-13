@@ -298,7 +298,11 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
                 created_at=created_at,
             )
             await sheets_client.append_habit_entry(sheet_id, field_order, entry)
-            await query.edit_message_text(_messages(update)["saved_success"])
+            await query.edit_message_reply_markup(reply_markup=None)
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=_messages(update)["saved_success"]
+            )
         else:
             await query.edit_message_text(_messages(update)["sheet_not_configured"])
     else:
