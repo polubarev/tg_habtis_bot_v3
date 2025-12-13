@@ -147,6 +147,10 @@ async def handle_timezone_text(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         return True
 
+    # Check state
+    if session is None or session.state != ConversationState.CONFIG_TIMEZONE:
+        return False
+
     # Validate timezone
     try:
         ZoneInfo(text)

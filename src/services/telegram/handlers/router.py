@@ -54,14 +54,14 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
     # 2. Navigation
     if matched("back"):
         await update.message.reply_text(
-            _messages(update)["help"],
+            _messages(update)["main_menu"],
             reply_markup=build_main_menu_keyboard(lang)
         )
         return
 
     if matched("config"):
         await update.message.reply_text(
-            _messages(update)["help"],
+            _messages(update)["config_menu"],
             reply_markup=build_config_keyboard(lang)
         )
         return

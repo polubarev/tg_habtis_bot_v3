@@ -158,6 +158,8 @@ MESSAGES_RU = {
     "timezone_prompt": "Текущий пояс: {tz}. Отправь новый (например, Europe/Moscow, Asia/Jerusalem) или нажми Отмена.",
     "timezone_saved": "✅ Часовой пояс сохранён: {tz}",
     "timezone_error": "⚠ Не могу найти такой пояс. Попробуй: Europe/London, UTC, Asia/Jerusalem.",
+    "config_menu": "⚙️ Настройки",
+    "main_menu": "Главное меню",
 }
 
 # Message templates (English)
@@ -252,4 +254,6 @@ MESSAGES_EN = {
     "timezone_prompt": "Current: {tz}. Send new timezone (e.g. Europe/London, Asia/Jerusalem) or Cancel.",
     "timezone_saved": "✅ Timezone saved: {tz}",
     "timezone_error": "⚠ Unknown timezone. Try: Europe/London, UTC, Asia/Jerusalem.",
+    "config_menu": "⚙️ Settings",
+    "main_menu": "Main Menu",
 }
