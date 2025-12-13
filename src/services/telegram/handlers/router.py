@@ -112,8 +112,8 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
     handled = False
     # Order matters: config first, then active flows.
     for handler in (
-        handle_config_text,
         handle_timezone_text,
+        handle_config_text,
         handle_habits_config_text,
         handle_habits_config_text,
         handle_questions_text,
