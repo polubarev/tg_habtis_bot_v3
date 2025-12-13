@@ -6,7 +6,6 @@ from telegram.ext import ContextTypes
 
 from src.config.constants import MESSAGES_EN, MESSAGES_RU
 from src.models.session import ConversationState, SessionData
-from src.models.session import ConversationState, SessionData
 from src.models.user import UserProfile
 from zoneinfo import ZoneInfo
 
@@ -83,12 +82,12 @@ async def handle_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return True
     session_repo, user_repo, sheets_client = _get_repos(context)
     session = await session_repo.get(update.effective_user.id) if session_repo else None
-    looks_like_sheet = bool(re.search(r"spreadsheets/d/[A-Za-z0-9-_]+", sheet_text))
+    # Only handle sheet URL when in the correct config state
     if session is None or session.state != ConversationState.CONFIG_AWAITING_SHEET_URL:
-        if not looks_like_sheet and "/" not in sheet_text:
-            return False
-        session = SessionData(user_id=update.effective_user.id)
-        session.state = ConversationState.CONFIG_AWAITING_SHEET_URL
+        return False
+    looks_like_sheet = bool(re.search(r"spreadsheets/d/[A-Za-z0-9-_]+", sheet_text))
+    if not looks_like_sheet and "/" not in sheet_text:
+        return False
 
     sheet_id = _extract_sheet_id(sheet_text)
 
@@ -117,9 +116,10 @@ async def handle_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 return True
             raise
 
-    session.state = ConversationState.IDLE
-    if session_repo:
-        await session_repo.save(session)
+    if session:
+        session.state = ConversationState.IDLE
+        if session_repo:
+            await session_repo.save(session)
 
     await update.message.reply_text(_messages(update)["sheet_saved"])
     return True

@@ -21,6 +21,37 @@ class HabitExtractor:
     def __init__(self, client: LLMClient):
         self.client = client
 
+    def _type_annotation(self, field_config: Dict[str, Any]) -> Any:
+        """Resolve type annotation based on field configuration.
+        Maps field type strings to Python types for Pydantic model creation.
+        """
+        if not field_config:
+            return str
+        
+        # Handle both dict and HabitFieldConfig objects
+        if hasattr(field_config, 'type'):
+            field_type = field_config.type
+        else:
+            field_type = field_config.get("type", "string")
+        
+        # Normalize type string (handle list of types)
+        if isinstance(field_type, list) and field_type:
+            field_type = field_type[0]
+        
+        ft = str(field_type).lower()
+        
+        # Map to Python types
+        if ft in {"string", "text", "str"}:
+            return str
+        elif ft in {"integer", "int", "number"}:
+            return int
+        elif ft in {"float", "double", "decimal"}:
+            return float
+        elif ft in {"boolean", "bool"}:
+            return bool
+        else:
+            return str  # Default fallback
+
     def _resolve_schema(self, schema: Optional[HabitSchema]) -> HabitSchema:
         """Merge user schema with defaults (diary) without touching base technical fields."""
 
@@ -37,13 +68,13 @@ class HabitExtractor:
 
     def _build_model(self, schema: Optional[HabitSchema]) -> Optional[type]:
         """Build a loose Pydantic model from habit schema fields."""
-
         fields: dict[str, tuple[Any, Any]] = {
             "diary": (Optional[Any], None),  # always request diary summary
         }
         if schema and getattr(schema, "fields", None):
-            for name in schema.fields.keys():
-                fields[name] = (Optional[Any], None)
+            for name, field_config in schema.fields.items():
+                py_type = self._type_annotation(field_config)
+                fields[name] = (Optional[py_type], None)
         # always include raw_record as optional in structured output
         fields.setdefault("raw_record", (Optional[str], None))
         try:
