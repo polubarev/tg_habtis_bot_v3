@@ -133,13 +133,13 @@ async def handle_timezone_text(update: Update, context: ContextTypes.DEFAULT_TYP
     
     text = (update.message.text or "").strip()
     session_repo, user_repo, _ = _get_repos(context)
+    session = await session_repo.get(update.effective_user.id) if session_repo else None
     
     # Handle cancel
     if text.lower() in {"/cancel", "cancel", "отмена"}:
-        if session_repo:
-            session = await session_repo.get(update.effective_user.id)
-            if session:
-                session.state = ConversationState.IDLE
+        if session:
+            session.state = ConversationState.IDLE
+            if session_repo:
                 await session_repo.save(session)
         await update.message.reply_text(
             _messages(update)["cancelled_config"],
