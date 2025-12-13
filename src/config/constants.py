@@ -35,25 +35,54 @@ THOUGHTS_SHEET_COLUMNS = [
     "record",
 ]
 
+# Button labels
+BUTTONS_RU = {
+    "habits": "📝 Привычки / День",
+    "dream": "😴 Сон",
+    "thought": "💭 Мысль",
+    "reflect": "🤔 Рефлексия",
+    "config": "⚙️ Настройки",
+    "help": "ℹ️ Помощь",
+    "cancel": "❌ Отмена",
+    "back": "⬅️ Назад",
+    "sheet_config": "📊 Таблица",
+    "habits_config": "📋 Поля привычек",
+    "reflect_config": "❓ Вопросы",
+    "timezone": "🌍 Часовой пояс",
+}
+
+BUTTONS_EN = {
+    "habits": "📝 Habits / Day",
+    "dream": "😴 Dream",
+    "thought": "💭 Thought",
+    "reflect": "🤔 Reflection",
+    "config": "⚙️ Config",
+    "help": "ℹ️ Help",
+    "cancel": "❌ Cancel",
+    "back": "⬅️ Back",
+    "sheet_config": "📊 Sheet",
+    "habits_config": "📋 Habit Fields",
+    "reflect_config": "❓ Questions",
+    "timezone": "🌍 Timezone",
+}
+
 # Message templates (Russian)
 MESSAGES_RU = {
     "welcome": (
         "Привет! Я помогу вести дневник и отслеживать привычки.\n\n"
         "Что я умею:\n"
-        "• /habits — запись дня/привычек с датой\n"
-        "• /dream — записать сон\n"
-        "• /thought — быстрая заметка\n"
-        "• /reflect — ответить на вопросы\n"
-        "• /config — указать Google Sheet\n"
-        "• /habits_config — поля привычек\n"
-        "• /reflect_config — свои вопросы\n\n"
-        "Нажми /habits (или кнопку ниже), выбери дату и опиши день текстом/голосом. Я покажу черновик и спрошу подтверждение."
+        "• Привычки — запись дня/привычек с датой\n"
+        "• Сон — записать сон\n"
+        "• Мысль — быстрая заметка\n"
+        "• Рефлексия — ответить на вопросы\n"
+        "• Настройки — указать Google Sheet и настроить поля\n\n"
+        "Нажми кнопку ниже, чтобы начать."
     ),
-    "sheet_reminder": "Сначала укажи Google Sheet через /config. Пример: https://docs.google.com/spreadsheets/d/1AbCDefGh1234567890",
-    "habits_restart": "Я не помню дату. Нажми /habits и выбери дату заново.",
-    "dream_restart": "Начни заново с /dream и опиши сон.",
-    "thought_restart": "Начни заново с /thought и отправь заметку.",
-    "reflect_restart": "Начни заново с /reflect, чтобы ответить на вопросы.",
+    "sheet_reminder": "Сначала укажи Google Sheet через Настройки -> Таблица.",
+    "habits_restart": "Я не помню дату. Начни заново.",
+    "dream_restart": "Начни заново с кнопки Сон.",
+    "thought_restart": "Начни заново с кнопки Мысль.",
+    "reflect_restart": "Начни заново с кнопки Рефлексия.",
     "select_date": "За какую дату хочешь сделать запись?",
     "describe_day": "Опиши свой день для {date} текстом или голосом.",
     "processing": "⏳ Обрабатываю...",
@@ -61,11 +90,11 @@ MESSAGES_RU = {
     "saved_success": "✅ Сохранено!",
     "cancelled": "✖ Отменено.",
     "habits_update_prompt": "✏️ Отправь правки или новый текст. Я пересоберу черновик с учётом предыдущего сообщения.",
-    "confirm_generic": "Проверь и подтверди:\n{preview}",
+    "confirm_generic": "Проверь и подтверди:\n```json\n{preview}\n```",
     "error_occurred": "⚠ Произошла ошибка. Попробуй ещё раз.",
-    "sheet_not_configured": "⚠ Сначала подключи Google Sheet через /config.",
+    "sheet_not_configured": "⚠ Сначала подключи Google Sheet.",
     "ask_sheet": "Отправь ссылку или ID Google Sheets, куда писать данные.",
-    "sheet_saved": "✅ Гугл-таблица сохранена. Теперь можно писать /habits, /dream, /thought, /reflect.",
+    "sheet_saved": "✅ Гугл-таблица сохранена.",
     "config_cancelled": "Настройка отменена.",
     "dream_prompt": "Опиши свой сон текстом или голосом.",
     "dream_saved": "✅ Сон сохранён.",
@@ -73,20 +102,20 @@ MESSAGES_RU = {
     "thought_saved": "✅ Мысль сохранена.",
     "reflect_intro": "Ответь на вопросы одним сообщением (текст или голос). Список вопросов:\n{questions}\n\nОтправь один ответ — я разберу его и заполню ответы.",
     "reflect_done": "✅ Ответы сохранены.",
-    "reflect_seeded": "Добавил вопросы по умолчанию. Можно снова вызвать /reflect.",
+    "reflect_seeded": "Добавил вопросы по умолчанию.",
     "llm_disabled": "Без сводки: модель не настроена.",
     "voice_disabled": "Голос пока недоступен (нет ключа для STT). Отправь текст.",
     "voice_transcribed": "Расшифровка голоса: {text}",
     "help": (
-        "Команды:\n"
-        "/start — приветствие и как работать\n"
-        "/habits — запись привычек и дня\n"
-        "/dream — записать сон\n"
-        "/thought — быстрая мысль/заметка\n"
-        "/reflect — ответы на свои вопросы\n"
-        "/config — настроить Google Sheet\n"
-        "/habits_config — поля привычек\n"
-        "/reflect_config — свои вопросы"
+        "🤖 *Помощь*\n\n"
+        "Я умею вести дневник и трекать привычки в Google Sheet.\n\n"
+        "📎 *Основные команды*:\n"
+        "• 📝 *Привычки* — спрошу дату, затем можно отправить сводку дня, голосом или текстом.\n"
+        "• 😴 *Сон* — запишу сон (добавлю в таблицу).\n"
+        "• 💭 *Мысль* — быстрая заметка, чтобы не забыть.\n"
+        "• 🤔 *Рефлексия* — задам список вопросов (настраиваются).\n"
+        "• ⚙️ *Настройки* — подключение таблицы и редактирование полей.\n\n"
+        "Если бот «завис» или ведёт себя странно — нажми ❌ *Отмена*."
     ),
     "habit_config_intro": "Текущие поля привычек: {fields}\nЧто сделать?",
     "habit_add_name_prompt": "⭐️ *Шаг 1: Название*\nНапиши имя поля (желательно латиницей, без пробелов).",
@@ -126,6 +155,9 @@ MESSAGES_RU = {
     "question_removed": "Вопрос удалён: {id}",
     "question_reset": "Вопросы сброшены к стандартным.",
     "cancelled_config": "Настройка отменена.",
+    "timezone_prompt": "Текущий пояс: {tz}. Отправь новый (например, Europe/Moscow, Asia/Jerusalem) или нажми Отмена.",
+    "timezone_saved": "✅ Часовой пояс сохранён: {tz}",
+    "timezone_error": "⚠ Не могу найти такой пояс. Попробуй: Europe/London, UTC, Asia/Jerusalem.",
 }
 
 # Message templates (English)
@@ -133,20 +165,18 @@ MESSAGES_EN = {
     "welcome": (
         "Hello! I help you keep a diary and track habits.\n\n"
         "What I can do:\n"
-        "• /habits — diary + habits with date selection\n"
-        "• /dream — log a dream\n"
-        "• /thought — quick note\n"
-        "• /reflect — answer custom questions\n"
-        "• /config — set Google Sheet\n"
-        "• /habits_config — habit fields\n"
-        "• /reflect_config — manage reflection questions\n\n"
-        "Tap /habits (or the button below), pick a date, describe your day in text/voice. I'll show a draft and ask you to confirm."
+        "• Habits — diary + habits with date selection\n"
+        "• Dream — log a dream\n"
+        "• Thought — quick note\n"
+        "• Reflection — answer custom questions\n"
+        "• Config — set Google Sheet and fields\n\n"
+        "Tap a button below to start."
     ),
-    "sheet_reminder": "Please set your Google Sheet via /config first. Example: https://docs.google.com/spreadsheets/d/1AbCDefGh1234567890",
-    "habits_restart": "I lost the selected date. Tap /habits and pick a date again.",
-    "dream_restart": "Start over with /dream and describe your dream.",
-    "thought_restart": "Start over with /thought and send your note.",
-    "reflect_restart": "Start over with /reflect to answer the questions.",
+    "sheet_reminder": "Please set your Google Sheet via Config -> Sheet first.",
+    "habits_restart": "I lost the selected date. Start again.",
+    "dream_restart": "Start over with Dream button.",
+    "thought_restart": "Start over with Thought button.",
+    "reflect_restart": "Start over with Reflection button.",
     "select_date": "Which date do you want to record?",
     "describe_day": "Describe your day for {date} using text or voice.",
     "processing": "⏳ Processing...",
@@ -154,11 +184,11 @@ MESSAGES_EN = {
     "saved_success": "✅ Saved!",
     "cancelled": "✖ Cancelled.",
     "habits_update_prompt": "✏️ Send corrections or a new message. I’ll rebuild the draft using the previous text as context.",
-    "confirm_generic": "Review and confirm:\n{preview}",
+    "confirm_generic": "Review and confirm:\n```json\n{preview}\n```",
     "error_occurred": "⚠ An error occurred. Please try again.",
-    "sheet_not_configured": "⚠ Please configure Google Sheet first via /config.",
+    "sheet_not_configured": "⚠ Please configure Google Sheet first.",
     "ask_sheet": "Send a Google Sheet link or ID to store your data.",
-    "sheet_saved": "✅ Google Sheet saved. You can now use /habits, /dream, /thought, /reflect.",
+    "sheet_saved": "✅ Google Sheet saved.",
     "config_cancelled": "Setup cancelled.",
     "dream_prompt": "Describe your dream (text or voice).",
     "dream_saved": "✅ Dream saved.",
@@ -166,20 +196,20 @@ MESSAGES_EN = {
     "thought_saved": "✅ Thought saved.",
     "reflect_intro": "Answer all questions in one message (text or voice). Questions:\n{questions}\n\nSend a single reply — I'll parse it into answers.",
     "reflect_done": "✅ Answers saved.",
-    "reflect_seeded": "Added default questions. Call /reflect again.",
+    "reflect_seeded": "Added default questions.",
     "llm_disabled": "Summary disabled: LLM not configured.",
     "voice_disabled": "Voice not available (no STT key). Please send text.",
     "voice_transcribed": "Voice transcription: {text}",
     "help": (
-        "Commands:\n"
-        "/start — welcome\n"
-        "/habits — habits + diary\n"
-        "/dream — log a dream\n"
-        "/thought — quick thought\n"
-        "/reflect — answer custom questions\n"
-        "/config — set Google Sheet\n"
-        "/habits_config — habit fields\n"
-        "/reflect_config — manage reflection questions"
+        "🤖 *Help*\n\n"
+        "I help track habits and diary entries in Google Sheets.\n\n"
+        "📎 *Commands*:\n"
+        "• 📝 *Habits* — log your day (I'll ask date). Text or voice.\n"
+        "• 😴 *Dream* — log a dream.\n"
+        "• 💭 *Thought* — quick note.\n"
+        "• 🤔 *Reflection* — answer Q&A check-ins.\n"
+        "• ⚙️ *Config* — setup Sheet and custom fields.\n\n"
+        "If stuck — press ❌ *Cancel*."
     ),
     "habit_config_intro": "Current habit fields: {fields}\nWhat would you like to do?",
     "habit_add_name_prompt": "⭐️ *Step 1: Name*\nPick a field id (letters/numbers, preferably no spaces).",
@@ -219,4 +249,7 @@ MESSAGES_EN = {
     "question_removed": "Question removed: {id}",
     "question_reset": "Questions reset to defaults.",
     "cancelled_config": "Setup cancelled.",
+    "timezone_prompt": "Current: {tz}. Send new timezone (e.g. Europe/London, Asia/Jerusalem) or Cancel.",
+    "timezone_saved": "✅ Timezone saved: {tz}",
+    "timezone_error": "⚠ Unknown timezone. Try: Europe/London, UTC, Asia/Jerusalem.",
 }

@@ -12,11 +12,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy metadata first for better build caching.
-COPY pyproject.toml README.md uv.lock ./
+COPY pyproject.toml uv.lock ./
+
+# Install uv and dependencies
+RUN pip install --no-cache-dir uv && \
+    uv export --frozen --no-dev --format requirements-txt > requirements.txt && \
+    uv pip install --system --no-cache -r requirements.txt
+
+# Copy source code
 COPY src ./src
 
-# Install application dependencies.
-RUN pip install --no-cache-dir .
+# Install application package (without dependencies)
+RUN pip install --no-cache-dir --no-deps .
 
 # Run as non-root.
 RUN useradd --create-home appuser && chown -R appuser:appuser /app

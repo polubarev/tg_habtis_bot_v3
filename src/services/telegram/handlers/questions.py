@@ -7,9 +7,14 @@ from src.models.session import ConversationState
 from src.models.user import CustomQuestion
 
 
-def _messages(update: Update):
+from src.services.telegram.keyboards import build_main_menu_keyboard
+
+def _get_lang(update: Update) -> str:
     code = (update.effective_user.language_code or "").lower() if update.effective_user else ""
-    return MESSAGES_RU if code.startswith("ru") else MESSAGES_EN
+    return "ru" if code.startswith("ru") else "en"
+
+def _messages(update: Update):
+    return MESSAGES_RU if _get_lang(update) == "ru" else MESSAGES_EN
 
 
 def _get_repos(context: ContextTypes.DEFAULT_TYPE):
@@ -99,6 +104,11 @@ async def handle_questions_callback(update: Update, context: ContextTypes.DEFAUL
             await session_repo.save(session)
     elif action == "cancel":
         await query.edit_message_text(_messages(update)["cancelled_config"])
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=_messages(update)["cancelled_config"],
+            reply_markup=build_main_menu_keyboard(_get_lang(update))
+        )
         if session_repo and session:
             session.state = ConversationState.IDLE
             session.temp_data = {}
@@ -234,7 +244,10 @@ async def handle_questions_text(update: Update, context: ContextTypes.DEFAULT_TY
         await user_repo.update(profile)
         await update.message.reply_text(_messages(update)["question_removed"].format(id=q_id))
     else:
-        await update.message.reply_text(_messages(update)["cancelled_config"])
+        await update.message.reply_text(
+            _messages(update)["cancelled_config"],
+            reply_markup=build_main_menu_keyboard(_get_lang(update))
+        )
 
     session.state = ConversationState.IDLE
     session.temp_data = {}

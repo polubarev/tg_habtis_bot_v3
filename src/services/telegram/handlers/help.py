@@ -1,4 +1,5 @@
-from telegram import ReplyKeyboardMarkup, Update
+from telegram import Update
+from src.services.telegram.keyboards import build_main_menu_keyboard
 from telegram.ext import ContextTypes
 
 from src.config.constants import MESSAGES_EN, MESSAGES_RU
@@ -14,13 +15,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     if not update.message:
         return
-    keyboard = ReplyKeyboardMarkup(
-        [
-            ["/habits", "/config"],
-            ["/dream", "/thought"],
-            ["/reflect", "/reflect_config"],
-            ["/habits_config", "/help"],
-        ],
-        resize_keyboard=True,
-    )
+    
+    code = (update.effective_user.language_code or "").lower() if update.effective_user else ""
+    lang = "ru" if code.startswith("ru") else "en"
+    
+    keyboard = build_main_menu_keyboard(lang)
     await update.message.reply_text(_messages(update)["help"], reply_markup=keyboard)

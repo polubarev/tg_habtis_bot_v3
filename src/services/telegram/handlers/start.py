@@ -1,4 +1,5 @@
-from telegram import ReplyKeyboardMarkup, Update
+from telegram import Update
+from src.services.telegram.keyboards import build_main_menu_keyboard
 from telegram.ext import ContextTypes
 
 from src.config.constants import DEFAULT_REFLECTION_QUESTIONS, MESSAGES_EN, MESSAGES_RU
@@ -13,6 +14,11 @@ def _get_user_repo(context: ContextTypes.DEFAULT_TYPE):
 def _messages(update: Update):
     code = (update.effective_user.language_code or "").lower() if update.effective_user else ""
     return MESSAGES_RU if code.startswith("ru") else MESSAGES_EN
+
+
+def _get_lang(update: Update) -> str:
+    code = (update.effective_user.language_code or "").lower() if update.effective_user else ""
+    return "ru" if code.startswith("ru") else "en"
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -39,13 +45,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             await user_repo.create(profile)
         sheet_missing = not bool(profile.sheet_id)
 
-    keyboard_rows = [
-        ["/habits", "/config"],
-        ["/dream", "/thought"],
-        ["/reflect", "/reflect_config"],
-        ["/habits_config", "/help"],
-    ]
-    keyboard = ReplyKeyboardMarkup(keyboard_rows, resize_keyboard=True)
+    keyboard = build_main_menu_keyboard(_get_lang(update))
     await update.message.reply_text(msgs["welcome"], reply_markup=keyboard)
     if sheet_missing:
         await update.message.reply_text(msgs["sheet_reminder"])

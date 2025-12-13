@@ -22,6 +22,7 @@ class ConversationState(str, Enum):
     CONFIG_AWAITING_SHEET_URL = "config_awaiting_sheet_url"
     CONFIG_EDITING_HABITS = "config_editing_habits"
     CONFIG_ADDING_QUESTION = "config_adding_question"
+    CONFIG_TIMEZONE = "config_timezone"
     ONBOARDING_WELCOME = "onboarding_welcome"
     ONBOARDING_SHEET_SETUP = "onboarding_sheet_setup"
     ONBOARDING_HABIT_REVIEW = "onboarding_habit_review"

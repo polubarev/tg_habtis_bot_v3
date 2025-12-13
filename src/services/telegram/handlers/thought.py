@@ -69,6 +69,7 @@ async def handle_thought_text(update: Update, context: ContextTypes.DEFAULT_TYPE
     await update.message.reply_text(
         _messages(update)["confirm_generic"].format(preview=preview),
         reply_markup=build_confirmation_keyboard(prefix="thought"),
+        parse_mode="Markdown",
     )
     return True
 
@@ -95,7 +96,11 @@ async def handle_thought_confirm(update: Update, context: ContextTypes.DEFAULT_T
         if sheet_id and sheets_client:
             entry = ThoughtEntry(**session.pending_entry)
             await sheets_client.append_thought_entry(sheet_id, entry)
-            await query.edit_message_text(_messages(update)["thought_saved"])
+            await query.edit_message_reply_markup(reply_markup=None)
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=_messages(update)["thought_saved"]
+            )
         else:
             await query.edit_message_text(_messages(update)["sheet_not_configured"])
     else:

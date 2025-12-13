@@ -81,11 +81,20 @@ class SheetsClient(ISheetsClient):
             header = []
 
         # Preserve existing custom columns to keep alignment of old rows
-        existing_custom = [c for c in header if c not in base_header]
-        canonical_header: list[str] = base_header + existing_custom
+        # Preserve existing column order from the sheet
+        canonical_header = list(header)
+        
+        # Append missing base fields
+        for field in base_header:
+            if field not in canonical_header:
+                canonical_header.append(field)
+
+        # Append missing schema fields
         for field in field_order:
             if field not in canonical_header:
                 canonical_header.append(field)
+                
+        # Append any extra fields from the entry
         for field in entry.extra_fields.keys():
             if field not in canonical_header:
                 canonical_header.append(field)

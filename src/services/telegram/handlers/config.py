@@ -1,15 +1,22 @@
 import re
 
 from telegram import Update
+from src.services.telegram.keyboards import build_main_menu_keyboard
 from telegram.ext import ContextTypes
 
 from src.config.constants import MESSAGES_EN, MESSAGES_RU
 from src.models.session import ConversationState, SessionData
+from src.models.session import ConversationState, SessionData
 from src.models.user import UserProfile
+from zoneinfo import ZoneInfo
+
+def _get_lang(update: Update) -> str:
+    code = (update.effective_user.language_code or "").lower() if update.effective_user else ""
+    return "ru" if code.startswith("ru") else "en"
+
 
 def _messages(update: Update):
-    code = (update.effective_user.language_code or "").lower() if update.effective_user else ""
-    return MESSAGES_RU if code.startswith("ru") else MESSAGES_EN
+    return MESSAGES_RU if _get_lang(update) == "ru" else MESSAGES_EN
 
 
 def _get_repos(context: ContextTypes.DEFAULT_TYPE):
@@ -69,7 +76,10 @@ async def handle_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
         if session:
             session.state = ConversationState.IDLE
             await session_repo.save(session)
-        await update.message.reply_text(_messages(update)["config_cancelled"])
+        await update.message.reply_text(
+            _messages(update)["config_cancelled"],
+            reply_markup=build_main_menu_keyboard(_get_lang(update))
+        )
         return True
     session_repo, user_repo, sheets_client = _get_repos(context)
     session = await session_repo.get(update.effective_user.id) if session_repo else None
@@ -112,4 +122,53 @@ async def handle_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await session_repo.save(session)
 
     await update.message.reply_text(_messages(update)["sheet_saved"])
+    return True
+
+
+async def handle_timezone_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Handle timezone input."""
+
+    if not update.effective_user or not update.message:
+        return False
+    
+    text = (update.message.text or "").strip()
+    session_repo, user_repo, _ = _get_repos(context)
+    
+    # Handle cancel
+    if text.lower() in {"/cancel", "cancel", "отмена"}:
+        if session_repo:
+            session = await session_repo.get(update.effective_user.id)
+            if session:
+                session.state = ConversationState.IDLE
+                await session_repo.save(session)
+        await update.message.reply_text(
+            _messages(update)["cancelled_config"],
+            reply_markup=build_main_menu_keyboard(_get_lang(update))
+        )
+        return True
+
+    # Validate timezone
+    try:
+        ZoneInfo(text)
+    except Exception:
+         await update.message.reply_text(_messages(update)["timezone_error"])
+         return True
+
+    # Save
+    if user_repo:
+        profile = await user_repo.get_by_telegram_id(update.effective_user.id)
+        if profile:
+            profile.timezone = text
+            await user_repo.update(profile)
+
+    if session_repo:
+        session = await session_repo.get(update.effective_user.id)
+        if session:
+            session.state = ConversationState.IDLE
+            await session_repo.save(session)
+
+    await update.message.reply_text(
+        _messages(update)["timezone_saved"].format(tz=text),
+        reply_markup=build_main_menu_keyboard(_get_lang(update))
+    )
     return True
