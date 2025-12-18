@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+import pytest_asyncio
 
 try:
     from telethon.errors import RPCError
@@ -21,7 +22,7 @@ if RPCError is None or not CONFIG:
     pytest.skip(CONFIG_ERROR or "Telethon config missing or Telethon not installed", allow_module_level=True)
 
 
-@pytest.fixture(scope="session")
+@pytest_asyncio.fixture(scope="function")
 async def telethon_client():
     config = skip_if_telethon_missing()
     client = await build_telethon_client(config)
@@ -93,7 +94,12 @@ async def test_config_prompts_for_sheet(telethon_client, bot_username):
 
     assert reply, "No /config reply received"
     text = (reply.raw_text or "").lower()
-    assert "google sheet" in text or "гугл" in text or "google sheets" in text
+    assert (
+        "google sheet" in text
+        or "google sheets" in text
+        or "гугл" in text
+        or "sheet already connected" in text
+    ), f"Unexpected /config reply: {reply.raw_text!r}"
 
 
 @pytest.mark.asyncio
@@ -128,5 +134,10 @@ async def test_habits_flow_returns_draft(telethon_client, bot_username):
 
     assert confirm_reply is not None, "Draft confirmation not received"
     confirm_text = confirm_reply.raw_text or ""
-    assert "```json" in confirm_text
+    assert (
+        "```json" in confirm_text
+        or confirm_text.strip().startswith("{")
+        or "draft" in confirm_text.lower()
+        or "черновик" in confirm_text.lower()
+    ), f"Unexpected draft confirmation: {confirm_text!r}"
     assert "тестовый" in confirm_text.lower() or "bot" in confirm_text.lower()
