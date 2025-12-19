@@ -1,4 +1,5 @@
 from telegram import Update
+from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from src.services.telegram.handlers.config import handle_config_text, config_command, handle_timezone_text
@@ -130,7 +131,11 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
     if not handled and update.message:
         code = (update.effective_user.language_code or "").lower() if update.effective_user else ""
         lang = "ru" if code.startswith("ru") else "en"
-        await update.message.reply_text(_messages(update)["help"], reply_markup=build_main_menu_keyboard(lang))
+        await update.message.reply_text(
+            _messages(update)["help"],
+            reply_markup=build_main_menu_keyboard(lang),
+            parse_mode=ParseMode.MARKDOWN,
+        )
 
 
 async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

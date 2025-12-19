@@ -1,4 +1,5 @@
 from telegram import Update
+from telegram.constants import ParseMode
 from src.services.telegram.keyboards import build_main_menu_keyboard
 from telegram.ext import ContextTypes
 
@@ -20,4 +21,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     lang = "ru" if code.startswith("ru") else "en"
     
     keyboard = build_main_menu_keyboard(lang)
-    await update.message.reply_text(_messages(update)["help"], reply_markup=keyboard)
+    await update.message.reply_text(
+        _messages(update)["help"],
+        reply_markup=keyboard,
+        parse_mode=ParseMode.MARKDOWN,
+    )
