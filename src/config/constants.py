@@ -49,6 +49,7 @@ BUTTONS_RU = {
     "habits_config": "📋 Поля привычек",
     "reflect_config": "❓ Вопросы",
     "timezone": "🌍 Часовой пояс",
+    "reset": "🧹 Сбросить всё",
 }
 
 BUTTONS_EN = {
@@ -64,18 +65,23 @@ BUTTONS_EN = {
     "habits_config": "📋 Habit Fields",
     "reflect_config": "❓ Questions",
     "timezone": "🌍 Timezone",
+    "reset": "🧹 Reset",
 }
 
 # Message templates (Russian)
 MESSAGES_RU = {
     "welcome": (
         "Привет! Я помогу вести дневник и отслеживать привычки.\n\n"
+        "Сначала подключи Google Sheet, чтобы я мог сохранять записи:\n"
+        "1) Открой ⚙️ Настройки → 📊 Таблица и вставь ссылку или ID Sheet.\n"
+        "2) Настрой поля привычек: ⚙️ Настройки → 📋 Поля привычек (добавь метрики, которые хочешь вести).\n"
+        "3) Настрой вопросы для рефлексии: ⚙️ Настройки → ❓ Вопросы (я буду задавать их при Рефлексии).\n\n"
         "Что я умею:\n"
         "• Привычки — запись дня/привычек с датой\n"
         "• Сон — записать сон\n"
         "• Мысль — быстрая заметка\n"
         "• Рефлексия — ответить на вопросы\n"
-        "• Настройки — указать Google Sheet и настроить поля\n\n"
+        "• Настройки — подключить Google Sheet и настроить поля\n\n"
         "Нажми кнопку ниже, чтобы начать."
     ),
     "sheet_reminder": "Сначала укажи Google Sheet через Настройки -> Таблица.",
@@ -117,24 +123,60 @@ MESSAGES_RU = {
         "• ⚙️ *Настройки* — подключение таблицы и редактирование полей.\n\n"
         "Если бот «завис» или ведёт себя странно — нажми ❌ *Отмена*."
     ),
-    "habit_config_intro": "Текущие поля привычек: {fields}\nЧто сделать?",
-    "habit_add_name_prompt": "⭐️ *Шаг 1: Название*\nНапиши имя поля (желательно латиницей, без пробелов).",
-    "habit_add_description_prompt": "⭐️ *Шаг 2: Описание*\nКоротко опиши поле.",
-    "habit_add_type_prompt": "⭐️ *Шаг 3: Тип*\nВыбери: *string* / *int* / *float* / *bool* (по умолчанию *string*).",
+    "habit_config_intro": (
+        "Текущие поля привычек: {fields}\n\n"
+        "Что можно сделать:\n"
+        "• ➕ Добавить новое поле (например water:int 0-20, mood:string, pain:int 0-10)\n"
+        "• ➖ Удалить ненужное поле\n"
+        "• ↩️ Сбросить к стандартному набору\n"
+        "• 📦 Импортировать сразу несколько через JSON\n\n"
+        "Примеры формата:\n"
+        "• name: water, type: int, min 0, max 20\n"
+        "• name: mood, type: string\n"
+        "• name: pain, type: int, min 0, max 10 (или type: [\"integer\",\"null\"] если опционально)\n\n"
+        "Нажми кнопку ниже."
+    ),
+    "habit_add_name_prompt": (
+        "⭐️ *Шаг 1: Название*\n"
+        "Напиши имя поля (желательно латиницей, без пробелов). Пример: *exercises*. "
+        "Для импорта нескольких полей нажми 📦 JSON."
+    ),
+    "habit_add_description_prompt": (
+        "⭐️ *Шаг 2: Описание*\n"
+        "Коротко опиши поле. Пример: \"Сколько сделал подходов\"."
+    ),
+    "habit_add_type_prompt": (
+        "⭐️ *Шаг 3: Тип*\n"
+        "Выбери: *string* (текст) / *int* (целое) / *float* (дробное) / *bool* (да/нет). "
+        "По умолчанию *string*.\n\n"
+        "Пример: для поля *exercises* выбери *int*, минимум 0, максимум 10."
+    ),
     "habit_add_min_prompt": "⭐️ *Шаг 4: Минимум*\nМинимальное число? Напиши или '-' чтобы пропустить.",
     "habit_add_max_prompt": "⭐️ *Шаг 5: Максимум*\nМаксимальное число? Напиши или '-' чтобы пропустить.",
-    "habit_add_json_example": (
-        "Можно сразу отправить JSON (один объект или список). Примеры:\n"
+    "habit_json_prompt": (
+        "Отправь JSON (один объект или список), чтобы добавить несколько полей сразу. Пример:\n"
         "```json\n"
-        '['
-        '{"name":"water","description":"Стаканы воды","type":"int","minimum":0,"maximum":20,"required":true},'
-        '{"name":"weight","description":"Вес в кг","type":"number","minimum":0,"maximum":400,"required":true},'
-        '{"name":"mood","description":"Как ты себя чувствуешь","type":"string","required":true},'
-        '{"name":"fasted","description":"Была ли голодовка","type":"boolean","required":false},'
-        '{"name":"pain","description":"Уровень боли 0-10 (опционально)","type":["integer","null"],"minimum":0,"maximum":10,"required":false}'
-        ']'
-        "\n```"
+        "[\n"
+        "  {\n"
+        '    "name": "water",\n'
+        '    "description": "Стаканы воды",\n'
+        '    "type": "int",\n'
+        '    "minimum": 0,\n'
+        '    "maximum": 20,\n'
+        '    "required": true\n'
+        "  },\n"
+        "  {\n"
+        '    "name": "mood",\n'
+        '    "description": "Как ты себя чувствуешь",\n'
+        '    "type": "string",\n'
+        '    "required": true\n'
+        "  }\n"
+        "]\n"
+        "```"
     ),
+    "habit_json_result_added": "✅ Добавлены поля: {added}",
+    "habit_json_result_skipped": "⚠️ Пропущены (уже есть или базовые): {skipped}",
+    "habit_json_result_none": "Ничего не добавлено. Проверь формат JSON.",
     "habit_remove_prompt": "Отправь имя поля, которое удалить.",
     "habit_added": "Поле добавлено: {name}",
     "habit_removed": "Поле удалено: {name}",
@@ -160,12 +202,22 @@ MESSAGES_RU = {
     "timezone_error": "⚠ Не могу найти такой пояс. Попробуй: Europe/London, UTC, Asia/Jerusalem.",
     "config_menu": "⚙️ Настройки",
     "main_menu": "Главное меню",
+    "reset_prompt": (
+        "⚠️ Сбросит все данные в боте: подключённую таблицу, поля привычек, вопросы, часовой пояс и сессию. "
+        "Твои записи в Google Sheet не трогаю.\n\nПродолжить?"
+    ),
+    "reset_done": "✅ Готово. Всё очищено. Нажми /start, чтобы настроиться заново.",
+    "reset_cancelled": "✖ Сброс отменён.",
 }
 
 # Message templates (English)
 MESSAGES_EN = {
     "welcome": (
         "Hello! I help you keep a diary and track habits.\n\n"
+        "Start by connecting your Google Sheet so I can save entries:\n"
+        "1) Open ⚙️ Config → 📊 Sheet and paste the Sheet link or ID.\n"
+        "2) Add your own habit fields: ⚙️ Config → 📋 Habit Fields (metrics you want to track).\n"
+        "3) Add reflection questions: ⚙️ Config → ❓ Questions (I'll ask them when you tap Reflection).\n\n"
         "What I can do:\n"
         "• Habits — diary + habits with date selection\n"
         "• Dream — log a dream\n"
@@ -213,24 +265,59 @@ MESSAGES_EN = {
         "• ⚙️ *Config* — setup Sheet and custom fields.\n\n"
         "If stuck — press ❌ *Cancel*."
     ),
-    "habit_config_intro": "Current habit fields: {fields}\nWhat would you like to do?",
-    "habit_add_name_prompt": "⭐️ *Step 1: Name*\nPick a field id (letters/numbers, preferably no spaces).",
-    "habit_add_description_prompt": "⭐️ *Step 2: Description*\nAdd a short description for this field.",
-    "habit_add_type_prompt": "⭐️ *Step 3: Type*\nChoose: *string* / *int* / *float* / *bool* (defaults to *string*).",
+    "habit_config_intro": (
+        "Current habit fields: {fields}\n\n"
+        "You can:\n"
+        "• ➕ Add a field (e.g., water:int 0-20, mood:string, pain:int 0-10)\n"
+        "• ➖ Remove a field you don't need\n"
+        "• ↩️ Reset to the default set\n"
+        "• 📦 Import multiple via JSON\n\n"
+        "Examples:\n"
+        "• name: water, type: int, min 0, max 20\n"
+        "• name: mood, type: string\n"
+        "• name: pain, type: int, min 0, max 10 (or type: [\"integer\",\"null\"] if optional)\n\n"
+        "Tap a button below."
+    ),
+    "habit_add_name_prompt": (
+        "⭐️ *Step 1: Name*\n"
+        "Pick a field id (letters/numbers, preferably no spaces). Example: *exercises*. "
+        "For bulk import tap 📦 JSON."
+    ),
+    "habit_add_description_prompt": (
+        "⭐️ *Step 2: Description*\n"
+        "Add a short description. Example: \"How many sets you did\"."
+    ),
+    "habit_add_type_prompt": (
+        "⭐️ *Step 3: Type*\n"
+        "Choose: *string* (text), *int* (whole), *float* (decimal), *bool* (yes/no). Defaults to *string*.\n\n"
+        "Example: for *exercises* pick *int*, min 0, max 10."
+    ),
     "habit_add_min_prompt": "⭐️ *Step 4: Minimum*\nMin number? Send a value or '-' to skip.",
     "habit_add_max_prompt": "⭐️ *Step 5: Maximum*\nMax number? Send a value or '-' to skip.",
-    "habit_add_json_example": (
-        "You can also send full JSON (single object or list). Examples:\n"
+    "habit_json_prompt": (
+        "Send JSON (single object or list) to add multiple fields at once. Example:\n"
         "```json\n"
-        '['
-        '{"name":"water","description":"Glasses of water","type":"int","minimum":0,"maximum":20,"required":true},'
-        '{"name":"weight","description":"Weight in kg","type":"number","minimum":0,"maximum":400,"required":true},'
-        '{"name":"mood","description":"How you feel","type":"string","required":true},'
-        '{"name":"fasted","description":"Fasted today","type":"boolean","required":false},'
-        '{"name":"pain","description":"Pain level 0-10 (optional)","type":["integer","null"],"minimum":0,"maximum":10,"required":false}'
-        ']'
-        "\n```"
+        "[\n"
+        "  {\n"
+        '    "name": "water",\n'
+        '    "description": "Glasses of water",\n'
+        '    "type": "int",\n'
+        '    "minimum": 0,\n'
+        '    "maximum": 20,\n'
+        '    "required": true\n'
+        "  },\n"
+        "  {\n"
+        '    "name": "mood",\n'
+        '    "description": "How you feel",\n'
+        '    "type": "string",\n'
+        '    "required": true\n'
+        "  }\n"
+        "]\n"
+        "```"
     ),
+    "habit_json_result_added": "✅ Added fields: {added}",
+    "habit_json_result_skipped": "⚠️ Skipped (already exist or base): {skipped}",
+    "habit_json_result_none": "No fields added. Check JSON format.",
     "habit_remove_prompt": "Send the field name to remove.",
     "habit_added": "Field added: {name}",
     "habit_removed": "Field removed: {name}",
@@ -256,4 +343,10 @@ MESSAGES_EN = {
     "timezone_error": "⚠ Unknown timezone. Try: Europe/London, UTC, Asia/Jerusalem.",
     "config_menu": "⚙️ Settings",
     "main_menu": "Main Menu",
+    "reset_prompt": (
+        "⚠️ This will wipe your bot data: connected Sheet, habit fields, questions, timezone, and session. "
+        "Your existing rows in Google Sheets stay untouched.\n\nProceed?"
+    ),
+    "reset_done": "✅ Reset complete. Use /start to set up again.",
+    "reset_cancelled": "✖ Reset cancelled.",
 }

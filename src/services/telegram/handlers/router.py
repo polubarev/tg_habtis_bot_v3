@@ -2,7 +2,7 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
-from src.services.telegram.handlers.config import handle_config_text, config_command, handle_timezone_text
+from src.services.telegram.handlers.config import handle_config_text, config_command, handle_timezone_text, reset_command
 from src.services.telegram.handlers.habits_config import handle_habits_config_text, habits_config_command
 from src.services.telegram.handlers.questions import handle_questions_text, questions_command
 from src.services.telegram.handlers.dream import handle_dream_text, dream_command
@@ -91,8 +91,9 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
     if matched("habits_config"):
         await habits_config_command(update, context)
         return
-    if matched("reflect_config"):
-        await questions_command(update, context)
+    if matched("reset"):
+        await reset_command(update, context)
+        return
     if matched("reflect_config"):
         await questions_command(update, context)
         return

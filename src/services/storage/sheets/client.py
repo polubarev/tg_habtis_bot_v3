@@ -44,7 +44,7 @@ class SheetsClient(ISheetsClient):
             ("Habits", ["timestamp", "date", "raw_record", "diary"]),  # dynamic fields added on append
             ("Dreams", DREAMS_SHEET_COLUMNS),
             ("Thoughts", THOUGHTS_SHEET_COLUMNS),
-            ("Reflections", ["timestamp", "answers_json"]),
+            ("Reflections", ["timestamp", "reflections"]),
         ]:
             if title not in existing:
                 ws = ss.add_worksheet(title=title, rows=1000, cols=30)
@@ -62,7 +62,7 @@ class SheetsClient(ISheetsClient):
                     missing = [col for col in header if col not in migrated]
                     # For reflections, enforce the canonical two columns to avoid drift
                     if title == "Reflections":
-                        new_header = ["timestamp", "answers_json"]
+                        new_header = ["timestamp", "reflections"]
                     else:
                         new_header = migrated + [m for m in missing if m not in migrated]
                     if new_header != current:
@@ -140,7 +140,7 @@ class SheetsClient(ISheetsClient):
         ss = self._open(sheet_id)
         ws = ss.worksheet("Reflections")
         header = ws.row_values(1)
-        canonical_header = ["timestamp", "answers_json"]
+        canonical_header = ["timestamp", "reflections"]
         if header != canonical_header:
             ws.update("1:1", [canonical_header])
         ws.append_row(

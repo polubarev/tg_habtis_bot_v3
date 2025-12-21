@@ -1,8 +1,9 @@
 import re
 
 from telegram import Update
-from src.services.telegram.keyboards import build_main_menu_keyboard
 from telegram.ext import ContextTypes
+
+from src.services.telegram.keyboards import build_main_menu_keyboard, build_confirmation_keyboard
 
 from src.config.constants import MESSAGES_EN, MESSAGES_RU
 from src.models.session import ConversationState, SessionData
@@ -33,6 +34,27 @@ def _extract_sheet_id(text: str) -> str:
     return text.strip()
 
 
+def _has_extra_sheet_params(text: str) -> bool:
+    """Detect if link contains query/fragment/extra path after the sheet id."""
+
+    match = re.search(r"/spreadsheets/d/[a-zA-Z0-9-_]+(.*)$", text)
+    if not match:
+        return False
+    tail = match.group(1)
+    return bool(tail and tail not in {"/", ""})
+
+
+async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Prompt the user to confirm reset of their stored settings."""
+
+    if not update.message:
+        return
+    await update.message.reply_text(
+        _messages(update)["reset_prompt"],
+        reply_markup=build_confirmation_keyboard(prefix="reset"),
+    )
+
+
 async def config_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Ask user for Google Sheet link or ID."""
 
@@ -49,12 +71,13 @@ async def config_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             msg += f"\n⚠️ Share the sheet with {service_email} (Editor) if not already."
         await update.message.reply_text(msg)
     else:
-        msg = (
-            _messages(update)["ask_sheet"]
-            + "\nПример: https://docs.google.com/spreadsheets/d/1AbCDefGh1234567890"
-        )
+        msg_parts = []
         if service_email:
-            msg += f"\n⚠️ Перед этим дай доступ Editor: {service_email}"
+            msg_parts.append(f"⚠️ Сначала дай доступ Editor: {service_email}")
+        msg_parts.append(_messages(update)["ask_sheet"])
+        example_label = "Пример" if _get_lang(update) == "ru" else "Example"
+        msg_parts.append(f"{example_label}: https://docs.google.com/spreadsheets/d/1AbCDefGh1234567890")
+        msg = "\n".join(msg_parts)
         await update.message.reply_text(msg)
 
     if session_repo:
@@ -90,6 +113,8 @@ async def handle_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return False
 
     sheet_id = _extract_sheet_id(sheet_text)
+    has_extra_params = _has_extra_sheet_params(sheet_text)
+    cleaned_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}"
 
     if user_repo:
         profile = await user_repo.get_by_telegram_id(update.effective_user.id)
@@ -99,7 +124,7 @@ async def handle_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 telegram_username=update.effective_user.username,
             )
         profile.sheet_id = sheet_id
-        profile.sheet_url = sheet_text
+        profile.sheet_url = cleaned_url
         profile.sheets_validated = True
         await user_repo.update(profile)
 
@@ -121,7 +146,10 @@ async def handle_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
         if session_repo:
             await session_repo.save(session)
 
-    await update.message.reply_text(_messages(update)["sheet_saved"])
+    msg = _messages(update)["sheet_saved"]
+    if has_extra_params:
+        msg += f"\nИспользую базовую ссылку: {cleaned_url}"
+    await update.message.reply_text(msg)
     return True
 
 
@@ -176,3 +204,33 @@ async def handle_timezone_text(update: Update, context: ContextTypes.DEFAULT_TYP
         reply_markup=build_main_menu_keyboard(_get_lang(update))
     )
     return True
+
+
+async def handle_reset_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle confirmation for wiping user data."""
+
+    query = update.callback_query
+    if not query or not query.data:
+        return
+    if not query.data.startswith("reset_confirm:"):
+        return
+
+    await query.answer()
+    choice = query.data.split(":", 1)[1]
+    user_id = (update.effective_user.id if update.effective_user else None) or (query.from_user.id if query.from_user else None)
+
+    session_repo, user_repo, _ = _get_repos(context)
+    if choice == "yes" and user_id:
+        if user_repo:
+            await user_repo.delete(user_id)
+        if session_repo:
+            await session_repo.delete(user_id)
+        await query.message.reply_text(
+            _messages(update)["reset_done"],
+            reply_markup=build_main_menu_keyboard(_get_lang(update)),
+        )
+    else:
+        await query.message.reply_text(
+            _messages(update)["reset_cancelled"],
+            reply_markup=build_main_menu_keyboard(_get_lang(update)),
+        )

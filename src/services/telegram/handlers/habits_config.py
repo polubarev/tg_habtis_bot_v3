@@ -34,6 +34,9 @@ def _keyboard():
             InlineKeyboardButton("➖ Удалить", callback_data="habit_cfg:remove"),
         ],
         [
+            InlineKeyboardButton("📦 JSON", callback_data="habit_cfg:json"),
+        ],
+        [
             InlineKeyboardButton("↩️ Сбросить", callback_data="habit_cfg:reset"),
             InlineKeyboardButton("✖ Отмена", callback_data="habit_cfg:cancel"),
         ],
@@ -92,11 +95,16 @@ async def handle_habits_config_callback(update: Update, context: ContextTypes.DE
                 session.temp_data.update({"habit_add_stage": "name", "habit_new_field": {}})
                 await session_repo.save(session)
             await query.edit_message_text(
-                _messages(update)["habit_add_name_prompt"] + "\n\n" + _messages(update)["habit_add_json_example"],
+                _messages(update)["habit_add_name_prompt"],
                 parse_mode=ParseMode.MARKDOWN,
             )
         elif action == "remove":
             await query.edit_message_text(_messages(update)["habit_remove_prompt"])
+        elif action == "json":
+            await query.edit_message_text(
+                _messages(update)["habit_json_prompt"],
+                parse_mode=ParseMode.MARKDOWN,
+            )
         elif action == "reset":
             if profile and user_repo:
                 profile.habit_schema = DEFAULT_HABIT_SCHEMA
@@ -134,6 +142,101 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
     if session is None or session.state != ConversationState.CONFIG_EDITING_HABITS:
         return False
 
+    def _parse_single_field(data):
+        if not isinstance(data, dict):
+            return None
+        name = str(data.get("name", "")).strip()
+        if not name or " " in name:
+            return None
+
+        def _map_type(t):
+            t_str = str(t).strip().lower()
+            if t_str in {"int", "integer"}:
+                return "integer"
+            if t_str in {"float", "double", "number"}:
+                return "number"
+            if t_str in {"bool", "boolean"}:
+                return "boolean"
+            if t_str in {"string", "text", ""}:
+                return "string"
+            if t_str == "null":
+                return "null"
+            return None
+
+        type_spec = data.get("type", "string")
+        nullable = False
+        base_type = None
+        type_value = None
+        if isinstance(type_spec, list):
+            mapped = []
+            for item in type_spec:
+                m = _map_type(item)
+                if not m:
+                    return None
+                mapped.append(m)
+            if "null" in mapped:
+                nullable = True
+                mapped = [t for t in mapped if t != "null"]
+            if len(mapped) != 1:
+                return None
+            base_type = mapped[0]
+            type_value = [base_type, "null"] if nullable else base_type
+        else:
+            mapped = _map_type(type_spec)
+            if not mapped or mapped == "null":
+                return None
+            base_type = mapped
+            type_value = mapped
+
+        minimum = data.get("minimum")
+        maximum = data.get("maximum")
+        if base_type in {"integer", "number"}:
+            try:
+                minimum = (
+                    int(minimum)
+                    if minimum is not None and base_type == "integer"
+                    else float(minimum)
+                    if minimum is not None
+                    else None
+                )
+                maximum = (
+                    int(maximum)
+                    if maximum is not None and base_type == "integer"
+                    else float(maximum)
+                    if maximum is not None
+                    else None
+                )
+            except Exception:
+                return None
+            if minimum is not None and maximum is not None and maximum < minimum:
+                return None
+        else:
+            minimum = None
+            maximum = None
+        cfg = HabitFieldConfig(
+            type=type_value,
+            description=str(data.get("description") or name),
+            minimum=minimum,
+            maximum=maximum,
+            required=bool(data.get("required", True)),
+        )
+        return name, cfg
+
+    def _try_parse_json(raw: str):
+        try:
+            data = json.loads(raw)
+        except Exception:
+            return None
+        if isinstance(data, list):
+            parsed = []
+            for item in data:
+                result = _parse_single_field(item)
+                if not result:
+                    return None
+                parsed.append(result)
+            return parsed
+        return [_parse_single_field(data)]
+
     action = (session.temp_data or {}).get("habit_action")
     profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
     if profile is None:
@@ -151,6 +254,54 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
             reply_markup=build_main_menu_keyboard(_get_lang(update))
         )
         return True
+    if action == "json":
+        parsed = _try_parse_json(text)
+        if not parsed or not all(parsed):
+            await update.message.reply_text(
+                _messages(update)["habit_json_prompt"],
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            return True
+        added, skipped = [], []
+        for name, cfg in parsed:
+            if not name or name in BASE_HABIT_FIELDS or name in profile.habit_schema.fields:
+                skipped.append(name or "?")
+                continue
+            profile.habit_schema.fields[name] = cfg
+            added.append(name)
+        await user_repo.update(profile)
+        session.state = ConversationState.IDLE
+        session.temp_data = {}
+        if session_repo:
+            await session_repo.save(session)
+        if added:
+            msg = _messages(update)["habit_json_result_added"].format(added=", ".join(added))
+        else:
+            msg = _messages(update)["habit_json_result_none"]
+        if skipped:
+            msg += "\n" + _messages(update)["habit_json_result_skipped"].format(skipped=", ".join(skipped))
+        await update.message.reply_text(msg, reply_markup=build_main_menu_keyboard(_get_lang(update)))
+        return True
+    if action == "remove":
+        name = text.strip()
+        if not name:
+            await update.message.reply_text(_messages(update)["habit_remove_prompt"])
+            return True
+        removed = False
+        if name in profile.habit_schema.fields:
+            profile.habit_schema.fields.pop(name, None)
+            removed = True
+            await user_repo.update(profile)
+        await update.message.reply_text(
+            _messages(update)["habit_removed"].format(name=name) if removed else _messages(update)["habit_remove_prompt"]
+        )
+        # Reset state after a remove attempt to avoid loops.
+        session.state = ConversationState.IDLE
+        session.temp_data = {}
+        if session_repo:
+            await session_repo.save(session)
+        return True
+
     if action == "add":
         temp = session.temp_data or {}
         stage = temp.get("habit_add_stage") or "name"
@@ -162,112 +313,8 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
             if session_repo:
                 await session_repo.save(session)
 
-        def _parse_single_field(data):
-            if not isinstance(data, dict):
-                return None
-            name = str(data.get("name", "")).strip()
-            if not name or " " in name:
-                return None
-
-            def _map_type(t):
-                t_str = str(t).strip().lower()
-                if t_str in {"int", "integer"}:
-                    return "integer"
-                if t_str in {"float", "double", "number"}:
-                    return "number"
-                if t_str in {"bool", "boolean"}:
-                    return "boolean"
-                if t_str in {"string", "text", ""}:
-                    return "string"
-                if t_str == "null":
-                    return "null"
-                return None
-
-            type_spec = data.get("type", "string")
-            nullable = False
-            base_type = None
-            type_value = None
-            if isinstance(type_spec, list):
-                mapped = []
-                for item in type_spec:
-                    m = _map_type(item)
-                    if not m:
-                        return None
-                    mapped.append(m)
-                if "null" in mapped:
-                    nullable = True
-                    mapped = [t for t in mapped if t != "null"]
-                if len(mapped) != 1:
-                    return None
-                base_type = mapped[0]
-                type_value = [base_type, "null"] if nullable else base_type
-            else:
-                mapped = _map_type(type_spec)
-                if not mapped or mapped == "null":
-                    return None
-                base_type = mapped
-                type_value = mapped
-
-            minimum = data.get("minimum")
-            maximum = data.get("maximum")
-            if base_type in {"integer", "number"}:
-                try:
-                    minimum = (
-                        int(minimum)
-                        if minimum is not None and base_type == "integer"
-                        else float(minimum)
-                        if minimum is not None
-                        else None
-                    )
-                    maximum = (
-                        int(maximum)
-                        if maximum is not None and base_type == "integer"
-                        else float(maximum)
-                        if maximum is not None
-                        else None
-                    )
-                except Exception:
-                    return None
-                if minimum is not None and maximum is not None and maximum < minimum:
-                    return None
-            else:
-                minimum = None
-                maximum = None
-            cfg = HabitFieldConfig(
-                type=type_value,
-                description=str(data.get("description") or name),
-                minimum=minimum,
-                maximum=maximum,
-                required=bool(data.get("required", True)),
-            )
-            return name, cfg
-
-        def _try_parse_json(raw: str):
-            try:
-                data = json.loads(raw)
-            except Exception:
-                return None
-            if isinstance(data, list):
-                parsed = []
-                for item in data:
-                    result = _parse_single_field(item)
-                    if not result:
-                        return None
-                    parsed.append(result)
-                return parsed
-            return [_parse_single_field(data)]
-
         # Stage 1: field name
         if stage == "name":
-            parsed = _try_parse_json(text)
-            if parsed and all(parsed):
-                for name, cfg in parsed:
-                    profile.habit_schema.fields[name] = cfg
-                await user_repo.update(profile)
-                added_names = ", ".join(name for name, _ in parsed)
-                await update.message.reply_text(_messages(update)["habit_added"].format(name=added_names))
-                await _finish_and_reset()
-                return True
             name = text.strip()
             if not name:
                 await update.message.reply_text(_messages(update)["habit_add_name_prompt"], parse_mode=ParseMode.MARKDOWN)

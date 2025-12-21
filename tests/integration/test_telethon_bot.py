@@ -51,6 +51,22 @@ async def _next_response(conv, attempts: int = 3):
     return None
 
 
+def _button_text(message, row: int, col: int = 0, fallbacks: list[str] | None = None) -> str:
+    """Extract reply keyboard button text or return the first fallback."""
+
+    markup = getattr(message, "reply_markup", None)
+    rows = getattr(markup, "rows", None)
+    if rows and 0 <= row < len(rows):
+        buttons = getattr(rows[row], "buttons", None)
+        if buttons and 0 <= col < len(buttons):
+            text = getattr(buttons[col], "text", None)
+            if text:
+                return text
+    if fallbacks:
+        return fallbacks[0]
+    raise AssertionError("No button text found and no fallbacks provided")
+
+
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_start_and_help_responses(telethon_client, bot_username):
@@ -110,7 +126,17 @@ async def test_habits_flow_returns_draft(telethon_client, bot_username):
     confirm_reply = None
     try:
         async with telethon_client.conversation(bot_username, timeout=CONFIG.timeout) as conv:
-            await conv.send_message("/habits")
+            await conv.send_message("/start")
+            start_msg = await _next_response(conv)
+            # Use the first main-menu button (Habits) to mimic user tapping the keyboard
+            habits_button = _button_text(
+                start_msg,
+                row=0,
+                col=0,
+                fallbacks=["📝 Habits / Day", "📝 Привычки / День"],
+            )
+
+            await conv.send_message(habits_button)
             await _next_response(conv)  # prompt for date
 
             await conv.send_message("2024-01-01")
@@ -141,3 +167,40 @@ async def test_habits_flow_returns_draft(telethon_client, bot_username):
         or "черновик" in confirm_text.lower()
     ), f"Unexpected draft confirmation: {confirm_text!r}"
     assert "тестовый" in confirm_text.lower() or "bot" in confirm_text.lower()
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_questions_menu_via_buttons(telethon_client, bot_username):
+    """Config -> Questions should be reachable via reply keyboard buttons."""
+
+    try:
+        async with telethon_client.conversation(bot_username, timeout=CONFIG.timeout) as conv:
+            await conv.send_message("/start")
+            start_msg = await _next_response(conv)
+
+            config_button = _button_text(
+                start_msg,
+                row=2,
+                col=0,
+                fallbacks=["⚙️ Settings", "⚙️ Настройки", "⚙️ Config"],
+            )
+            await conv.send_message(config_button)
+            config_msg = await _next_response(conv)
+
+            questions_button = _button_text(
+                config_msg,
+                row=1,
+                col=1,
+                fallbacks=["❓ Questions", "❓ Вопросы", "🤔 Reflection"],
+            )
+            await conv.send_message(questions_button)
+            questions_reply = await _next_response(conv)
+    except asyncio.TimeoutError:
+        pytest.skip("Bot did not respond within timeout")
+    except RPCError as exc:
+        pytest.skip(f"Telegram RPC error: {exc}")
+
+    assert questions_reply, "Questions menu did not reply"
+    lower = (questions_reply.raw_text or "").lower()
+    assert "current questions" in lower or "текущие вопросы" in lower, lower

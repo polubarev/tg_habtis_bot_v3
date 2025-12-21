@@ -27,7 +27,7 @@ from src.services.telegram.handlers.dream import dream_command, handle_dream_con
 from src.services.telegram.handlers.thought import thought_command, handle_thought_confirm
 from src.services.telegram.handlers.reflect import reflect_command, handle_reflect_confirm
 from src.services.telegram.handlers.help import help_command
-from src.services.telegram.handlers.config import config_command
+from src.services.telegram.handlers.config import config_command, handle_reset_confirm
 from src.services.telegram.handlers.router import route_text, route_voice
 from src.services.telegram.handlers.habits_config import habits_config_command, handle_habits_config_callback
 from src.services.telegram.handlers.questions import questions_command, handle_questions_callback
@@ -106,6 +106,9 @@ class TelegramBotService:
         )
         self.app.add_handler(
             CallbackQueryHandler(handle_questions_callback, pattern="^q_cfg:")
+        )
+        self.app.add_handler(
+            CallbackQueryHandler(handle_reset_confirm, pattern="^reset_confirm:")
         )
         self.app.add_handler(
             CallbackQueryHandler(handle_dream_confirm, pattern="^dream_confirm:")
