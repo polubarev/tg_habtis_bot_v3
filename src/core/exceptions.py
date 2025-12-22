@@ -27,6 +27,22 @@ class SheetValidationError(BotException):
     """Raised when sheet structure is invalid."""
 
 
+class SheetAccessError(BotException):
+    """Raised when Google Sheet is not accessible or writable."""
+
+
+class SheetWriteError(BotException):
+    """Raised when Google Sheet write fails for non-permission reasons."""
+
+
+class ExternalTimeoutError(BotException):
+    """Raised when an external service times out."""
+
+
+class ExternalResponseError(BotException):
+    """Raised when an external service returns an invalid response."""
+
+
 class TranscriptionError(BotException):
     """Raised when audio transcription fails."""
 

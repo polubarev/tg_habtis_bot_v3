@@ -10,6 +10,7 @@ from src.models.session import ConversationState, SessionData
 from src.services.telegram.keyboards import build_confirmation_keyboard, build_date_keyboard
 from src.utils.date_parser import parse_relative_date
 from src.models.entry import HabitEntry
+from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.models.enums import InputType
 from src.services.llm.extractors.habit_extractor import HabitExtractor
 from src.services.telegram.utils import resolve_user_timezone
@@ -198,6 +199,14 @@ async def handle_habits_text(
         try:
             extractor = HabitExtractor(llm_client)
             extraction = await extractor.extract(combined_text, language=_get_lang(update), schema=habit_schema or None)
+        except ExternalTimeoutError:
+            if update.message:
+                await update.message.reply_text(_messages(update)["external_timeout_error"])
+            extraction = {}
+        except ExternalResponseError:
+            if update.message:
+                await update.message.reply_text(_messages(update)["external_response_error"])
+            extraction = {}
         except Exception:
             extraction = {}
     else:
@@ -297,7 +306,29 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
                 input_type=InputType(session.pending_entry.get("input_type") or InputType.TEXT),
                 created_at=created_at,
             )
-            await sheets_client.append_habit_entry(sheet_id, field_order, entry)
+            try:
+                await sheets_client.append_habit_entry(sheet_id, field_order, entry)
+            except SheetAccessError:
+                await query.edit_message_text(_messages(update)["sheet_permission_error"])
+                session.reset()
+                if session_repo:
+                    await session_repo.save(session)
+                _safe_answer(query)
+                return
+            except ExternalTimeoutError:
+                await query.edit_message_text(_messages(update)["external_timeout_error"])
+                session.reset()
+                if session_repo:
+                    await session_repo.save(session)
+                _safe_answer(query)
+                return
+            except SheetWriteError:
+                await query.edit_message_text(_messages(update)["sheet_write_error"])
+                session.reset()
+                if session_repo:
+                    await session_repo.save(session)
+                _safe_answer(query)
+                return
             await query.edit_message_reply_markup(reply_markup=None)
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,

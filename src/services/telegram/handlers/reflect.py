@@ -6,6 +6,7 @@ from telegram.ext import ContextTypes
 
 from src.config.constants import DEFAULT_REFLECTION_QUESTIONS, MESSAGES_EN, MESSAGES_RU
 from src.models.entry import ReflectionEntry
+from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.models.user import CustomQuestion
 from src.models.session import ConversationState, SessionData
 from src.services.telegram.keyboards import build_confirmation_keyboard
@@ -88,6 +89,12 @@ async def handle_reflect_text(update: Update, context: ContextTypes.DEFAULT_TYPE
         try:
             extractor = ReflectionExtractor(llm_client)
             answers = await extractor.extract(text, questions, language=lang)
+        except ExternalTimeoutError:
+            await update.message.reply_text(_messages(update)["external_timeout_error"])
+            answers = {}
+        except ExternalResponseError:
+            await update.message.reply_text(_messages(update)["external_response_error"])
+            answers = {}
         except Exception:
             answers = {}
 
@@ -148,7 +155,35 @@ async def handle_reflect_confirm(update: Update, context: ContextTypes.DEFAULT_T
         sheet_id = profile.sheet_id if profile else None
         if sheet_id and sheets_client:
             entry = ReflectionEntry(**session.pending_entry)
-            await sheets_client.append_reflection_entry(sheet_id, entry)
+            try:
+                await sheets_client.append_reflection_entry(sheet_id, entry)
+            except SheetAccessError:
+                await query.edit_message_text(_messages(update)["sheet_permission_error"])
+                session.state = ConversationState.IDLE
+                session.pending_entry = None
+                session.reflection_answers = {}
+                if session_repo:
+                    await session_repo.save(session)
+                await query.answer()
+                return
+            except ExternalTimeoutError:
+                await query.edit_message_text(_messages(update)["external_timeout_error"])
+                session.state = ConversationState.IDLE
+                session.pending_entry = None
+                session.reflection_answers = {}
+                if session_repo:
+                    await session_repo.save(session)
+                await query.answer()
+                return
+            except SheetWriteError:
+                await query.edit_message_text(_messages(update)["sheet_write_error"])
+                session.state = ConversationState.IDLE
+                session.pending_entry = None
+                session.reflection_answers = {}
+                if session_repo:
+                    await session_repo.save(session)
+                await query.answer()
+                return
             await query.edit_message_reply_markup(reply_markup=None)
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,

@@ -99,7 +99,24 @@ MESSAGES_RU = {
     "confirm_generic": "Проверь и подтверди:\n```json\n{preview}\n```",
     "error_occurred": "⚠ Произошла ошибка. Попробуй ещё раз.",
     "sheet_not_configured": "⚠ Сначала подключи Google Sheet.",
-    "ask_sheet": "Отправь ссылку или ID Google Sheets, куда писать данные.",
+    "ask_sheet": (
+        "Отправь ссылку или ID Google Sheets, куда писать данные.\n"
+        "Требуемый доступ: \"Общий доступ → Ограничен\" и дать редактора боту."
+    ),
+    "sheet_permission_error": (
+        "⚠ Нет доступа на запись в таблицу. "
+        "Включи \"Общий доступ → Ограничен\" и дай права редактора боту."
+    ),
+    "sheet_write_error": (
+        "⚠ Не удалось записать в таблицу. Проверь доступ и попробуй ещё раз."
+    ),
+    "external_timeout_error": (
+        "⚠ Сервис не ответил вовремя. Попробуй ещё раз через минуту."
+    ),
+    "external_response_error": (
+        "⚠ Получен некорректный ответ от сервиса. Попробуй ещё раз."
+    ),
+    "voice_transcription_error": "⚠ Не удалось распознать голос. Отправь текст.",
     "sheet_saved": "✅ Гугл-таблица сохранена.",
     "config_cancelled": "Настройка отменена.",
     "dream_prompt": "Опиши свой сон текстом или голосом.",
@@ -241,7 +258,18 @@ MESSAGES_EN = {
     "confirm_generic": "Review and confirm:\n```json\n{preview}\n```",
     "error_occurred": "⚠ An error occurred. Please try again.",
     "sheet_not_configured": "⚠ Please configure Google Sheet first.",
-    "ask_sheet": "Send a Google Sheet link or ID to store your data.",
+    "ask_sheet": (
+        "Send a Google Sheet link or ID to store your data.\n"
+        "Required sharing: \"General access → Restricted\" and grant the bot Editor access."
+    ),
+    "sheet_permission_error": (
+        "⚠ I can’t write to this sheet. "
+        "Set \"General access → Restricted\" and grant the bot Editor access."
+    ),
+    "sheet_write_error": "⚠ Couldn't write to the sheet. Check access and try again.",
+    "external_timeout_error": "⚠ The service timed out. Please try again in a minute.",
+    "external_response_error": "⚠ The service returned an invalid response. Please try again.",
+    "voice_transcription_error": "⚠ Couldn't transcribe the audio. Please send text.",
     "sheet_saved": "✅ Google Sheet saved.",
     "config_cancelled": "Setup cancelled.",
     "dream_prompt": "Describe your dream (text or voice).",

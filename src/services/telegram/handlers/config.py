@@ -6,6 +6,7 @@ from telegram.ext import ContextTypes
 from src.services.telegram.keyboards import build_main_menu_keyboard, build_confirmation_keyboard
 
 from src.config.constants import MESSAGES_EN, MESSAGES_RU
+from src.core.exceptions import ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.models.session import ConversationState, SessionData
 from src.models.user import UserProfile
 from zoneinfo import ZoneInfo
@@ -64,18 +65,30 @@ async def config_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
     sheets_client = context.application.bot_data.get("sheets_client")
     service_email = getattr(sheets_client, "service_email", None)
+    is_ru = _get_lang(update) == "ru"
 
     if profile and profile.sheet_id:
-        msg = "Sheet already connected. Do you want to change it? Send new link or /cancel."
+        if is_ru:
+            msg = "Таблица уже подключена. Хочешь заменить? Отправь новую ссылку или /cancel."
+            msg += "\nТребуемый доступ: \"Общий доступ → Ограничен\" и дать редактора боту."
+        else:
+            msg = "Sheet already connected. Do you want to change it? Send new link or /cancel."
+            msg += "\nRequired sharing: \"General access → Restricted\" and grant the bot Editor access."
         if service_email:
-            msg += f"\n⚠️ Share the sheet with {service_email} (Editor) if not already."
+            if is_ru:
+                msg += f"\nДай доступ редактора: {service_email}."
+            else:
+                msg += f"\nGrant Editor access to: {service_email}."
         await update.message.reply_text(msg)
     else:
         msg_parts = []
         if service_email:
-            msg_parts.append(f"⚠️ Сначала дай доступ Editor: {service_email}")
+            if is_ru:
+                msg_parts.append(f"⚠️ Дай доступ редактора: {service_email}.")
+            else:
+                msg_parts.append(f"⚠️ Grant Editor access to: {service_email}.")
         msg_parts.append(_messages(update)["ask_sheet"])
-        example_label = "Пример" if _get_lang(update) == "ru" else "Example"
+        example_label = "Пример" if is_ru else "Example"
         msg_parts.append(f"{example_label}: https://docs.google.com/spreadsheets/d/1AbCDefGh1234567890")
         msg = "\n".join(msg_parts)
         await update.message.reply_text(msg)
@@ -125,21 +138,24 @@ async def handle_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
             )
         profile.sheet_id = sheet_id
         profile.sheet_url = cleaned_url
-        profile.sheets_validated = True
+        profile.sheets_validated = False
         await user_repo.update(profile)
 
     if sheets_client:
         try:
             await sheets_client.ensure_tabs(sheet_id)
-        except Exception as exc:  # pragma: no cover - external dependency
-            msg = str(exc)
-            service_email = getattr(sheets_client, "service_email", "")
-            if "permission" in msg.lower():
-                await update.message.reply_text(
-                    f"Нет доступа к таблице. Поделись ей с {service_email} (Editor) и попробуй снова."
-                )
-                return True
-            raise
+        except SheetAccessError:  # pragma: no cover - external dependency
+            await update.message.reply_text(_messages(update)["sheet_permission_error"])
+            return True
+        except ExternalTimeoutError:  # pragma: no cover - external dependency
+            await update.message.reply_text(_messages(update)["external_timeout_error"])
+            return True
+        except SheetWriteError:  # pragma: no cover - external dependency
+            await update.message.reply_text(_messages(update)["sheet_write_error"])
+            return True
+        if user_repo and profile:
+            profile.sheets_validated = True
+            await user_repo.update(profile)
 
     if session:
         session.state = ConversationState.IDLE

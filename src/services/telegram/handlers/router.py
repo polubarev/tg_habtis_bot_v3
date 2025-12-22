@@ -15,6 +15,7 @@ from src.services.transcription.whisper import WhisperClient
 from src.models.session import ConversationState
 from src.models.enums import InputType
 from src.config.constants import MESSAGES_EN, MESSAGES_RU, BUTTONS_RU, BUTTONS_EN
+from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, TranscriptionError
 
 
 def _messages(update: Update):
@@ -153,8 +154,16 @@ async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     voice = update.message.voice
     tg_file = await context.bot.get_file(voice.file_id)
     data = await tg_file.download_as_bytearray()
-    result = await whisper_client.transcribe(bytes(data), format="ogg")
+    try:
+        result = await whisper_client.transcribe(bytes(data), format="ogg")
+    except ExternalTimeoutError:
+        await update.message.reply_text(_messages(update)["external_timeout_error"])
+        return
+    except (ExternalResponseError, TranscriptionError):
+        await update.message.reply_text(_messages(update)["voice_transcription_error"])
+        return
     if not result.text:
+        await update.message.reply_text(_messages(update)["voice_transcription_error"])
         return
     # Echo transcription to user
     await update.message.reply_text(_messages(update)["voice_transcribed"].format(text=result.text))

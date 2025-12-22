@@ -1,12 +1,14 @@
 
+import asyncio
 from typing import Any, Dict, Optional
 import json
 
+import httpx
 from pydantic import create_model
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from src.config.constants import DEFAULT_HABIT_SCHEMA
-from src.core.exceptions import ExtractionError
+from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, ExtractionError
 from src.core.logging import get_logger
 from src.models.habit import HabitSchema
 from src.services.llm.client import LLMClient
@@ -82,6 +84,13 @@ class HabitExtractor:
         except Exception:
             return None
 
+    @staticmethod
+    def _is_timeout_error(exc: Exception) -> bool:
+        if isinstance(exc, (TimeoutError, asyncio.TimeoutError, httpx.TimeoutException)):
+            return True
+        message = str(exc).lower()
+        return "timeout" in message or "timed out" in message
+
     async def extract(self, raw_text: str, language: str = "ru", schema=DEFAULT_HABIT_SCHEMA) -> Dict[str, Any]:
         if self.client._model is None:
             raise ExtractionError("LLM client is not configured")
@@ -108,17 +117,17 @@ class HabitExtractor:
         try:
             chain = self.client.with_structured_output(structured_model or dict)
             messages = [
-                    SystemMessage(content=HABIT_EXTRACTION_SYSTEM_PROMPT),
-                    HumanMessage(
-                        content=(
-                            f"Language: {language}\n"
-                            "Schema (user-defined fields with descriptions):\n"
-                            f"{json.dumps(fields_for_prompt, ensure_ascii=False)}\n"
-                            f"User Raw record:\n{raw_text}\n"
-                            "Return ONLY the structured JSON response matching the schema."
-                        )
-                    ),
-                ]
+                SystemMessage(content=HABIT_EXTRACTION_SYSTEM_PROMPT),
+                HumanMessage(
+                    content=(
+                        f"Language: {language}\n"
+                        "Schema (user-defined fields with descriptions):\n"
+                        f"{json.dumps(fields_for_prompt, ensure_ascii=False)}\n"
+                        f"User Raw record:\n{raw_text}\n"
+                        "Return ONLY the structured JSON response matching the schema."
+                    )
+                ),
+            ]
             logger.info(messages)
             result = await chain.ainvoke(messages)
 
@@ -133,8 +142,15 @@ class HabitExtractor:
                     "preview": str(payload)[:500],
                 },
             )
+            if not isinstance(payload, dict):
+                raise ExternalResponseError("LLM response was not a JSON object")
             return payload
+        except ExternalTimeoutError:
+            raise
+        except ExternalResponseError:
+            raise
         except Exception as exc:
             logger.warning("Habit extraction failed", error=str(exc))
-            # fallback minimal structure
-            return {"raw_record": raw_text, "diary": raw_text}
+            if self._is_timeout_error(exc):
+                raise ExternalTimeoutError("LLM request timed out") from exc
+            raise ExternalResponseError("LLM request failed") from exc

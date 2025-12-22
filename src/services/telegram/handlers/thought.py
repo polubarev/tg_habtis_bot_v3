@@ -6,6 +6,7 @@ from telegram.ext import ContextTypes
 
 from src.config.constants import MESSAGES_EN, MESSAGES_RU
 from src.models.entry import ThoughtEntry
+from src.core.exceptions import ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.models.session import ConversationState, SessionData
 from src.services.telegram.keyboards import build_confirmation_keyboard
 from src.services.telegram.utils import resolve_user_timezone
@@ -95,7 +96,32 @@ async def handle_thought_confirm(update: Update, context: ContextTypes.DEFAULT_T
         sheet_id = profile.sheet_id if profile else None
         if sheet_id and sheets_client:
             entry = ThoughtEntry(**session.pending_entry)
-            await sheets_client.append_thought_entry(sheet_id, entry)
+            try:
+                await sheets_client.append_thought_entry(sheet_id, entry)
+            except SheetAccessError:
+                await query.edit_message_text(_messages(update)["sheet_permission_error"])
+                session.state = ConversationState.IDLE
+                session.pending_entry = None
+                if session_repo:
+                    await session_repo.save(session)
+                await query.answer()
+                return
+            except ExternalTimeoutError:
+                await query.edit_message_text(_messages(update)["external_timeout_error"])
+                session.state = ConversationState.IDLE
+                session.pending_entry = None
+                if session_repo:
+                    await session_repo.save(session)
+                await query.answer()
+                return
+            except SheetWriteError:
+                await query.edit_message_text(_messages(update)["sheet_write_error"])
+                session.state = ConversationState.IDLE
+                session.pending_entry = None
+                if session_repo:
+                    await session_repo.save(session)
+                await query.answer()
+                return
             await query.edit_message_reply_markup(reply_markup=None)
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,

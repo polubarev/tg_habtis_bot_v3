@@ -1,7 +1,10 @@
-from typing import Dict, List, Any
+import asyncio
+from typing import Any, Dict, List
 
+import httpx
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
+from src.core.exceptions import ExternalResponseError, ExternalTimeoutError
 from src.core.logging import get_logger
 from src.services.llm.client import LLMClient
 from src.services.llm.prompts.reflections import REFLECTION_EXTRACTION_SYSTEM_PROMPT
@@ -14,6 +17,13 @@ class ReflectionExtractor:
 
     def __init__(self, client: LLMClient):
         self.client = client
+
+    @staticmethod
+    def _is_timeout_error(exc: Exception) -> bool:
+        if isinstance(exc, (TimeoutError, asyncio.TimeoutError, httpx.TimeoutException)):
+            return True
+        message = str(exc).lower()
+        return "timeout" in message or "timed out" in message
 
     async def extract(self, raw_text: str, questions: List[str], language: str = "en") -> Dict[str, str]:
         if self.client._model is None:
@@ -65,16 +75,23 @@ class ReflectionExtractor:
                     try:
                         snippet = text_content[text_content.find("{") : text_content.rfind("}") + 1]
                         payload = json.loads(snippet)
-                    except Exception:
-                        payload = {}
+                    except Exception as exc:
+                        raise ExternalResponseError("Invalid reflection response") from exc
                 else:
-                    payload = {}
+                    raise ExternalResponseError("Invalid reflection response")
             logger.info(
                 "Reflection LLM response",
                 extra={"keys": list(payload.keys()) if isinstance(payload, dict) else None},
             )
-            return payload if isinstance(payload, dict) else {}
+            if not isinstance(payload, dict):
+                raise ExternalResponseError("Reflection response was not a JSON object")
+            return payload
+        except ExternalTimeoutError:
+            raise
+        except ExternalResponseError:
+            raise
         except Exception as exc:
             logger.warning("Reflection extraction failed", error=str(exc))
-            # fallback: empty answers
-            return {q: "" for q in questions}
+            if self._is_timeout_error(exc):
+                raise ExternalTimeoutError("Reflection request timed out") from exc
+            raise ExternalResponseError("Reflection request failed") from exc
