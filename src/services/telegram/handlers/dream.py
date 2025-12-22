@@ -1,15 +1,20 @@
 from datetime import datetime
+import asyncio
 import json
 
 from telegram import Update
 from telegram.ext import ContextTypes
 
 from src.config.constants import MESSAGES_EN, MESSAGES_RU
+from src.config.settings import get_settings
 from src.models.entry import DreamEntry
 from src.core.exceptions import ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.models.session import ConversationState, SessionData
 from src.services.telegram.keyboards import build_confirmation_keyboard
 from src.services.telegram.utils import resolve_user_timezone
+
+
+_OP_TIMEOUT = get_settings().operation_timeout_seconds
 
 
 def _messages(update: Update):
@@ -24,6 +29,13 @@ def _get_repos(context: ContextTypes.DEFAULT_TYPE):
         context.application.bot_data.get("sheets_client"),
         context.application.bot_data.get("whisper_client"),
     )
+
+
+async def _safe_edit_message(query, text: str) -> None:
+    try:
+        await query.edit_message_text(text)
+    except Exception:
+        return None
 
 
 async def dream_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -99,9 +111,21 @@ async def handle_dream_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
         if sheet_id and sheets_client:
             entry = DreamEntry(**session.pending_entry)
             try:
-                await sheets_client.append_dream_entry(sheet_id, entry)
+                await _safe_edit_message(query, _messages(update)["saving_data"])
+                await asyncio.wait_for(
+                    sheets_client.append_dream_entry(sheet_id, entry),
+                    timeout=_OP_TIMEOUT,
+                )
             except SheetAccessError:
-                await query.edit_message_text(_messages(update)["sheet_permission_error"])
+                await _safe_edit_message(query, _messages(update)["sheet_permission_error"])
+                session.state = ConversationState.IDLE
+                session.pending_entry = None
+                if session_repo:
+                    await session_repo.save(session)
+                await query.answer()
+                return
+            except asyncio.TimeoutError:
+                await _safe_edit_message(query, _messages(update)["external_timeout_error"])
                 session.state = ConversationState.IDLE
                 session.pending_entry = None
                 if session_repo:
@@ -109,7 +133,7 @@ async def handle_dream_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
                 await query.answer()
                 return
             except ExternalTimeoutError:
-                await query.edit_message_text(_messages(update)["external_timeout_error"])
+                await _safe_edit_message(query, _messages(update)["external_timeout_error"])
                 session.state = ConversationState.IDLE
                 session.pending_entry = None
                 if session_repo:
@@ -117,14 +141,17 @@ async def handle_dream_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
                 await query.answer()
                 return
             except SheetWriteError:
-                await query.edit_message_text(_messages(update)["sheet_write_error"])
+                await _safe_edit_message(query, _messages(update)["sheet_write_error"])
                 session.state = ConversationState.IDLE
                 session.pending_entry = None
                 if session_repo:
                     await session_repo.save(session)
                 await query.answer()
                 return
-            await query.edit_message_reply_markup(reply_markup=None)
+            try:
+                await query.edit_message_reply_markup(reply_markup=None)
+            except Exception:
+                pass
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=_messages(update)["dream_saved"]

@@ -98,7 +98,7 @@ class SheetsClient(ISheetsClient):
             self._raise_mapped_error(exc)
             raise
 
-    async def ensure_tabs(self, sheet_id: str) -> None:
+    def _ensure_tabs_sync(self, sheet_id: str) -> None:
         try:
             ss = self._open(sheet_id)
             existing = {ws.title: ws for ws in ss.worksheets()}
@@ -120,7 +120,10 @@ class SheetsClient(ISheetsClient):
                         # migrate legacy raw_diary -> raw_record if needed
                         migrated = [("raw_record" if col == "raw_diary" else col) for col in current]
                         # migrate reflection date -> timestamp
-                        migrated = [("timestamp" if (title == "Reflections" and col == "date") else col) for col in migrated]
+                        migrated = [
+                            ("timestamp" if (title == "Reflections" and col == "date") else col)
+                            for col in migrated
+                        ]
                         missing = [col for col in header if col not in migrated]
                         # For reflections, enforce the canonical two columns to avoid drift
                         if title == "Reflections":
@@ -133,9 +136,17 @@ class SheetsClient(ISheetsClient):
             self._raise_mapped_error(exc)
             raise
 
-    async def append_habit_entry(self, sheet_id: str, field_order: list[str], entry: HabitEntry) -> None:
+    async def ensure_tabs(self, sheet_id: str) -> None:
+        await asyncio.to_thread(self._ensure_tabs_sync, sheet_id)
+
+    def _append_habit_entry_sync(
+        self,
+        sheet_id: str,
+        field_order: list[str],
+        entry: HabitEntry,
+    ) -> None:
         try:
-            await self.ensure_tabs(sheet_id)
+            self._ensure_tabs_sync(sheet_id)
             ss = self._open(sheet_id)
             ws = ss.worksheet("Habits")
             self._ensure_write_access(ws)
@@ -189,9 +200,12 @@ class SheetsClient(ISheetsClient):
             self._raise_mapped_error(exc)
             raise
 
-    async def append_dream_entry(self, sheet_id: str, entry: DreamEntry) -> None:
+    async def append_habit_entry(self, sheet_id: str, field_order: list[str], entry: HabitEntry) -> None:
+        await asyncio.to_thread(self._append_habit_entry_sync, sheet_id, field_order, entry)
+
+    def _append_dream_entry_sync(self, sheet_id: str, entry: DreamEntry) -> None:
         try:
-            await self.ensure_tabs(sheet_id)
+            self._ensure_tabs_sync(sheet_id)
             ss = self._open(sheet_id)
             ws = ss.worksheet("Dreams")
             self._ensure_write_access(ws)
@@ -204,9 +218,12 @@ class SheetsClient(ISheetsClient):
             self._raise_mapped_error(exc)
             raise
 
-    async def append_thought_entry(self, sheet_id: str, entry: ThoughtEntry) -> None:
+    async def append_dream_entry(self, sheet_id: str, entry: DreamEntry) -> None:
+        await asyncio.to_thread(self._append_dream_entry_sync, sheet_id, entry)
+
+    def _append_thought_entry_sync(self, sheet_id: str, entry: ThoughtEntry) -> None:
         try:
-            await self.ensure_tabs(sheet_id)
+            self._ensure_tabs_sync(sheet_id)
             ss = self._open(sheet_id)
             ws = ss.worksheet("Thoughts")
             self._ensure_write_access(ws)
@@ -219,9 +236,12 @@ class SheetsClient(ISheetsClient):
             self._raise_mapped_error(exc)
             raise
 
-    async def append_reflection_entry(self, sheet_id: str, entry) -> None:
+    async def append_thought_entry(self, sheet_id: str, entry: ThoughtEntry) -> None:
+        await asyncio.to_thread(self._append_thought_entry_sync, sheet_id, entry)
+
+    def _append_reflection_entry_sync(self, sheet_id: str, entry) -> None:
         try:
-            await self.ensure_tabs(sheet_id)
+            self._ensure_tabs_sync(sheet_id)
             ss = self._open(sheet_id)
             ws = ss.worksheet("Reflections")
             self._ensure_write_access(ws)
@@ -237,5 +257,8 @@ class SheetsClient(ISheetsClient):
                 value_input_option="USER_ENTERED",
             )
         except Exception as exc:
-            self._raise_access_error(exc)
+            self._raise_mapped_error(exc)
             raise
+
+    async def append_reflection_entry(self, sheet_id: str, entry) -> None:
+        await asyncio.to_thread(self._append_reflection_entry_sync, sheet_id, entry)

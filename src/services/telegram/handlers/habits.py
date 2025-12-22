@@ -1,4 +1,5 @@
 from datetime import date, datetime
+import asyncio
 import json
 from typing import Any, Dict
 
@@ -6,6 +7,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from src.config.constants import DEFAULT_HABIT_SCHEMA, HABITS_SHEET_COLUMNS, MESSAGES_EN, MESSAGES_RU
+from src.config.settings import get_settings
 from src.models.session import ConversationState, SessionData
 from src.services.telegram.keyboards import build_confirmation_keyboard, build_date_keyboard
 from src.utils.date_parser import parse_relative_date
@@ -17,6 +19,7 @@ from src.services.telegram.utils import resolve_user_timezone
 
 
 BASE_HABIT_FIELDS = set(HABITS_SHEET_COLUMNS)
+_OP_TIMEOUT = get_settings().operation_timeout_seconds
 
 
 def _get_lang(update: Update) -> str:
@@ -67,6 +70,15 @@ def _safe_answer(query) -> None:
 
     try:
         return query.answer()
+    except Exception:
+        return None
+
+
+async def _safe_edit_message(query, text: str) -> None:
+    """Best-effort edit for progress or error updates."""
+
+    try:
+        await query.edit_message_text(text)
     except Exception:
         return None
 
@@ -197,8 +209,17 @@ async def handle_habits_text(
     field_order = [f for f in schema_fields if f not in BASE_HABIT_FIELDS]
     if llm_client:
         try:
+            if update.message:
+                await update.message.reply_text(_messages(update)["processing"])
             extractor = HabitExtractor(llm_client)
-            extraction = await extractor.extract(combined_text, language=_get_lang(update), schema=habit_schema or None)
+            extraction = await asyncio.wait_for(
+                extractor.extract(combined_text, language=_get_lang(update), schema=habit_schema or None),
+                timeout=_OP_TIMEOUT,
+            )
+        except asyncio.TimeoutError:
+            if update.message:
+                await update.message.reply_text(_messages(update)["external_timeout_error"])
+            extraction = {}
         except ExternalTimeoutError:
             if update.message:
                 await update.message.reply_text(_messages(update)["external_timeout_error"])
@@ -274,6 +295,7 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
         profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
         sheet_id = profile.sheet_id if profile else None
         if sheet_id and sheets_client:
+            await _safe_edit_message(query, _messages(update)["saving_data"])
             field_order = (
                 [f for f in (profile.habit_schema.fields.keys()) if f not in base_fields]
                 if profile and profile.habit_schema and profile.habit_schema.fields
@@ -307,29 +329,42 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
                 created_at=created_at,
             )
             try:
-                await sheets_client.append_habit_entry(sheet_id, field_order, entry)
+                await asyncio.wait_for(
+                    sheets_client.append_habit_entry(sheet_id, field_order, entry),
+                    timeout=_OP_TIMEOUT,
+                )
             except SheetAccessError:
-                await query.edit_message_text(_messages(update)["sheet_permission_error"])
+                await _safe_edit_message(query, _messages(update)["sheet_permission_error"])
+                session.reset()
+                if session_repo:
+                    await session_repo.save(session)
+                _safe_answer(query)
+                return
+            except asyncio.TimeoutError:
+                await _safe_edit_message(query, _messages(update)["external_timeout_error"])
                 session.reset()
                 if session_repo:
                     await session_repo.save(session)
                 _safe_answer(query)
                 return
             except ExternalTimeoutError:
-                await query.edit_message_text(_messages(update)["external_timeout_error"])
+                await _safe_edit_message(query, _messages(update)["external_timeout_error"])
                 session.reset()
                 if session_repo:
                     await session_repo.save(session)
                 _safe_answer(query)
                 return
             except SheetWriteError:
-                await query.edit_message_text(_messages(update)["sheet_write_error"])
+                await _safe_edit_message(query, _messages(update)["sheet_write_error"])
                 session.reset()
                 if session_repo:
                     await session_repo.save(session)
                 _safe_answer(query)
                 return
-            await query.edit_message_reply_markup(reply_markup=None)
+            try:
+                await query.edit_message_reply_markup(reply_markup=None)
+            except Exception:
+                pass
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=_messages(update)["saved_success"]

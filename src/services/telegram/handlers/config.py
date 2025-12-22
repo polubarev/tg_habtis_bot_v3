@@ -1,3 +1,4 @@
+import asyncio
 import re
 
 from telegram import Update
@@ -6,6 +7,7 @@ from telegram.ext import ContextTypes
 from src.services.telegram.keyboards import build_main_menu_keyboard, build_confirmation_keyboard
 
 from src.config.constants import MESSAGES_EN, MESSAGES_RU
+from src.config.settings import get_settings
 from src.core.exceptions import ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.models.session import ConversationState, SessionData
 from src.models.user import UserProfile
@@ -18,6 +20,9 @@ def _get_lang(update: Update) -> str:
 
 def _messages(update: Update):
     return MESSAGES_RU if _get_lang(update) == "ru" else MESSAGES_EN
+
+
+_OP_TIMEOUT = get_settings().operation_timeout_seconds
 
 
 def _get_repos(context: ContextTypes.DEFAULT_TYPE):
@@ -143,9 +148,14 @@ async def handle_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     if sheets_client:
         try:
-            await sheets_client.ensure_tabs(sheet_id)
+            if update.message:
+                await update.message.reply_text(_messages(update)["processing"])
+            await asyncio.wait_for(sheets_client.ensure_tabs(sheet_id), timeout=_OP_TIMEOUT)
         except SheetAccessError:  # pragma: no cover - external dependency
             await update.message.reply_text(_messages(update)["sheet_permission_error"])
+            return True
+        except asyncio.TimeoutError:  # pragma: no cover - external dependency
+            await update.message.reply_text(_messages(update)["external_timeout_error"])
             return True
         except ExternalTimeoutError:  # pragma: no cover - external dependency
             await update.message.reply_text(_messages(update)["external_timeout_error"])

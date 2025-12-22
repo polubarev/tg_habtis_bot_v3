@@ -1,7 +1,10 @@
+import asyncio
+
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
+from src.config.settings import get_settings
 from src.services.telegram.handlers.config import handle_config_text, config_command, handle_timezone_text, reset_command
 from src.services.telegram.handlers.habits_config import handle_habits_config_text, habits_config_command
 from src.services.telegram.handlers.questions import handle_questions_text, questions_command
@@ -16,6 +19,9 @@ from src.models.session import ConversationState
 from src.models.enums import InputType
 from src.config.constants import MESSAGES_EN, MESSAGES_RU, BUTTONS_RU, BUTTONS_EN
 from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, TranscriptionError
+
+
+_OP_TIMEOUT = get_settings().operation_timeout_seconds
 
 
 def _messages(update: Update):
@@ -155,7 +161,14 @@ async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     tg_file = await context.bot.get_file(voice.file_id)
     data = await tg_file.download_as_bytearray()
     try:
-        result = await whisper_client.transcribe(bytes(data), format="ogg")
+        await update.message.reply_text(_messages(update)["processing"])
+        result = await asyncio.wait_for(
+            whisper_client.transcribe(bytes(data), format="ogg"),
+            timeout=_OP_TIMEOUT,
+        )
+    except asyncio.TimeoutError:
+        await update.message.reply_text(_messages(update)["external_timeout_error"])
+        return
     except ExternalTimeoutError:
         await update.message.reply_text(_messages(update)["external_timeout_error"])
         return

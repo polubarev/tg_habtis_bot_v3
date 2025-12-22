@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     # Rate limiting
     rate_limit_requests_per_minute: int = 30
 
+    # External operation timeouts
+    operation_timeout_seconds: int = 25
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
