@@ -13,7 +13,15 @@ from src.models.user import CustomQuestion
 from src.models.session import ConversationState, SessionData
 from src.services.telegram.keyboards import build_confirmation_keyboard
 from src.services.llm.extractors.reflection_extractor import ReflectionExtractor
-from src.services.telegram.utils import resolve_language, resolve_user_profile, resolve_user_timezone
+from src.services.telegram.utils import (
+    get_llm_client,
+    get_session_repo,
+    get_sheets_client,
+    get_user_repo,
+    resolve_language,
+    resolve_user_profile,
+    resolve_user_timezone,
+)
 import json
 
 
@@ -26,10 +34,10 @@ def _messages_for_lang(lang: str):
 
 def _get_repos(context: ContextTypes.DEFAULT_TYPE):
     return (
-        context.application.bot_data.get("session_repo"),
-        context.application.bot_data.get("user_repo"),
-        context.application.bot_data.get("sheets_client"),
-        context.application.bot_data.get("llm_client"),
+        get_session_repo(context),
+        get_user_repo(context),
+        get_sheets_client(context),
+        get_llm_client(context),
     )
 
 

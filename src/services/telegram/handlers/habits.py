@@ -15,7 +15,15 @@ from src.models.entry import HabitEntry
 from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.models.enums import InputType
 from src.services.llm.extractors.habit_extractor import HabitExtractor
-from src.services.telegram.utils import resolve_language, resolve_user_profile, resolve_user_timezone
+from src.services.telegram.utils import (
+    get_llm_client,
+    get_session_repo,
+    get_sheets_client,
+    get_user_repo,
+    resolve_language,
+    resolve_user_profile,
+    resolve_user_timezone,
+)
 
 
 BASE_HABIT_FIELDS = set(HABITS_SHEET_COLUMNS)
@@ -27,19 +35,19 @@ def _messages_for_lang(lang: str) -> Dict[str, str]:
 
 
 def _get_session_repo(context: ContextTypes.DEFAULT_TYPE):
-    return context.application.bot_data.get("session_repo")
+    return get_session_repo(context)
 
 
 def _get_user_repo(context: ContextTypes.DEFAULT_TYPE):
-    return context.application.bot_data.get("user_repo")
+    return get_user_repo(context)
 
 
 def _get_sheets_client(context: ContextTypes.DEFAULT_TYPE):
-    return context.application.bot_data.get("sheets_client")
+    return get_sheets_client(context)
 
 
 def _get_llm_client(context: ContextTypes.DEFAULT_TYPE):
-    return context.application.bot_data.get("llm_client")
+    return get_llm_client(context)
 
 
 def _parse_custom_date(text: str) -> date | None:

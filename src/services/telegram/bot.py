@@ -16,13 +16,11 @@ from telegram.ext import (
 )
 
 from src.config.settings import Settings
-from src.services.storage.firestore.session_repo import SessionRepository
 from src.services.telegram.handlers.habits import (
     habits_command,
     handle_habits_confirm,
     handle_habits_date_callback,
 )
-from src.services.telegram.handlers.start import start_command
 from src.services.telegram.handlers.dream import dream_command, handle_dream_confirm
 from src.services.telegram.handlers.thought import thought_command, handle_thought_confirm
 from src.services.telegram.handlers.reflect import reflect_command, handle_reflect_confirm
@@ -32,12 +30,8 @@ from src.services.telegram.handlers.language import handle_language_select
 from src.services.telegram.handlers.router import route_text, route_voice
 from src.services.telegram.handlers.habits_config import habits_config_command, handle_habits_config_callback
 from src.services.telegram.handlers.questions import questions_command, handle_questions_callback
-from src.services.storage.firestore.user_repo import UserRepository
-from src.services.storage.sheets.client import SheetsClient
-from src.services.llm.client import LLMClient
-from src.services.transcription.whisper import WhisperClient
+from src.services.telegram.deps import DependencyProvider
 from src.services.telegram.handlers.start import start_command
-from src.services.storage.firestore.client import FirestoreClient
 
 logger = logging.getLogger(__name__)
 
@@ -48,18 +42,7 @@ class TelegramBotService:
     def __init__(self, settings: Settings):
         self.settings = settings
         self.app: Application | None = None
-        self.firestore_client = FirestoreClient(settings.google_credentials_path, settings.gcp_project_id)
-        self.session_repo = SessionRepository(self.firestore_client)
-        self.user_repo = UserRepository(self.firestore_client)
-        self.sheets_client = SheetsClient(settings.google_credentials_path)
-        try:
-            self.llm_client = LLMClient()
-        except Exception:
-            self.llm_client = None
-        try:
-            self.whisper_client = WhisperClient()
-        except Exception:
-            self.whisper_client = None
+        self.deps = DependencyProvider(settings)
 
     async def _ensure_app(self) -> None:
         if self.app:
@@ -73,20 +56,17 @@ class TelegramBotService:
                     logger.exception("Telegram init failed")
                     return
             return
-        if not self.settings.telegram_bot_token:
+        token = self.settings.get_telegram_bot_token()
+        if not token:
             logger.warning("Telegram bot token not configured; update handling is disabled.")
             return
         self.app = (
             ApplicationBuilder()
-            .token(self.settings.telegram_bot_token)
+            .token(token)
             .build()
         )
         # share services with handlers via bot_data
-        self.app.bot_data["session_repo"] = self.session_repo
-        self.app.bot_data["user_repo"] = self.user_repo
-        self.app.bot_data["sheets_client"] = self.sheets_client
-        self.app.bot_data["llm_client"] = self.llm_client
-        self.app.bot_data["whisper_client"] = self.whisper_client
+        self.app.bot_data["deps"] = self.deps
         self.app.add_handler(CommandHandler("start", start_command))
         self.app.add_handler(CommandHandler("habits", habits_command))
         self.app.add_handler(CommandHandler("dream", dream_command))

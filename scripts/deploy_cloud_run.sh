@@ -12,6 +12,7 @@ set -euo pipefail
 #   CONTAINER_TOOL                - docker or podman (default: docker)
 #   CLEANUP_AFTER_DEPLOY          - delete pushed image from Artifact Registry and local cache (default: false)
 #   SET_TELEGRAM_WEBHOOK          - call Telegram setWebhook after deploy (default: false)
+#   STARTUP_CPU_BOOST             - enable startup CPU boost (default: false)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -36,6 +37,7 @@ IMAGE_TAG="${IMAGE_TAG:-latest}"
 CONTAINER_TOOL="${CONTAINER_TOOL:-docker}"
 CLEANUP_AFTER_DEPLOY="${CLEANUP_AFTER_DEPLOY:-false}"
 SET_TELEGRAM_WEBHOOK="${SET_TELEGRAM_WEBHOOK:-false}"
+STARTUP_CPU_BOOST="${STARTUP_CPU_BOOST:-false}"
 APP_ENV_KEYS=(
   APP_NAME
   APP_VERSION
@@ -45,7 +47,9 @@ APP_ENV_KEYS=(
   GCP_REGION
   GOOGLE_CREDENTIALS_PATH
   TELEGRAM_BOT_TOKEN
+  TELEGRAM_BOT_TOKEN_DEBUG
   TELEGRAM_WEBHOOK_URL
+  TELEGRAM_WEBHOOK_URL_DEBUG
   TELEGRAM_WEBHOOK_SECRET
   OPENROUTER_API_KEY
   OPENROUTER_BASE_URL
@@ -104,6 +108,10 @@ done
 if [[ ${#ENV_ARGS[@]} -gt 0 ]]; then
   DEPLOY_ENV_ARGS=(--set-env-vars "$(IFS=,; echo "${ENV_ARGS[*]}")")
 fi
+CPU_BOOST_ARGS=()
+if [[ "${STARTUP_CPU_BOOST}" == "true" ]]; then
+  CPU_BOOST_ARGS=(--cpu-boost)
+fi
 
 echo "Deploying to Cloud Run..."
 gcloud run deploy "${SERVICE_NAME}" \
@@ -115,6 +123,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --port 8080 \
   --min-instances 0 \
   --max-instances 1 \
+  "${CPU_BOOST_ARGS[@]}" \
   "${DEPLOY_ENV_ARGS[@]}"
 
 SERVICE_URL="$(gcloud run services describe "${SERVICE_NAME}" --region "${REGION}" --project "${PROJECT_ID}" --format='value(status.url)')"

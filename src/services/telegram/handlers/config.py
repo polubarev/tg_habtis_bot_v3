@@ -12,7 +12,13 @@ from src.core.exceptions import ExternalTimeoutError, SheetAccessError, SheetWri
 from src.models.session import ConversationState, SessionData
 from src.models.user import UserProfile
 from zoneinfo import ZoneInfo
-from src.services.telegram.utils import resolve_language, resolve_user_profile
+from src.services.telegram.utils import (
+    get_session_repo,
+    get_sheets_client,
+    get_user_repo,
+    resolve_language,
+    resolve_user_profile,
+)
 
 def _messages_for_lang(lang: str):
     return MESSAGES_RU if lang == "ru" else MESSAGES_EN
@@ -23,9 +29,9 @@ _OP_TIMEOUT = get_settings().operation_timeout_seconds
 
 def _get_repos(context: ContextTypes.DEFAULT_TYPE):
     return (
-        context.application.bot_data.get("session_repo"),
-        context.application.bot_data.get("user_repo"),
-        context.application.bot_data.get("sheets_client"),
+        get_session_repo(context),
+        get_user_repo(context),
+        get_sheets_client(context),
     )
 
 
@@ -71,7 +77,7 @@ async def config_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     session_repo, user_repo, _ = _get_repos(context)
     profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
     lang = resolve_language(profile)
-    sheets_client = context.application.bot_data.get("sheets_client")
+    sheets_client = get_sheets_client(context)
     service_email = getattr(sheets_client, "service_email", None)
     is_ru = lang == "ru"
 

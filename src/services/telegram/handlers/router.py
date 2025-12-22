@@ -20,7 +20,12 @@ from src.models.enums import InputType
 from src.config.constants import MESSAGES_EN, MESSAGES_RU, BUTTONS_RU, BUTTONS_EN
 from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, TranscriptionError
 from src.services.telegram.handlers.language import language_command
-from src.services.telegram.utils import resolve_language, resolve_user_profile
+from src.services.telegram.utils import (
+    get_session_repo,
+    get_whisper_client,
+    resolve_language,
+    resolve_user_profile,
+)
 
 
 _OP_TIMEOUT = get_settings().operation_timeout_seconds
@@ -47,7 +52,7 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
     # 1. Global Cancel
     if matched("cancel"):
         # Reset session
-        session_repo = context.application.bot_data.get("session_repo")
+        session_repo = get_session_repo(context)
         if session_repo and update.effective_user:
             session = await session_repo.get(update.effective_user.id)
             if session:
@@ -103,7 +108,7 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
             reply_markup=build_main_menu_keyboard(lang),
         )
         # Set state
-        session_repo = context.application.bot_data.get("session_repo")
+        session_repo = get_session_repo(context)
         if session_repo:
             session = await session_repo.get(update.effective_user.id) or SessionData(user_id=update.effective_user.id)
             session.state = ConversationState.CONFIG_TIMEZONE
@@ -147,7 +152,7 @@ async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     profile = await resolve_user_profile(update, context)
     lang = resolve_language(profile)
     msgs = _messages_for_lang(lang)
-    whisper_client: WhisperClient | None = context.application.bot_data.get("whisper_client")
+    whisper_client: WhisperClient | None = get_whisper_client(context)
     if whisper_client is None:
         await update.message.reply_text(msgs["voice_disabled"])
         return
@@ -178,7 +183,7 @@ async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await update.message.reply_text(msgs["voice_transcribed"].format(text=result.text))
 
     # Route with preference: habits voice handling first.
-    session_repo = context.application.bot_data.get("session_repo")
+    session_repo = get_session_repo(context)
     session = await session_repo.get(update.effective_user.id) if session_repo and update.effective_user else None
     if session and session.state == ConversationState.HABITS_AWAITING_CONTENT:
         await handle_habits_text(update, context, result.text, input_type=InputType.VOICE)  # type: ignore[arg-type]

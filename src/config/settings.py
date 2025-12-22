@@ -21,7 +21,9 @@ class Settings(BaseSettings):
 
     # Telegram
     telegram_bot_token: str | None = None
+    telegram_bot_token_debug: str | None = None
     telegram_webhook_url: Optional[str] = None
+    telegram_webhook_url_debug: Optional[str] = None
     telegram_webhook_secret: str = Field(default="")
 
     # OpenRouter / LLM
@@ -53,6 +55,16 @@ class Settings(BaseSettings):
         env_file_encoding = "utf-8"
         case_sensitive = False
         extra = "ignore"
+
+    def get_telegram_bot_token(self) -> Optional[str]:
+        if self.debug and self.telegram_bot_token_debug:
+            return self.telegram_bot_token_debug
+        return self.telegram_bot_token
+
+    def get_telegram_webhook_url(self) -> Optional[str]:
+        if self.debug and self.telegram_webhook_url_debug:
+            return self.telegram_webhook_url_debug
+        return self.telegram_webhook_url
 
 
 @lru_cache()

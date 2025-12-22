@@ -6,15 +6,15 @@ from src.models.habit import HabitSchema
 from src.models.session import ConversationState, SessionData
 from src.models.user import UserProfile
 from src.services.telegram.keyboards import build_language_keyboard, build_main_menu_keyboard
-from src.services.telegram.utils import resolve_language
+from src.services.telegram.utils import get_session_repo, get_user_repo, resolve_language
 
 
 def _get_user_repo(context: ContextTypes.DEFAULT_TYPE):
-    return context.application.bot_data.get("user_repo")
+    return get_user_repo(context)
 
 
 def _get_session_repo(context: ContextTypes.DEFAULT_TYPE):
-    return context.application.bot_data.get("session_repo")
+    return get_session_repo(context)
 
 
 def _messages_for_lang(lang: str):

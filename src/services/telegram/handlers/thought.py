@@ -11,7 +11,14 @@ from src.models.entry import ThoughtEntry
 from src.core.exceptions import ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.models.session import ConversationState, SessionData
 from src.services.telegram.keyboards import build_confirmation_keyboard
-from src.services.telegram.utils import resolve_language, resolve_user_profile, resolve_user_timezone
+from src.services.telegram.utils import (
+    get_session_repo,
+    get_sheets_client,
+    get_user_repo,
+    resolve_language,
+    resolve_user_profile,
+    resolve_user_timezone,
+)
 
 
 _OP_TIMEOUT = get_settings().operation_timeout_seconds
@@ -23,9 +30,9 @@ def _messages_for_lang(lang: str):
 
 def _get_repos(context: ContextTypes.DEFAULT_TYPE):
     return (
-        context.application.bot_data.get("session_repo"),
-        context.application.bot_data.get("user_repo"),
-        context.application.bot_data.get("sheets_client"),
+        get_session_repo(context),
+        get_user_repo(context),
+        get_sheets_client(context),
     )
 
 

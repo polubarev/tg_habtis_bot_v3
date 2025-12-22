@@ -11,7 +11,14 @@ from src.models.entry import DreamEntry
 from src.core.exceptions import ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.models.session import ConversationState, SessionData
 from src.services.telegram.keyboards import build_confirmation_keyboard
-from src.services.telegram.utils import resolve_language, resolve_user_profile, resolve_user_timezone
+from src.services.telegram.utils import (
+    get_session_repo,
+    get_sheets_client,
+    get_user_repo,
+    resolve_language,
+    resolve_user_profile,
+    resolve_user_timezone,
+)
 
 
 _OP_TIMEOUT = get_settings().operation_timeout_seconds
@@ -23,10 +30,9 @@ def _messages_for_lang(lang: str):
 
 def _get_repos(context: ContextTypes.DEFAULT_TYPE):
     return (
-        context.application.bot_data.get("session_repo"),
-        context.application.bot_data.get("user_repo"),
-        context.application.bot_data.get("sheets_client"),
-        context.application.bot_data.get("whisper_client"),
+        get_session_repo(context),
+        get_user_repo(context),
+        get_sheets_client(context),
     )
 
 
@@ -44,7 +50,7 @@ async def dream_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
     profile = await resolve_user_profile(update, context)
     lang = resolve_language(profile)
-    session_repo, _, _, _ = _get_repos(context)
+    session_repo, _, _ = _get_repos(context)
     session = await session_repo.get(update.effective_user.id) if session_repo else None
     if session is None:
         session = SessionData(user_id=update.effective_user.id)
@@ -59,7 +65,7 @@ async def handle_dream_text(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
     if not update.effective_user:
         return False
-    session_repo, user_repo, sheets_client, _ = _get_repos(context)
+    session_repo, user_repo, sheets_client = _get_repos(context)
     session = await session_repo.get(update.effective_user.id) if session_repo else None
     if session is None or session.state != ConversationState.DREAM_AWAITING_CONTENT:
         return False
@@ -99,7 +105,7 @@ async def handle_dream_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
     if not data.startswith("dream_confirm:"):
         return
 
-    session_repo, user_repo, sheets_client, _ = _get_repos(context)
+    session_repo, user_repo, sheets_client = _get_repos(context)
     session = await session_repo.get(update.effective_user.id) if session_repo else None
     if session is None or session.state != ConversationState.DREAM_AWAITING_CONFIRMATION or not session.pending_entry:
         await query.answer()

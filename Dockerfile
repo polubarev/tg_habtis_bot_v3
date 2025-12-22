@@ -4,10 +4,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app
 
-# System deps for audio handling (Whisper/ffmpeg).
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
+# No system packages needed for the current runtime.
 
 WORKDIR /app
 

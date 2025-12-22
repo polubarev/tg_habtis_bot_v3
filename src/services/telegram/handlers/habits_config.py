@@ -15,7 +15,7 @@ from src.config.constants import (
 from src.models.habit import HabitFieldConfig
 from src.models.session import ConversationState
 from src.services.telegram.keyboards import build_main_menu_keyboard
-from src.services.telegram.utils import resolve_language
+from src.services.telegram.utils import get_session_repo, get_user_repo, resolve_language
 
 BASE_HABIT_FIELDS = set(HABITS_SHEET_COLUMNS)
 
@@ -26,8 +26,8 @@ def _messages_for_lang(lang: str):
 
 def _get_repos(context: ContextTypes.DEFAULT_TYPE):
     return (
-        context.application.bot_data.get("session_repo"),
-        context.application.bot_data.get("user_repo"),
+        get_session_repo(context),
+        get_user_repo(context),
     )
 
 
