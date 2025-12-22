@@ -23,7 +23,9 @@ class ConversationState(str, Enum):
     CONFIG_EDITING_HABITS = "config_editing_habits"
     CONFIG_ADDING_QUESTION = "config_adding_question"
     CONFIG_TIMEZONE = "config_timezone"
+    CONFIG_LANGUAGE = "config_language"
     ONBOARDING_WELCOME = "onboarding_welcome"
+    ONBOARDING_LANGUAGE = "onboarding_language"
     ONBOARDING_SHEET_SETUP = "onboarding_sheet_setup"
     ONBOARDING_HABIT_REVIEW = "onboarding_habit_review"
 

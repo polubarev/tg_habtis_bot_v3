@@ -13,7 +13,7 @@ class CustomQuestion(BaseModel):
 
     id: str
     text: str
-    language: str = Language.RU.value
+    language: str = Language.EN.value
     active: bool = True
 
 
@@ -27,7 +27,7 @@ class UserProfile(BaseModel):
     sheets_validated: bool = False
     habit_schema: HabitSchema = Field(default_factory=HabitSchema)
     custom_questions: list[CustomQuestion] = Field(default_factory=list)
-    language: str = Language.RU.value
+    language: str = Language.EN.value
     timezone: str = "Europe/Moscow"
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

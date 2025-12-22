@@ -1,23 +1,27 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ContextTypes
-from telegram.constants import ParseMode
+import json
 
-from src.config.constants import DEFAULT_HABIT_SCHEMA, HABITS_SHEET_COLUMNS, MESSAGES_EN, MESSAGES_RU
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.constants import ParseMode
+from telegram.ext import ContextTypes
+
+from src.config.constants import (
+    DEFAULT_HABIT_SCHEMA,
+    HABITS_SHEET_COLUMNS,
+    INLINE_BUTTONS_EN,
+    INLINE_BUTTONS_RU,
+    MESSAGES_EN,
+    MESSAGES_RU,
+)
 from src.models.habit import HabitFieldConfig
 from src.models.session import ConversationState
-import json
+from src.services.telegram.keyboards import build_main_menu_keyboard
+from src.services.telegram.utils import resolve_language
 
 BASE_HABIT_FIELDS = set(HABITS_SHEET_COLUMNS)
 
 
-from src.services.telegram.keyboards import build_main_menu_keyboard
-
-def _get_lang(update: Update) -> str:
-    code = (update.effective_user.language_code or "").lower() if update.effective_user else ""
-    return "ru" if code.startswith("ru") else "en"
-
-def _messages(update: Update):
-    return MESSAGES_RU if _get_lang(update) == "ru" else MESSAGES_EN
+def _messages_for_lang(lang: str):
+    return MESSAGES_RU if lang == "ru" else MESSAGES_EN
 
 
 def _get_repos(context: ContextTypes.DEFAULT_TYPE):
@@ -27,28 +31,47 @@ def _get_repos(context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-def _keyboard():
+def _keyboard(lang: str):
+    btns = INLINE_BUTTONS_RU if lang == "ru" else INLINE_BUTTONS_EN
     buttons = [
         [
-            InlineKeyboardButton("➕ Добавить", callback_data="habit_cfg:add"),
-            InlineKeyboardButton("➖ Удалить", callback_data="habit_cfg:remove"),
+            InlineKeyboardButton(btns["habit_add"], callback_data="habit_cfg:add"),
+            InlineKeyboardButton(btns["habit_remove"], callback_data="habit_cfg:remove"),
         ],
         [
-            InlineKeyboardButton("📦 JSON", callback_data="habit_cfg:json"),
+            InlineKeyboardButton(btns["habit_json"], callback_data="habit_cfg:json"),
         ],
         [
-            InlineKeyboardButton("↩️ Сбросить", callback_data="habit_cfg:reset"),
-            InlineKeyboardButton("✖ Отмена", callback_data="habit_cfg:cancel"),
+            InlineKeyboardButton(btns["habit_reset"], callback_data="habit_cfg:reset"),
+            InlineKeyboardButton(btns["habit_cancel"], callback_data="habit_cfg:cancel"),
         ],
     ]
     return InlineKeyboardMarkup(buttons)
 
 
-def _format_fields(profile) -> str:
+def _format_fields(profile, lang: str) -> str:
     fields = profile.habit_schema.fields if profile and profile.habit_schema else {}
     if not fields:
-        return "нет"
+        return _messages_for_lang(lang)["empty_value"]
     return ", ".join(fields.keys())
+
+
+def _base_numeric_type(type_value) -> str:
+    if isinstance(type_value, list):
+        return type_value[0]
+    return type_value or "integer"
+
+
+def _min_prompt(lang: str, type_value) -> str:
+    base_type = _base_numeric_type(type_value)
+    key = "habit_add_min_prompt_float" if base_type == "number" else "habit_add_min_prompt_int"
+    return _messages_for_lang(lang)[key]
+
+
+def _max_prompt(lang: str, type_value) -> str:
+    base_type = _base_numeric_type(type_value)
+    key = "habit_add_max_prompt_float" if base_type == "number" else "habit_add_max_prompt_int"
+    return _messages_for_lang(lang)[key]
 
 
 async def habits_config_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -60,14 +83,15 @@ async def habits_config_command(update: Update, context: ContextTypes.DEFAULT_TY
     profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
     if profile is None:
         return
+    lang = resolve_language(profile)
     if session_repo:
         session = await session_repo.get(update.effective_user.id)
         if session:
             session.state = ConversationState.CONFIG_EDITING_HABITS
             session.temp_data = {"habit_action": None}
             await session_repo.save(session)
-    msg = _messages(update)["habit_config_intro"].format(fields=_format_fields(profile))
-    await update.message.reply_text(msg, reply_markup=_keyboard())
+    msg = _messages_for_lang(lang)["habit_config_intro"].format(fields=_format_fields(profile, lang))
+    await update.message.reply_text(msg, reply_markup=_keyboard(lang))
 
 
 async def handle_habits_config_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -84,6 +108,7 @@ async def handle_habits_config_callback(update: Update, context: ContextTypes.DE
     session_repo, user_repo = _get_repos(context)
     session = await session_repo.get(update.effective_user.id) if session_repo else None
     profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
+    lang = resolve_language(profile)
     if session:
         session.state = ConversationState.CONFIG_EDITING_HABITS
         session.temp_data = {"habit_action": action}
@@ -95,33 +120,33 @@ async def handle_habits_config_callback(update: Update, context: ContextTypes.DE
                 session.temp_data.update({"habit_add_stage": "name", "habit_new_field": {}})
                 await session_repo.save(session)
             await query.edit_message_text(
-                _messages(update)["habit_add_name_prompt"],
+                _messages_for_lang(lang)["habit_add_name_prompt"],
                 parse_mode=ParseMode.MARKDOWN,
             )
         elif action == "remove":
-            await query.edit_message_text(_messages(update)["habit_remove_prompt"])
+            await query.edit_message_text(_messages_for_lang(lang)["habit_remove_prompt"])
         elif action == "json":
             await query.edit_message_text(
-                _messages(update)["habit_json_prompt"],
+                _messages_for_lang(lang)["habit_json_prompt"],
                 parse_mode=ParseMode.MARKDOWN,
             )
         elif action == "reset":
             if profile and user_repo:
                 profile.habit_schema = DEFAULT_HABIT_SCHEMA
                 await user_repo.update(profile)
-            await query.edit_message_text(_messages(update)["habit_reset"])
+            await query.edit_message_text(_messages_for_lang(lang)["habit_reset"])
             if session_repo and session:
                 session.state = ConversationState.IDLE
                 session.temp_data = {}
                 await session_repo.save(session)
         elif action == "cancel":
-            await query.edit_message_text(_messages(update)["cancelled_config"])
+            await query.edit_message_text(_messages_for_lang(lang)["cancelled_config"])
             # The user might be stuck with an inline keyboard above. We can't easily replace it with a reply keyboard via callback query alone
             # without sending a new message. Sending a new message ("Cancelled") with Main Menu is cleaner.
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=_messages(update)["cancelled_config"],
-                reply_markup=build_main_menu_keyboard(_get_lang(update))
+                text=_messages_for_lang(lang)["cancelled_config"],
+                reply_markup=build_main_menu_keyboard(lang)
             )
             if session_repo and session:
                 session.state = ConversationState.IDLE
@@ -141,6 +166,8 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
     session = await session_repo.get(update.effective_user.id) if session_repo else None
     if session is None or session.state != ConversationState.CONFIG_EDITING_HABITS:
         return False
+    profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
+    lang = resolve_language(profile)
 
     def _parse_single_field(data):
         if not isinstance(data, dict):
@@ -238,7 +265,6 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
         return [_parse_single_field(data)]
 
     action = (session.temp_data or {}).get("habit_action")
-    profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
     if profile is None:
         return False
 
@@ -250,15 +276,15 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
         if session_repo:
             await session_repo.save(session)
         await update.message.reply_text(
-            _messages(update)["cancelled_config"],
-            reply_markup=build_main_menu_keyboard(_get_lang(update))
+            _messages_for_lang(lang)["cancelled_config"],
+            reply_markup=build_main_menu_keyboard(lang)
         )
         return True
     if action == "json":
         parsed = _try_parse_json(text)
         if not parsed or not all(parsed):
             await update.message.reply_text(
-                _messages(update)["habit_json_prompt"],
+                _messages_for_lang(lang)["habit_json_error"],
                 parse_mode=ParseMode.MARKDOWN,
             )
             return True
@@ -275,17 +301,17 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
         if session_repo:
             await session_repo.save(session)
         if added:
-            msg = _messages(update)["habit_json_result_added"].format(added=", ".join(added))
+            msg = _messages_for_lang(lang)["habit_json_result_added"].format(added=", ".join(added))
         else:
-            msg = _messages(update)["habit_json_result_none"]
+            msg = _messages_for_lang(lang)["habit_json_result_none"]
         if skipped:
-            msg += "\n" + _messages(update)["habit_json_result_skipped"].format(skipped=", ".join(skipped))
-        await update.message.reply_text(msg, reply_markup=build_main_menu_keyboard(_get_lang(update)))
+            msg += "\n" + _messages_for_lang(lang)["habit_json_result_skipped"].format(skipped=", ".join(skipped))
+        await update.message.reply_text(msg, reply_markup=build_main_menu_keyboard(lang))
         return True
     if action == "remove":
         name = text.strip()
         if not name:
-            await update.message.reply_text(_messages(update)["habit_remove_prompt"])
+            await update.message.reply_text(_messages_for_lang(lang)["habit_remove_prompt"])
             return True
         removed = False
         if name in profile.habit_schema.fields:
@@ -293,7 +319,9 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
             removed = True
             await user_repo.update(profile)
         await update.message.reply_text(
-            _messages(update)["habit_removed"].format(name=name) if removed else _messages(update)["habit_remove_prompt"]
+            _messages_for_lang(lang)["habit_removed"].format(name=name)
+            if removed
+            else _messages_for_lang(lang)["habit_remove_error"]
         )
         # Reset state after a remove attempt to avoid loops.
         session.state = ConversationState.IDLE
@@ -317,32 +345,35 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
         if stage == "name":
             name = text.strip()
             if not name:
-                await update.message.reply_text(_messages(update)["habit_add_name_prompt"], parse_mode=ParseMode.MARKDOWN)
+                await update.message.reply_text(_messages_for_lang(lang)["habit_add_name_invalid"])
                 return True
             if " " in name:
-                await update.message.reply_text(_messages(update)["habit_add_name_prompt"], parse_mode=ParseMode.MARKDOWN)
+                await update.message.reply_text(_messages_for_lang(lang)["habit_add_name_invalid"])
                 return True
-            if name in BASE_HABIT_FIELDS or name in profile.habit_schema.fields:
-                await update.message.reply_text(_messages(update)["habit_add_name_prompt"], parse_mode=ParseMode.MARKDOWN)
+            if name in BASE_HABIT_FIELDS:
+                await update.message.reply_text(_messages_for_lang(lang)["habit_add_name_reserved"])
+                return True
+            if name in profile.habit_schema.fields:
+                await update.message.reply_text(_messages_for_lang(lang)["habit_add_name_taken"])
                 return True
             new_field["name"] = name
             session.temp_data = {"habit_action": "add", "habit_add_stage": "description", "habit_new_field": new_field}
             if session_repo:
                 await session_repo.save(session)
-            await update.message.reply_text(_messages(update)["habit_add_description_prompt"], parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text(_messages_for_lang(lang)["habit_add_description_prompt"], parse_mode=ParseMode.MARKDOWN)
             return True
 
         # Stage 2: description
         if stage == "description":
             description = text.strip()
             if not description:
-                await update.message.reply_text(_messages(update)["habit_add_description_prompt"], parse_mode=ParseMode.MARKDOWN)
+                await update.message.reply_text(_messages_for_lang(lang)["habit_add_description_error"])
                 return True
             new_field["description"] = description
             session.temp_data = {"habit_action": "add", "habit_add_stage": "type", "habit_new_field": new_field}
             if session_repo:
                 await session_repo.save(session)
-            await update.message.reply_text(_messages(update)["habit_add_type_prompt"], parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text(_messages_for_lang(lang)["habit_add_type_prompt"], parse_mode=ParseMode.MARKDOWN)
             return True
 
         # Stage 3: type
@@ -358,14 +389,14 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
             elif type_hint in {"string", "text", ""}:
                 type_value = "string"
             if not type_value:
-                await update.message.reply_text(_messages(update)["habit_add_type_prompt"], parse_mode=ParseMode.MARKDOWN)
+                await update.message.reply_text(_messages_for_lang(lang)["habit_add_type_error"])
                 return True
             new_field["type"] = type_value
             if type_value in {"integer", "number"}:
                 session.temp_data = {"habit_action": "add", "habit_add_stage": "min", "habit_new_field": new_field}
                 if session_repo:
                     await session_repo.save(session)
-                await update.message.reply_text(_messages(update)["habit_add_min_prompt"], parse_mode=ParseMode.MARKDOWN)
+                await update.message.reply_text(_min_prompt(lang, type_value), parse_mode=ParseMode.MARKDOWN)
                 return True
             # finalize for non-int
             profile.habit_schema.fields[new_field["name"]] = HabitFieldConfig(
@@ -374,7 +405,7 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                 required=True,
             )
             await user_repo.update(profile)
-            await update.message.reply_text(_messages(update)["habit_added"].format(name=new_field["name"]))
+            await update.message.reply_text(_messages_for_lang(lang)["habit_added"].format(name=new_field["name"]))
             await _finish_and_reset()
             return True
 
@@ -384,17 +415,16 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
             min_value = None
             if raw not in {"", "-"}:
                 try:
-                    base_type = new_field.get("type")
-                    base_type = base_type[0] if isinstance(base_type, list) else base_type
+                    base_type = _base_numeric_type(new_field.get("type"))
                     min_value = int(raw) if base_type == "integer" else float(raw)
                 except ValueError:
-                    await update.message.reply_text(_messages(update)["habit_add_min_prompt"], parse_mode=ParseMode.MARKDOWN)
+                    await update.message.reply_text(_messages_for_lang(lang)["habit_add_min_error"])
                     return True
             new_field["minimum"] = min_value
             session.temp_data = {"habit_action": "add", "habit_add_stage": "max", "habit_new_field": new_field}
             if session_repo:
                 await session_repo.save(session)
-            await update.message.reply_text(_messages(update)["habit_add_max_prompt"], parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text(_max_prompt(lang, new_field.get("type")), parse_mode=ParseMode.MARKDOWN)
             return True
 
         # Stage 5: max for integers
@@ -403,15 +433,16 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
             max_value = None
             if raw not in {"", "-"}:
                 try:
-                    base_type = new_field.get("type")
-                    base_type = base_type[0] if isinstance(base_type, list) else base_type
+                    base_type = _base_numeric_type(new_field.get("type"))
                     max_value = int(raw) if base_type == "integer" else float(raw)
                 except ValueError:
-                    await update.message.reply_text(_messages(update)["habit_add_max_prompt"], parse_mode=ParseMode.MARKDOWN)
+                    await update.message.reply_text(_messages_for_lang(lang)["habit_add_max_error"])
                     return True
             min_value = new_field.get("minimum")
             if min_value is not None and max_value is not None and max_value < min_value:
-                await update.message.reply_text(_messages(update)["habit_add_max_prompt"], parse_mode=ParseMode.MARKDOWN)
+                await update.message.reply_text(
+                    _messages_for_lang(lang)["habit_add_max_less_than_min"].format(min=min_value)
+                )
                 return True
             profile.habit_schema.fields[new_field["name"]] = HabitFieldConfig(
                 type=new_field.get("type", "integer"),
@@ -421,7 +452,7 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                 required=True,
             )
             await user_repo.update(profile)
-            await update.message.reply_text(_messages(update)["habit_added"].format(name=new_field["name"]))
+            await update.message.reply_text(_messages_for_lang(lang)["habit_added"].format(name=new_field["name"]))
             await _finish_and_reset()
             return True
     elif action == "remove":
@@ -429,14 +460,14 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
         if name in profile.habit_schema.fields:
             profile.habit_schema.fields.pop(name)
             await user_repo.update(profile)
-            await update.message.reply_text(_messages(update)["habit_removed"].format(name=name))
+            await update.message.reply_text(_messages_for_lang(lang)["habit_removed"].format(name=name))
         else:
-            await update.message.reply_text(_messages(update)["habit_remove_prompt"])
+            await update.message.reply_text(_messages_for_lang(lang)["habit_remove_error"])
             return True
     else:
         await update.message.reply_text(
-            _messages(update)["cancelled_config"],
-            reply_markup=build_main_menu_keyboard(_get_lang(update))
+            _messages_for_lang(lang)["cancelled_config"],
+            reply_markup=build_main_menu_keyboard(lang)
         )
 
     session.state = ConversationState.IDLE

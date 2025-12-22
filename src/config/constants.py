@@ -1,8 +1,13 @@
 from src.models.habit import HabitFieldConfig, HabitSchema
 
-DEFAULT_REFLECTION_QUESTIONS = [
+DEFAULT_REFLECTION_QUESTIONS_RU = [
     {"id": "gratitude", "text": "За что ты благодарен сегодня?"},
     {"id": "focus", "text": "Что было главным фокусом дня?"},
+]
+
+DEFAULT_REFLECTION_QUESTIONS_EN = [
+    {"id": "gratitude", "text": "What are you grateful for today?"},
+    {"id": "focus", "text": "What was your main focus today?"},
 ]
 
 # Default habit schema for new users
@@ -49,6 +54,7 @@ BUTTONS_RU = {
     "habits_config": "📋 Поля привычек",
     "reflect_config": "❓ Вопросы",
     "timezone": "🌍 Часовой пояс",
+    "language": "🌐 Язык",
     "reset": "🧹 Сбросить всё",
 }
 
@@ -65,7 +71,48 @@ BUTTONS_EN = {
     "habits_config": "📋 Habit Fields",
     "reflect_config": "❓ Questions",
     "timezone": "🌍 Timezone",
+    "language": "🌐 Language",
     "reset": "🧹 Reset",
+}
+
+INLINE_BUTTONS_RU = {
+    "today": "Сегодня",
+    "yesterday": "Вчера",
+    "custom_date": "Другая дата",
+    "cancel": "Отмена",
+    "confirm_yes": "✅ Да",
+    "confirm_no": "✖ Нет",
+    "habit_add": "➕ Добавить",
+    "habit_remove": "➖ Удалить",
+    "habit_json": "📦 JSON",
+    "habit_reset": "↩️ Сбросить",
+    "habit_cancel": "✖ Отмена",
+    "question_add": "➕ Добавить",
+    "question_remove": "➖ Удалить",
+    "question_reset": "↩️ Сбросить",
+    "question_cancel": "✖ Отмена",
+    "language_en": "English",
+    "language_ru": "Русский",
+}
+
+INLINE_BUTTONS_EN = {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "custom_date": "Custom date",
+    "cancel": "Cancel",
+    "confirm_yes": "✅ Yes",
+    "confirm_no": "✖ No",
+    "habit_add": "➕ Add",
+    "habit_remove": "➖ Remove",
+    "habit_json": "📦 JSON",
+    "habit_reset": "↩️ Reset",
+    "habit_cancel": "✖ Cancel",
+    "question_add": "➕ Add",
+    "question_remove": "➖ Remove",
+    "question_reset": "↩️ Reset",
+    "question_cancel": "✖ Cancel",
+    "language_en": "English",
+    "language_ru": "Русский",
 }
 
 # Message templates (Russian)
@@ -90,6 +137,8 @@ MESSAGES_RU = {
     "thought_restart": "Начни заново с кнопки Мысль.",
     "reflect_restart": "Начни заново с кнопки Рефлексия.",
     "select_date": "За какую дату хочешь сделать запись?",
+    "date_custom_prompt": "Введи дату в формате YYYY-MM-DD (или dd.mm.yyyy).",
+    "date_parse_error": "Не понял дату. Используй YYYY-MM-DD или dd.mm.yyyy.",
     "describe_day": "Опиши свой день для {date} текстом или голосом.",
     "processing": "⏳ Обрабатываю...",
     "saving_data": "💾 Сохраняю данные...",
@@ -119,11 +168,16 @@ MESSAGES_RU = {
     ),
     "voice_transcription_error": "⚠ Не удалось распознать голос. Отправь текст.",
     "sheet_saved": "✅ Гугл-таблица сохранена.",
+    "sheet_base_url_notice": "Использую базовую ссылку: {url}",
     "config_cancelled": "Настройка отменена.",
+    "language_prompt": "Выбери язык интерфейса.",
+    "language_saved": "✅ Язык сохранён.",
+    "empty_value": "нет",
     "dream_prompt": "Опиши свой сон текстом или голосом.",
     "dream_saved": "✅ Сон сохранён.",
     "thought_prompt": "Окей, напиши мысль или заметку (текст/голос).",
     "thought_saved": "✅ Мысль сохранена.",
+    "no_reflection_questions": "Нет вопросов для размышлений. Добавь их в /config.",
     "reflect_intro": "Ответь на вопросы одним сообщением (текст или голос). Список вопросов:\n{questions}\n\nОтправь один ответ — я разберу его и заполню ответы.",
     "reflect_done": "✅ Ответы сохранены.",
     "reflect_seeded": "Добавил вопросы по умолчанию.",
@@ -142,41 +196,73 @@ MESSAGES_RU = {
         "Если бот «завис» или ведёт себя странно — нажми ❌ *Отмена*."
     ),
     "habit_config_intro": (
-        "Текущие поля привычек: {fields}\n\n"
-        "Что можно сделать:\n"
-        "• ➕ Добавить новое поле (например water:int 0-20, mood:string, pain:int 0-10)\n"
-        "• ➖ Удалить ненужное поле\n"
-        "• ↩️ Сбросить к стандартному набору\n"
-        "• 📦 Импортировать сразу несколько через JSON\n\n"
-        "Примеры формата:\n"
-        "• name: water, type: int, min 0, max 20\n"
-        "• name: mood, type: string\n"
-        "• name: pain, type: int, min 0, max 10 (или type: [\"integer\",\"null\"] если опционально)\n\n"
+        "Текущие поля: {fields}\n\n"
+        "Что сделать:\n"
+        "• ➕ Добавить поле (короткие шаги)\n"
+        "• ➖ Удалить поле\n"
+        "• ↩️ Сбросить к стандартным\n"
+        "• 📦 Добавить несколько сразу (JSON, для опытных)\n\n"
+        "Примеры полей:\n"
+        "• вода — число 0–20\n"
+        "• настроение — текст\n"
+        "• боль — число 0–10\n\n"
         "Нажми кнопку ниже."
     ),
     "habit_add_name_prompt": (
         "⭐️ *Шаг 1: Название*\n"
-        "Напиши имя поля (желательно латиницей, без пробелов). Пример: *exercises*. "
-        "Для импорта нескольких полей нажми 📦 JSON."
+        "Короткая метка: только буквы/цифры, без пробелов. Пример: *вода* или *настроение*.\n"
+        "Если нужно добавить много полей — нажми 📦 JSON."
     ),
+    "habit_add_name_invalid": "Название не подошло. Нужны буквы/цифры без пробелов. Пример: вода.",
+    "habit_add_name_taken": "Такое название уже есть. Придумай другое, например вода2.",
+    "habit_add_name_reserved": "Это служебное название. Выбери другое, например вода.",
     "habit_add_description_prompt": (
         "⭐️ *Шаг 2: Описание*\n"
-        "Коротко опиши поле. Пример: \"Сколько сделал подходов\"."
+        "Поясни, что это за поле. Пример: «Стаканы воды»."
     ),
+    "habit_add_description_error": "Нужно короткое описание. Пример: «Стаканы воды».",
     "habit_add_type_prompt": (
-        "⭐️ *Шаг 3: Тип*\n"
-        "Выбери: *string* (текст) / *int* (целое) / *float* (дробное) / *bool* (да/нет). "
-        "По умолчанию *string*.\n\n"
-        "Пример: для поля *exercises* выбери *int*, минимум 0, максимум 10."
+        "⭐️ *Шаг 3: Тип значения*\n"
+        "Выбери один вариант:\n"
+        "• string — текст (например, настроение)\n"
+        "• int — целое число (например, 3)\n"
+        "• float — число с точкой (например, 2.5)\n"
+        "• bool — да/нет (например, выпил витамины)\n\n"
+        "Напиши одно слово: string / int / float / bool."
     ),
-    "habit_add_min_prompt": "⭐️ *Шаг 4: Минимум*\nМинимальное число? Напиши или '-' чтобы пропустить.",
-    "habit_add_max_prompt": "⭐️ *Шаг 5: Максимум*\nМаксимальное число? Напиши или '-' чтобы пропустить.",
+    "habit_add_type_error": "Не понял тип. Напиши: string, int, float или bool. Пример: int.",
+    "habit_add_min_prompt_int": (
+        "⭐️ *Шаг 4: Минимум (необязательно)*\n"
+        "Введи минимальное целое число, например 0. Или '-' чтобы пропустить."
+    ),
+    "habit_add_min_prompt_float": (
+        "⭐️ *Шаг 4: Минимум (необязательно)*\n"
+        "Введи минимальное число, например 0.5. Или '-' чтобы пропустить."
+    ),
+    "habit_add_min_error": (
+        "Не похоже на число. Введи число (например, 0 или 0.5) или '-' чтобы пропустить."
+    ),
+    "habit_add_max_prompt_int": (
+        "⭐️ *Шаг 5: Максимум (необязательно)*\n"
+        "Введи максимальное целое число, например 10. Или '-' чтобы пропустить."
+    ),
+    "habit_add_max_prompt_float": (
+        "⭐️ *Шаг 5: Максимум (необязательно)*\n"
+        "Введи максимальное число, например 10.5. Или '-' чтобы пропустить."
+    ),
+    "habit_add_max_error": (
+        "Не похоже на число. Введи число (например, 10 или 10.5) или '-' чтобы пропустить."
+    ),
+    "habit_add_max_less_than_min": (
+        "Максимум не может быть меньше минимума ({min}). Введи число >= {min} или '-' чтобы пропустить."
+    ),
     "habit_json_prompt": (
-        "Отправь JSON (один объект или список), чтобы добавить несколько полей сразу. Пример:\n"
+        "Хочешь добавить несколько полей сразу? Можно отправить JSON (для опытных).\n"
+        "Пример (можно копировать):\n"
         "```json\n"
         "[\n"
         "  {\n"
-        '    "name": "water",\n'
+        '    "name": "вода",\n'
         '    "description": "Стаканы воды",\n'
         '    "type": "int",\n'
         '    "minimum": 0,\n'
@@ -184,7 +270,7 @@ MESSAGES_RU = {
         '    "required": true\n'
         "  },\n"
         "  {\n"
-        '    "name": "mood",\n'
+        '    "name": "настроение",\n'
         '    "description": "Как ты себя чувствуешь",\n'
         '    "type": "string",\n'
         '    "required": true\n'
@@ -192,14 +278,19 @@ MESSAGES_RU = {
         "]\n"
         "```"
     ),
+    "habit_json_error": (
+        "Не получилось прочитать JSON. Проверь формат и попробуй ещё раз. "
+        "Если это сложно — используй кнопку ➕ Добавить."
+    ),
     "habit_json_result_added": "✅ Добавлены поля: {added}",
     "habit_json_result_skipped": "⚠️ Пропущены (уже есть или базовые): {skipped}",
-    "habit_json_result_none": "Ничего не добавлено. Проверь формат JSON.",
-    "habit_remove_prompt": "Отправь имя поля, которое удалить.",
+    "habit_json_result_none": "Ничего не добавлено. Проверь JSON по примеру или используй ➕ Добавить.",
+    "habit_remove_prompt": "Напиши название поля, которое нужно удалить. Пример: вода.",
+    "habit_remove_error": "Не нашёл такое поле. Проверь название и попробуй ещё раз. Пример: вода.",
     "habit_added": "Поле добавлено: {name}",
     "habit_removed": "Поле удалено: {name}",
     "habit_reset": "Схема привычек сброшена к стандартной.",
-    "question_intro": "Текущие вопросы: {questions}\nЧто сделать?",
+    "question_intro": "Текущие вопросы:\n{questions}\nЧто сделать?",
     "question_add_id_prompt": "⭐️ *Шаг 1: ID*\nУкажи id вопроса (латиницей, без пробелов).",
     "question_add_text_prompt": "⭐️ *Шаг 2: Текст*\nНапиши текст вопроса.",
     "question_add_lang_prompt": "⭐️ *Шаг 3: Язык*\nВыбери язык вопроса: *ru*/*en* (по умолчанию текущий).",
@@ -250,6 +341,8 @@ MESSAGES_EN = {
     "thought_restart": "Start over with Thought button.",
     "reflect_restart": "Start over with Reflection button.",
     "select_date": "Which date do you want to record?",
+    "date_custom_prompt": "Enter a date as YYYY-MM-DD (or dd.mm.yyyy).",
+    "date_parse_error": "Couldn't parse the date. Use YYYY-MM-DD or dd.mm.yyyy.",
     "describe_day": "Describe your day for {date} using text or voice.",
     "processing": "⏳ Processing...",
     "saving_data": "💾 Saving data...",
@@ -273,11 +366,16 @@ MESSAGES_EN = {
     "external_response_error": "⚠ The service returned an invalid response. Please try again.",
     "voice_transcription_error": "⚠ Couldn't transcribe the audio. Please send text.",
     "sheet_saved": "✅ Google Sheet saved.",
+    "sheet_base_url_notice": "Using base link: {url}",
     "config_cancelled": "Setup cancelled.",
+    "language_prompt": "Choose your language.",
+    "language_saved": "✅ Language saved.",
+    "empty_value": "none",
     "dream_prompt": "Describe your dream (text or voice).",
     "dream_saved": "✅ Dream saved.",
     "thought_prompt": "Share your thought or note (text/voice).",
     "thought_saved": "✅ Thought saved.",
+    "no_reflection_questions": "No reflection questions yet. Add them in /config.",
     "reflect_intro": "Answer all questions in one message (text or voice). Questions:\n{questions}\n\nSend a single reply — I'll parse it into answers.",
     "reflect_done": "✅ Answers saved.",
     "reflect_seeded": "Added default questions.",
@@ -296,36 +394,65 @@ MESSAGES_EN = {
         "If stuck — press ❌ *Cancel*."
     ),
     "habit_config_intro": (
-        "Current habit fields: {fields}\n\n"
-        "You can:\n"
-        "• ➕ Add a field (e.g., water:int 0-20, mood:string, pain:int 0-10)\n"
-        "• ➖ Remove a field you don't need\n"
-        "• ↩️ Reset to the default set\n"
-        "• 📦 Import multiple via JSON\n\n"
+        "Current fields: {fields}\n\n"
+        "What do you want to do?\n"
+        "• ➕ Add a field (simple steps)\n"
+        "• ➖ Remove a field\n"
+        "• ↩️ Reset to defaults\n"
+        "• 📦 Add many at once (JSON, advanced)\n\n"
         "Examples:\n"
-        "• name: water, type: int, min 0, max 20\n"
-        "• name: mood, type: string\n"
-        "• name: pain, type: int, min 0, max 10 (or type: [\"integer\",\"null\"] if optional)\n\n"
+        "• water — number 0–20\n"
+        "• mood — text\n"
+        "• pain — number 0–10\n\n"
         "Tap a button below."
     ),
     "habit_add_name_prompt": (
         "⭐️ *Step 1: Name*\n"
-        "Pick a field id (letters/numbers, preferably no spaces). Example: *exercises*. "
-        "For bulk import tap 📦 JSON."
+        "Short label, letters/numbers only, no spaces. Example: *water* or *mood*.\n"
+        "To add many fields, tap 📦 JSON."
     ),
+    "habit_add_name_invalid": "That name doesn't work. Use letters/numbers only, no spaces. Example: water.",
+    "habit_add_name_taken": "That name is already used. Pick another, e.g., water2.",
+    "habit_add_name_reserved": "That name is reserved. Pick another, e.g., water.",
     "habit_add_description_prompt": (
         "⭐️ *Step 2: Description*\n"
-        "Add a short description. Example: \"How many sets you did\"."
+        "Tell me what this field means. Example: \"Glasses of water\"."
     ),
+    "habit_add_description_error": "Please send a short description. Example: \"Glasses of water\".",
     "habit_add_type_prompt": (
-        "⭐️ *Step 3: Type*\n"
-        "Choose: *string* (text), *int* (whole), *float* (decimal), *bool* (yes/no). Defaults to *string*.\n\n"
-        "Example: for *exercises* pick *int*, min 0, max 10."
+        "⭐️ *Step 3: Type of value*\n"
+        "Choose one:\n"
+        "• string — text (e.g., mood)\n"
+        "• int — whole number (e.g., 3)\n"
+        "• float — decimal (e.g., 2.5)\n"
+        "• bool — yes/no (e.g., took vitamins)\n\n"
+        "Send one word: string / int / float / bool."
     ),
-    "habit_add_min_prompt": "⭐️ *Step 4: Minimum*\nMin number? Send a value or '-' to skip.",
-    "habit_add_max_prompt": "⭐️ *Step 5: Maximum*\nMax number? Send a value or '-' to skip.",
+    "habit_add_type_error": "I didn't understand the type. Send: string, int, float, or bool. Example: int.",
+    "habit_add_min_prompt_int": (
+        "⭐️ *Step 4: Minimum (optional)*\n"
+        "Send the smallest whole number, e.g., 0. Or '-' to skip."
+    ),
+    "habit_add_min_prompt_float": (
+        "⭐️ *Step 4: Minimum (optional)*\n"
+        "Send the smallest number, e.g., 0.5. Or '-' to skip."
+    ),
+    "habit_add_min_error": "That doesn't look like a number. Send a number (e.g., 0 or 0.5) or '-' to skip.",
+    "habit_add_max_prompt_int": (
+        "⭐️ *Step 5: Maximum (optional)*\n"
+        "Send the largest whole number, e.g., 10. Or '-' to skip."
+    ),
+    "habit_add_max_prompt_float": (
+        "⭐️ *Step 5: Maximum (optional)*\n"
+        "Send the largest number, e.g., 10.5. Or '-' to skip."
+    ),
+    "habit_add_max_error": "That doesn't look like a number. Send a number (e.g., 10 or 10.5) or '-' to skip.",
+    "habit_add_max_less_than_min": (
+        "Max can't be smaller than min ({min}). Send a number >= {min} or '-' to skip."
+    ),
     "habit_json_prompt": (
-        "Send JSON (single object or list) to add multiple fields at once. Example:\n"
+        "Want to add many fields at once? You can send JSON (advanced).\n"
+        "Example (you can copy):\n"
         "```json\n"
         "[\n"
         "  {\n"
@@ -345,14 +472,19 @@ MESSAGES_EN = {
         "]\n"
         "```"
     ),
+    "habit_json_error": (
+        "Couldn't read that JSON. Please follow the example and try again. "
+        "If it's too much, use ➕ Add."
+    ),
     "habit_json_result_added": "✅ Added fields: {added}",
     "habit_json_result_skipped": "⚠️ Skipped (already exist or base): {skipped}",
-    "habit_json_result_none": "No fields added. Check JSON format.",
-    "habit_remove_prompt": "Send the field name to remove.",
+    "habit_json_result_none": "No fields added. Check the JSON example or use ➕ Add.",
+    "habit_remove_prompt": "Send the field name to remove. Example: water.",
+    "habit_remove_error": "I couldn't find that field. Check the name and try again. Example: water.",
     "habit_added": "Field added: {name}",
     "habit_removed": "Field removed: {name}",
     "habit_reset": "Habit schema reset to defaults.",
-    "question_intro": "Current questions: {questions}\nWhat would you like to do?",
+    "question_intro": "Current questions:\n{questions}\nWhat would you like to do?",
     "question_add_id_prompt": "⭐️ *Step 1: ID*\nSet a question id (letters/numbers, no spaces).",
     "question_add_text_prompt": "⭐️ *Step 2: Text*\nSend the question text.",
     "question_add_lang_prompt": "⭐️ *Step 3: Language*\nChoose *en*/*ru* (defaults to your current language).",

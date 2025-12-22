@@ -1,20 +1,23 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
+from telegram.ext import ContextTypes
 
-from src.config.constants import DEFAULT_REFLECTION_QUESTIONS, MESSAGES_EN, MESSAGES_RU
+from src.config.constants import (
+    DEFAULT_REFLECTION_QUESTIONS_EN,
+    DEFAULT_REFLECTION_QUESTIONS_RU,
+    INLINE_BUTTONS_EN,
+    INLINE_BUTTONS_RU,
+    MESSAGES_EN,
+    MESSAGES_RU,
+)
 from src.models.session import ConversationState
 from src.models.user import CustomQuestion
-
-
 from src.services.telegram.keyboards import build_main_menu_keyboard
+from src.services.telegram.utils import resolve_language
 
-def _get_lang(update: Update) -> str:
-    code = (update.effective_user.language_code or "").lower() if update.effective_user else ""
-    return "ru" if code.startswith("ru") else "en"
 
-def _messages(update: Update):
-    return MESSAGES_RU if _get_lang(update) == "ru" else MESSAGES_EN
+def _messages_for_lang(lang: str):
+    return MESSAGES_RU if lang == "ru" else MESSAGES_EN
 
 
 def _get_repos(context: ContextTypes.DEFAULT_TYPE):
@@ -24,25 +27,26 @@ def _get_repos(context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-def _keyboard():
+def _keyboard(lang: str):
+    btns = INLINE_BUTTONS_RU if lang == "ru" else INLINE_BUTTONS_EN
     buttons = [
         [
-            InlineKeyboardButton("➕ Add", callback_data="q_cfg:add"),
-            InlineKeyboardButton("➖ Remove", callback_data="q_cfg:remove"),
+            InlineKeyboardButton(btns["question_add"], callback_data="q_cfg:add"),
+            InlineKeyboardButton(btns["question_remove"], callback_data="q_cfg:remove"),
         ],
         [
-            InlineKeyboardButton("↩️ Reset", callback_data="q_cfg:reset"),
-            InlineKeyboardButton("✖ Cancel", callback_data="q_cfg:cancel"),
+            InlineKeyboardButton(btns["question_reset"], callback_data="q_cfg:reset"),
+            InlineKeyboardButton(btns["question_cancel"], callback_data="q_cfg:cancel"),
         ],
     ]
     return InlineKeyboardMarkup(buttons)
 
 
-def _format_questions(profile) -> str:
+def _format_questions(profile, lang: str) -> str:
     questions = profile.custom_questions if profile else []
     if not questions:
-        return "none"
-    return ", ".join(f"{q.id}" for q in questions)
+        return _messages_for_lang(lang)["empty_value"]
+    return "\n".join(f"- {q.id}: {q.text}" for q in questions)
 
 
 async def questions_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -54,14 +58,15 @@ async def questions_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
     if profile is None:
         return
+    lang = resolve_language(profile)
     if session_repo:
         session = await session_repo.get(update.effective_user.id)
         if session:
             session.state = ConversationState.CONFIG_ADDING_QUESTION
             session.temp_data = {"q_action": None}
             await session_repo.save(session)
-    msg = _messages(update)["question_intro"].format(questions=_format_questions(profile))
-    await update.message.reply_text(msg, reply_markup=_keyboard())
+    msg = _messages_for_lang(lang)["question_intro"].format(questions=_format_questions(profile, lang))
+    await update.message.reply_text(msg, reply_markup=_keyboard(lang))
 
 
 async def handle_questions_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -78,6 +83,7 @@ async def handle_questions_callback(update: Update, context: ContextTypes.DEFAUL
     session_repo, user_repo = _get_repos(context)
     session = await session_repo.get(update.effective_user.id) if session_repo else None
     profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
+    lang = resolve_language(profile)
     if session:
         session.state = ConversationState.CONFIG_ADDING_QUESTION
         session.temp_data = {"q_action": action}
@@ -88,26 +94,29 @@ async def handle_questions_callback(update: Update, context: ContextTypes.DEFAUL
             session.temp_data.update({"q_add_stage": "id", "q_new": {}})
             await session_repo.save(session)
         await query.edit_message_text(
-            _messages(update)["question_add_id_prompt"] + "\n\n" + _messages(update)["question_add_json_example"],
+            _messages_for_lang(lang)["question_add_id_prompt"]
+            + "\n\n"
+            + _messages_for_lang(lang)["question_add_json_example"],
             parse_mode=ParseMode.MARKDOWN,
         )
     elif action == "remove":
-        await query.edit_message_text(_messages(update)["question_remove_prompt"])
+        await query.edit_message_text(_messages_for_lang(lang)["question_remove_prompt"])
     elif action == "reset":
         if profile and user_repo:
-            profile.custom_questions = [CustomQuestion(**q, language=profile.language) for q in DEFAULT_REFLECTION_QUESTIONS]
+            defaults = DEFAULT_REFLECTION_QUESTIONS_RU if lang == "ru" else DEFAULT_REFLECTION_QUESTIONS_EN
+            profile.custom_questions = [CustomQuestion(**q, language=lang) for q in defaults]
             await user_repo.update(profile)
-        await query.edit_message_text(_messages(update)["question_reset"])
+        await query.edit_message_text(_messages_for_lang(lang)["question_reset"])
         if session_repo and session:
             session.state = ConversationState.IDLE
             session.temp_data = {}
             await session_repo.save(session)
     elif action == "cancel":
-        await query.edit_message_text(_messages(update)["cancelled_config"])
+        await query.edit_message_text(_messages_for_lang(lang)["cancelled_config"])
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=_messages(update)["cancelled_config"],
-            reply_markup=build_main_menu_keyboard(_get_lang(update))
+            text=_messages_for_lang(lang)["cancelled_config"],
+            reply_markup=build_main_menu_keyboard(lang)
         )
         if session_repo and session:
             session.state = ConversationState.IDLE
@@ -129,6 +138,7 @@ async def handle_questions_text(update: Update, context: ContextTypes.DEFAULT_TY
     profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
     if profile is None:
         return False
+    lang = resolve_language(profile)
 
     text = update.message.text or ""
     if action == "add":
@@ -170,45 +180,45 @@ async def handle_questions_text(update: Update, context: ContextTypes.DEFAULT_TY
             if parsed:
                 profile.custom_questions.append(parsed)
                 await user_repo.update(profile)
-                await update.message.reply_text(_messages(update)["question_added"].format(id=parsed.id))
+                await update.message.reply_text(_messages_for_lang(lang)["question_added"].format(id=parsed.id))
                 await _finish()
                 return True
             q_id = text.strip()
             if not q_id or " " in q_id:
-                await update.message.reply_text(_messages(update)["question_add_id_prompt"], parse_mode=ParseMode.MARKDOWN)
+                await update.message.reply_text(_messages_for_lang(lang)["question_add_id_prompt"], parse_mode=ParseMode.MARKDOWN)
                 return True
             if any(q.id == q_id for q in profile.custom_questions):
-                await update.message.reply_text(_messages(update)["question_add_id_prompt"], parse_mode=ParseMode.MARKDOWN)
+                await update.message.reply_text(_messages_for_lang(lang)["question_add_id_prompt"], parse_mode=ParseMode.MARKDOWN)
                 return True
             q_new["id"] = q_id
             session.temp_data = {"q_action": "add", "q_add_stage": "text", "q_new": q_new}
             if session_repo:
                 await session_repo.save(session)
-            await update.message.reply_text(_messages(update)["question_add_text_prompt"], parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text(_messages_for_lang(lang)["question_add_text_prompt"], parse_mode=ParseMode.MARKDOWN)
             return True
 
         if stage == "text":
             q_text = text.strip()
             if not q_text:
-                await update.message.reply_text(_messages(update)["question_add_text_prompt"], parse_mode=ParseMode.MARKDOWN)
+                await update.message.reply_text(_messages_for_lang(lang)["question_add_text_prompt"], parse_mode=ParseMode.MARKDOWN)
                 return True
             q_new["text"] = q_text
             session.temp_data = {"q_action": "add", "q_add_stage": "lang", "q_new": q_new}
             if session_repo:
                 await session_repo.save(session)
-            await update.message.reply_text(_messages(update)["question_add_lang_prompt"], parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text(_messages_for_lang(lang)["question_add_lang_prompt"], parse_mode=ParseMode.MARKDOWN)
             return True
 
         if stage == "lang":
-            lang = text.strip().lower() or profile.language or "en"
-            if lang not in {"en", "ru"}:
-                await update.message.reply_text(_messages(update)["question_add_lang_prompt"], parse_mode=ParseMode.MARKDOWN)
+            lang_value = text.strip().lower() or profile.language or "en"
+            if lang_value not in {"en", "ru"}:
+                await update.message.reply_text(_messages_for_lang(lang)["question_add_lang_prompt"], parse_mode=ParseMode.MARKDOWN)
                 return True
-            q_new["language"] = lang
+            q_new["language"] = lang_value
             session.temp_data = {"q_action": "add", "q_add_stage": "active", "q_new": q_new}
             if session_repo:
                 await session_repo.save(session)
-            await update.message.reply_text(_messages(update)["question_add_active_prompt"], parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text(_messages_for_lang(lang)["question_add_active_prompt"], parse_mode=ParseMode.MARKDOWN)
             return True
 
         if stage == "active":
@@ -219,7 +229,7 @@ async def handle_questions_text(update: Update, context: ContextTypes.DEFAULT_TY
             elif ans in {"yes", "y", "true", "1", ""}:
                 active = True
             else:
-                await update.message.reply_text(_messages(update)["question_add_active_prompt"], parse_mode=ParseMode.MARKDOWN)
+                await update.message.reply_text(_messages_for_lang(lang)["question_add_active_prompt"], parse_mode=ParseMode.MARKDOWN)
                 return True
             q_new["active"] = active
             profile.custom_questions.append(
@@ -231,7 +241,7 @@ async def handle_questions_text(update: Update, context: ContextTypes.DEFAULT_TY
                 )
             )
             await user_repo.update(profile)
-            await update.message.reply_text(_messages(update)["question_added"].format(id=q_new.get("id")))
+            await update.message.reply_text(_messages_for_lang(lang)["question_added"].format(id=q_new.get("id")))
             await _finish()
             return True
     elif action == "remove":
@@ -239,14 +249,14 @@ async def handle_questions_text(update: Update, context: ContextTypes.DEFAULT_TY
         before = len(profile.custom_questions)
         profile.custom_questions = [q for q in profile.custom_questions if q.id != q_id]
         if len(profile.custom_questions) == before:
-            await update.message.reply_text(_messages(update)["question_remove_prompt"])
+            await update.message.reply_text(_messages_for_lang(lang)["question_remove_prompt"])
             return True
         await user_repo.update(profile)
-        await update.message.reply_text(_messages(update)["question_removed"].format(id=q_id))
+        await update.message.reply_text(_messages_for_lang(lang)["question_removed"].format(id=q_id))
     else:
         await update.message.reply_text(
-            _messages(update)["cancelled_config"],
-            reply_markup=build_main_menu_keyboard(_get_lang(update))
+            _messages_for_lang(lang)["cancelled_config"],
+            reply_markup=build_main_menu_keyboard(lang)
         )
 
     session.state = ConversationState.IDLE

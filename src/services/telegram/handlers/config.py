@@ -12,14 +12,10 @@ from src.core.exceptions import ExternalTimeoutError, SheetAccessError, SheetWri
 from src.models.session import ConversationState, SessionData
 from src.models.user import UserProfile
 from zoneinfo import ZoneInfo
+from src.services.telegram.utils import resolve_language, resolve_user_profile
 
-def _get_lang(update: Update) -> str:
-    code = (update.effective_user.language_code or "").lower() if update.effective_user else ""
-    return "ru" if code.startswith("ru") else "en"
-
-
-def _messages(update: Update):
-    return MESSAGES_RU if _get_lang(update) == "ru" else MESSAGES_EN
+def _messages_for_lang(lang: str):
+    return MESSAGES_RU if lang == "ru" else MESSAGES_EN
 
 
 _OP_TIMEOUT = get_settings().operation_timeout_seconds
@@ -31,6 +27,11 @@ def _get_repos(context: ContextTypes.DEFAULT_TYPE):
         context.application.bot_data.get("user_repo"),
         context.application.bot_data.get("sheets_client"),
     )
+
+
+async def _get_lang(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    profile = await resolve_user_profile(update, context)
+    return resolve_language(profile)
 
 
 def _extract_sheet_id(text: str) -> str:
@@ -55,9 +56,10 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     if not update.message:
         return
+    lang = await _get_lang(update, context)
     await update.message.reply_text(
-        _messages(update)["reset_prompt"],
-        reply_markup=build_confirmation_keyboard(prefix="reset"),
+        _messages_for_lang(lang)["reset_prompt"],
+        reply_markup=build_confirmation_keyboard(prefix="reset", language=lang),
     )
 
 
@@ -68,9 +70,10 @@ async def config_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
     session_repo, user_repo, _ = _get_repos(context)
     profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
+    lang = resolve_language(profile)
     sheets_client = context.application.bot_data.get("sheets_client")
     service_email = getattr(sheets_client, "service_email", None)
-    is_ru = _get_lang(update) == "ru"
+    is_ru = lang == "ru"
 
     if profile and profile.sheet_id:
         if is_ru:
@@ -92,7 +95,7 @@ async def config_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 msg_parts.append(f"⚠️ Дай доступ редактора: {service_email}.")
             else:
                 msg_parts.append(f"⚠️ Grant Editor access to: {service_email}.")
-        msg_parts.append(_messages(update)["ask_sheet"])
+        msg_parts.append(_messages_for_lang(lang)["ask_sheet"])
         example_label = "Пример" if is_ru else "Example"
         msg_parts.append(f"{example_label}: https://docs.google.com/spreadsheets/d/1AbCDefGh1234567890")
         msg = "\n".join(msg_parts)
@@ -109,6 +112,7 @@ async def handle_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     if not update.effective_user or not update.message:
         return False
+    lang = await _get_lang(update, context)
     sheet_text = (update.message.text or "").strip()
     if sheet_text.lower() in {"/cancel", "cancel", "отмена"}:
         session_repo, *_ = _get_repos(context)
@@ -117,8 +121,8 @@ async def handle_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
             session.state = ConversationState.IDLE
             await session_repo.save(session)
         await update.message.reply_text(
-            _messages(update)["config_cancelled"],
-            reply_markup=build_main_menu_keyboard(_get_lang(update))
+            _messages_for_lang(lang)["config_cancelled"],
+            reply_markup=build_main_menu_keyboard(lang)
         )
         return True
     session_repo, user_repo, sheets_client = _get_repos(context)
@@ -149,19 +153,19 @@ async def handle_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if sheets_client:
         try:
             if update.message:
-                await update.message.reply_text(_messages(update)["processing"])
+                await update.message.reply_text(_messages_for_lang(lang)["processing"])
             await asyncio.wait_for(sheets_client.ensure_tabs(sheet_id), timeout=_OP_TIMEOUT)
         except SheetAccessError:  # pragma: no cover - external dependency
-            await update.message.reply_text(_messages(update)["sheet_permission_error"])
+            await update.message.reply_text(_messages_for_lang(lang)["sheet_permission_error"])
             return True
         except asyncio.TimeoutError:  # pragma: no cover - external dependency
-            await update.message.reply_text(_messages(update)["external_timeout_error"])
+            await update.message.reply_text(_messages_for_lang(lang)["external_timeout_error"])
             return True
         except ExternalTimeoutError:  # pragma: no cover - external dependency
-            await update.message.reply_text(_messages(update)["external_timeout_error"])
+            await update.message.reply_text(_messages_for_lang(lang)["external_timeout_error"])
             return True
         except SheetWriteError:  # pragma: no cover - external dependency
-            await update.message.reply_text(_messages(update)["sheet_write_error"])
+            await update.message.reply_text(_messages_for_lang(lang)["sheet_write_error"])
             return True
         if user_repo and profile:
             profile.sheets_validated = True
@@ -172,9 +176,9 @@ async def handle_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
         if session_repo:
             await session_repo.save(session)
 
-    msg = _messages(update)["sheet_saved"]
+    msg = _messages_for_lang(lang)["sheet_saved"]
     if has_extra_params:
-        msg += f"\nИспользую базовую ссылку: {cleaned_url}"
+        msg += "\n" + _messages_for_lang(lang)["sheet_base_url_notice"].format(url=cleaned_url)
     await update.message.reply_text(msg)
     return True
 
@@ -184,7 +188,7 @@ async def handle_timezone_text(update: Update, context: ContextTypes.DEFAULT_TYP
 
     if not update.effective_user or not update.message:
         return False
-    
+    lang = await _get_lang(update, context)
     text = (update.message.text or "").strip()
     session_repo, user_repo, _ = _get_repos(context)
     session = await session_repo.get(update.effective_user.id) if session_repo else None
@@ -196,8 +200,8 @@ async def handle_timezone_text(update: Update, context: ContextTypes.DEFAULT_TYP
             if session_repo:
                 await session_repo.save(session)
         await update.message.reply_text(
-            _messages(update)["cancelled_config"],
-            reply_markup=build_main_menu_keyboard(_get_lang(update))
+            _messages_for_lang(lang)["cancelled_config"],
+            reply_markup=build_main_menu_keyboard(lang)
         )
         return True
 
@@ -209,7 +213,7 @@ async def handle_timezone_text(update: Update, context: ContextTypes.DEFAULT_TYP
     try:
         ZoneInfo(text)
     except Exception:
-         await update.message.reply_text(_messages(update)["timezone_error"])
+         await update.message.reply_text(_messages_for_lang(lang)["timezone_error"])
          return True
 
     # Save
@@ -226,8 +230,8 @@ async def handle_timezone_text(update: Update, context: ContextTypes.DEFAULT_TYP
             await session_repo.save(session)
 
     await update.message.reply_text(
-        _messages(update)["timezone_saved"].format(tz=text),
-        reply_markup=build_main_menu_keyboard(_get_lang(update))
+        _messages_for_lang(lang)["timezone_saved"].format(tz=text),
+        reply_markup=build_main_menu_keyboard(lang)
     )
     return True
 
@@ -244,6 +248,7 @@ async def handle_reset_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.answer()
     choice = query.data.split(":", 1)[1]
     user_id = (update.effective_user.id if update.effective_user else None) or (query.from_user.id if query.from_user else None)
+    lang = await _get_lang(update, context)
 
     session_repo, user_repo, _ = _get_repos(context)
     if choice == "yes" and user_id:
@@ -252,11 +257,11 @@ async def handle_reset_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
         if session_repo:
             await session_repo.delete(user_id)
         await query.message.reply_text(
-            _messages(update)["reset_done"],
-            reply_markup=build_main_menu_keyboard(_get_lang(update)),
+            _messages_for_lang(lang)["reset_done"],
+            reply_markup=build_main_menu_keyboard(lang),
         )
     else:
         await query.message.reply_text(
-            _messages(update)["reset_cancelled"],
-            reply_markup=build_main_menu_keyboard(_get_lang(update)),
+            _messages_for_lang(lang)["reset_cancelled"],
+            reply_markup=build_main_menu_keyboard(lang),
         )

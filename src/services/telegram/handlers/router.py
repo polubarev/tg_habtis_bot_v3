@@ -15,18 +15,19 @@ from src.services.telegram.handlers.thought import handle_thought_text, thought_
 from src.services.telegram.handlers.help import help_command
 from src.services.telegram.keyboards import build_main_menu_keyboard, build_config_keyboard
 from src.services.transcription.whisper import WhisperClient
-from src.models.session import ConversationState
+from src.models.session import ConversationState, SessionData
 from src.models.enums import InputType
 from src.config.constants import MESSAGES_EN, MESSAGES_RU, BUTTONS_RU, BUTTONS_EN
 from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, TranscriptionError
+from src.services.telegram.handlers.language import language_command
+from src.services.telegram.utils import resolve_language, resolve_user_profile
 
 
 _OP_TIMEOUT = get_settings().operation_timeout_seconds
 
 
-def _messages(update: Update):
-    code = (update.effective_user.language_code or "").lower() if update.effective_user else ""
-    return MESSAGES_RU if code.startswith("ru") else MESSAGES_EN
+def _messages_for_lang(lang: str):
+    return MESSAGES_RU if lang == "ru" else MESSAGES_EN
 
 
 async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_override: str | None = None) -> None:
@@ -35,13 +36,13 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
     text = text_override or (update.message.text if update.message else None)
     if not text:
         return
+    profile = await resolve_user_profile(update, context)
+    lang = resolve_language(profile)
+    msgs = _messages_for_lang(lang)
 
     # Helper to check against all languages
     def matched(key: str) -> bool:
         return text in (BUTTONS_RU.get(key), BUTTONS_EN.get(key))
-
-    code = (update.effective_user.language_code or "").lower() if update.effective_user else ""
-    lang = "ru" if code.startswith("ru") else "en"
 
     # 1. Global Cancel
     if matched("cancel"):
@@ -53,25 +54,16 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
                 session.reset()
                 await session_repo.save(session)
         
-        await update.message.reply_text(
-            _messages(update)["cancelled"],
-            reply_markup=build_main_menu_keyboard(lang)
-        )
+        await update.message.reply_text(msgs["cancelled"], reply_markup=build_main_menu_keyboard(lang))
         return
 
     # 2. Navigation
     if matched("back"):
-        await update.message.reply_text(
-            _messages(update)["main_menu"],
-            reply_markup=build_main_menu_keyboard(lang)
-        )
+        await update.message.reply_text(msgs["main_menu"], reply_markup=build_main_menu_keyboard(lang))
         return
 
     if matched("config"):
-        await update.message.reply_text(
-            _messages(update)["config_menu"],
-            reply_markup=build_config_keyboard(lang)
-        )
+        await update.message.reply_text(msgs["config_menu"], reply_markup=build_config_keyboard(lang))
         return
 
     # 3. Main Action Buttons
@@ -107,8 +99,8 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
     if matched("timezone"):
         # Prompt for new timezone
         await update.message.reply_text(
-            _messages(update)["timezone_prompt"].format(tz=context.application.bot_data.get("user_repo") and await context.application.bot_data.get("user_repo").get_by_telegram_id(update.effective_user.id) and (await context.application.bot_data.get("user_repo").get_by_telegram_id(update.effective_user.id)).timezone or "Europe/Moscow"),
-            reply_markup=build_main_menu_keyboard(lang)
+            msgs["timezone_prompt"].format(tz=(profile.timezone if profile else "Europe/Moscow")),
+            reply_markup=build_main_menu_keyboard(lang),
         )
         # Set state
         session_repo = context.application.bot_data.get("session_repo")
@@ -116,6 +108,9 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
             session = await session_repo.get(update.effective_user.id) or SessionData(user_id=update.effective_user.id)
             session.state = ConversationState.CONFIG_TIMEZONE
             await session_repo.save(session)
+        return
+    if matched("language"):
+        await language_command(update, context)
         return
 
     handled = False
@@ -137,10 +132,8 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
             break
 
     if not handled and update.message:
-        code = (update.effective_user.language_code or "").lower() if update.effective_user else ""
-        lang = "ru" if code.startswith("ru") else "en"
         await update.message.reply_text(
-            _messages(update)["help"],
+            msgs["help"],
             reply_markup=build_main_menu_keyboard(lang),
             parse_mode=ParseMode.MARKDOWN,
         )
@@ -151,9 +144,12 @@ async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     if not update.message or not update.message.voice:
         return
+    profile = await resolve_user_profile(update, context)
+    lang = resolve_language(profile)
+    msgs = _messages_for_lang(lang)
     whisper_client: WhisperClient | None = context.application.bot_data.get("whisper_client")
     if whisper_client is None:
-        await update.message.reply_text(_messages(update)["voice_disabled"])
+        await update.message.reply_text(msgs["voice_disabled"])
         return
 
     # Download audio bytes from Telegram.
@@ -161,25 +157,25 @@ async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     tg_file = await context.bot.get_file(voice.file_id)
     data = await tg_file.download_as_bytearray()
     try:
-        await update.message.reply_text(_messages(update)["processing"])
+        await update.message.reply_text(msgs["processing"])
         result = await asyncio.wait_for(
             whisper_client.transcribe(bytes(data), format="ogg"),
             timeout=_OP_TIMEOUT,
         )
     except asyncio.TimeoutError:
-        await update.message.reply_text(_messages(update)["external_timeout_error"])
+        await update.message.reply_text(msgs["external_timeout_error"])
         return
     except ExternalTimeoutError:
-        await update.message.reply_text(_messages(update)["external_timeout_error"])
+        await update.message.reply_text(msgs["external_timeout_error"])
         return
     except (ExternalResponseError, TranscriptionError):
-        await update.message.reply_text(_messages(update)["voice_transcription_error"])
+        await update.message.reply_text(msgs["voice_transcription_error"])
         return
     if not result.text:
-        await update.message.reply_text(_messages(update)["voice_transcription_error"])
+        await update.message.reply_text(msgs["voice_transcription_error"])
         return
     # Echo transcription to user
-    await update.message.reply_text(_messages(update)["voice_transcribed"].format(text=result.text))
+    await update.message.reply_text(msgs["voice_transcribed"].format(text=result.text))
 
     # Route with preference: habits voice handling first.
     session_repo = context.application.bot_data.get("session_repo")

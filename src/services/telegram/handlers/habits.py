@@ -15,20 +15,15 @@ from src.models.entry import HabitEntry
 from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.models.enums import InputType
 from src.services.llm.extractors.habit_extractor import HabitExtractor
-from src.services.telegram.utils import resolve_user_timezone
+from src.services.telegram.utils import resolve_language, resolve_user_profile, resolve_user_timezone
 
 
 BASE_HABIT_FIELDS = set(HABITS_SHEET_COLUMNS)
 _OP_TIMEOUT = get_settings().operation_timeout_seconds
 
 
-def _get_lang(update: Update) -> str:
-    code = (update.effective_user.language_code or "").lower() if update.effective_user else ""
-    return "ru" if code.startswith("ru") else "en"
-
-
-def _messages(update: Update) -> Dict[str, str]:
-    return MESSAGES_RU if _get_lang(update) == "ru" else MESSAGES_EN
+def _messages_for_lang(lang: str) -> Dict[str, str]:
+    return MESSAGES_RU if lang == "ru" else MESSAGES_EN
 
 
 def _get_session_repo(context: ContextTypes.DEFAULT_TYPE):
@@ -88,7 +83,8 @@ async def habits_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     if not update.effective_user or not update.message:
         return
-
+    profile = await resolve_user_profile(update, context)
+    lang = resolve_language(profile)
     user_id = update.effective_user.id
     session_repo = _get_session_repo(context)
     session = await session_repo.get(user_id) if session_repo else None
@@ -102,8 +98,8 @@ async def habits_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if session_repo:
         await session_repo.save(session)
 
-    msgs = _messages(update)
-    await update.message.reply_text(msgs["select_date"], reply_markup=build_date_keyboard())
+    msgs = _messages_for_lang(lang)
+    await update.message.reply_text(msgs["select_date"], reply_markup=build_date_keyboard(lang))
 
 
 async def handle_habits_date_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -115,7 +111,8 @@ async def handle_habits_date_callback(update: Update, context: ContextTypes.DEFA
     data = query.data or ""
     if data == "habits_cancel":
         _safe_answer(query)
-        await query.edit_message_text(_messages(update)["cancelled"])
+        lang = resolve_language(await resolve_user_profile(update, context))
+        await query.edit_message_text(_messages_for_lang(lang)["cancelled"])
         return
     if not data.startswith("habits_date:"):
         return
@@ -131,7 +128,8 @@ async def handle_habits_date_callback(update: Update, context: ContextTypes.DEFA
         if session_repo:
             await session_repo.save(session)
         _safe_answer(query)
-        await query.edit_message_text("Введи дату в формате YYYY-MM-DD (или dd.mm.yyyy).")
+        lang = resolve_language(await resolve_user_profile(update, context))
+        await query.edit_message_text(_messages_for_lang(lang)["date_custom_prompt"])
         return
 
     selected = parse_relative_date(label)
@@ -140,7 +138,8 @@ async def handle_habits_date_callback(update: Update, context: ContextTypes.DEFA
     if session_repo:
         await session_repo.save(session)
 
-    msgs = _messages(update)
+    lang = resolve_language(await resolve_user_profile(update, context))
+    msgs = _messages_for_lang(lang)
     try:
         _safe_answer(query)
     except Exception:
@@ -160,7 +159,8 @@ async def handle_habits_date_text(update: Update, context: ContextTypes.DEFAULT_
 
     parsed = _parse_custom_date(text)
     if not parsed:
-        await update.message.reply_text("Не понял дату. Используй YYYY-MM-DD или dd.mm.yyyy")
+        lang = resolve_language(await resolve_user_profile(update, context))
+        await update.message.reply_text(_messages_for_lang(lang)["date_parse_error"])
         return True
 
     session.selected_date = parsed
@@ -168,7 +168,8 @@ async def handle_habits_date_text(update: Update, context: ContextTypes.DEFAULT_
     if session_repo:
         await session_repo.save(session)
 
-    msgs = _messages(update)
+    lang = resolve_language(await resolve_user_profile(update, context))
+    msgs = _messages_for_lang(lang)
     await update.message.reply_text(msgs["describe_day"].format(date=parsed.isoformat()))
     return True
 
@@ -199,6 +200,7 @@ async def handle_habits_text(
     llm_client = _get_llm_client(context)
     extraction: Dict[str, Any] = {}
     profile = await _get_user_repo(context).get_by_telegram_id(update.effective_user.id) if _get_user_repo(context) else None
+    lang = resolve_language(profile)
     user_tz = resolve_user_timezone(profile)
     habit_schema = profile.habit_schema if profile else None
     schema_fields: list[str] = (
@@ -210,29 +212,29 @@ async def handle_habits_text(
     if llm_client:
         try:
             if update.message:
-                await update.message.reply_text(_messages(update)["processing"])
+                await update.message.reply_text(_messages_for_lang(lang)["processing"])
             extractor = HabitExtractor(llm_client)
             extraction = await asyncio.wait_for(
-                extractor.extract(combined_text, language=_get_lang(update), schema=habit_schema or None),
+                extractor.extract(combined_text, language=lang, schema=habit_schema or None),
                 timeout=_OP_TIMEOUT,
             )
         except asyncio.TimeoutError:
             if update.message:
-                await update.message.reply_text(_messages(update)["external_timeout_error"])
+                await update.message.reply_text(_messages_for_lang(lang)["external_timeout_error"])
             extraction = {}
         except ExternalTimeoutError:
             if update.message:
-                await update.message.reply_text(_messages(update)["external_timeout_error"])
+                await update.message.reply_text(_messages_for_lang(lang)["external_timeout_error"])
             extraction = {}
         except ExternalResponseError:
             if update.message:
-                await update.message.reply_text(_messages(update)["external_response_error"])
+                await update.message.reply_text(_messages_for_lang(lang)["external_response_error"])
             extraction = {}
         except Exception:
             extraction = {}
     else:
         if update.message:
-            await update.message.reply_text(_messages(update)["llm_disabled"])
+            await update.message.reply_text(_messages_for_lang(lang)["llm_disabled"])
 
     diary_text = extraction.get("diary") or combined_text
 
@@ -252,7 +254,7 @@ async def handle_habits_text(
     if session_repo:
         await session_repo.save(session)
 
-    msgs = _messages(update)
+    msgs = _messages_for_lang(lang)
     preview_obj = {k: v for k, v in entry_data.items() if k not in {"input_type", "field_order"}}
     preview = json.dumps(preview_obj, ensure_ascii=False, indent=2, default=str)
     if update.message:
@@ -262,7 +264,7 @@ async def handle_habits_text(
             + "```json\n"
             + preview
             + "\n```",
-            reply_markup=build_confirmation_keyboard(prefix="habits"),
+            reply_markup=build_confirmation_keyboard(prefix="habits", language=lang),
             parse_mode="Markdown",
         )
     return True
@@ -287,15 +289,17 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
     session = await session_repo.get(update.effective_user.id) if session_repo else None
     if session is None or not session.pending_entry:
         _safe_answer(query)
-        await query.edit_message_text(_messages(update)["error_occurred"])
+        lang = resolve_language(await resolve_user_profile(update, context))
+        await query.edit_message_text(_messages_for_lang(lang)["error_occurred"])
         return
 
     decision = data.split(":", 1)[1]
     if decision == "yes":
         profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
+        lang = resolve_language(profile)
         sheet_id = profile.sheet_id if profile else None
         if sheet_id and sheets_client:
-            await _safe_edit_message(query, _messages(update)["saving_data"])
+            await _safe_edit_message(query, _messages_for_lang(lang)["saving_data"])
             field_order = (
                 [f for f in (profile.habit_schema.fields.keys()) if f not in base_fields]
                 if profile and profile.habit_schema and profile.habit_schema.fields
@@ -334,28 +338,28 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
                     timeout=_OP_TIMEOUT,
                 )
             except SheetAccessError:
-                await _safe_edit_message(query, _messages(update)["sheet_permission_error"])
+                await _safe_edit_message(query, _messages_for_lang(lang)["sheet_permission_error"])
                 session.reset()
                 if session_repo:
                     await session_repo.save(session)
                 _safe_answer(query)
                 return
             except asyncio.TimeoutError:
-                await _safe_edit_message(query, _messages(update)["external_timeout_error"])
+                await _safe_edit_message(query, _messages_for_lang(lang)["external_timeout_error"])
                 session.reset()
                 if session_repo:
                     await session_repo.save(session)
                 _safe_answer(query)
                 return
             except ExternalTimeoutError:
-                await _safe_edit_message(query, _messages(update)["external_timeout_error"])
+                await _safe_edit_message(query, _messages_for_lang(lang)["external_timeout_error"])
                 session.reset()
                 if session_repo:
                     await session_repo.save(session)
                 _safe_answer(query)
                 return
             except SheetWriteError:
-                await _safe_edit_message(query, _messages(update)["sheet_write_error"])
+                await _safe_edit_message(query, _messages_for_lang(lang)["sheet_write_error"])
                 session.reset()
                 if session_repo:
                     await session_repo.save(session)
@@ -367,10 +371,10 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
                 pass
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=_messages(update)["saved_success"]
+                text=_messages_for_lang(lang)["saved_success"]
             )
         else:
-            await query.edit_message_text(_messages(update)["sheet_not_configured"])
+            await query.edit_message_text(_messages_for_lang(lang)["sheet_not_configured"])
     else:
         # allow user to resend/correct; keep previous raw for context
         if session.pending_entry:
@@ -381,7 +385,8 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
         session.state = ConversationState.HABITS_AWAITING_CONTENT
         if session_repo:
             await session_repo.save(session)
-        await query.edit_message_text(_messages(update)["habits_update_prompt"])
+        lang = resolve_language(await resolve_user_profile(update, context))
+        await query.edit_message_text(_messages_for_lang(lang)["habits_update_prompt"])
         _safe_answer(query)
         return
 

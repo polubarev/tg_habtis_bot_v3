@@ -11,15 +11,14 @@ from src.models.entry import DreamEntry
 from src.core.exceptions import ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.models.session import ConversationState, SessionData
 from src.services.telegram.keyboards import build_confirmation_keyboard
-from src.services.telegram.utils import resolve_user_timezone
+from src.services.telegram.utils import resolve_language, resolve_user_profile, resolve_user_timezone
 
 
 _OP_TIMEOUT = get_settings().operation_timeout_seconds
 
 
-def _messages(update: Update):
-    code = (update.effective_user.language_code or "").lower() if update.effective_user else ""
-    return MESSAGES_RU if code.startswith("ru") else MESSAGES_EN
+def _messages_for_lang(lang: str):
+    return MESSAGES_RU if lang == "ru" else MESSAGES_EN
 
 
 def _get_repos(context: ContextTypes.DEFAULT_TYPE):
@@ -43,6 +42,8 @@ async def dream_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     if not update.effective_user or not update.message:
         return
+    profile = await resolve_user_profile(update, context)
+    lang = resolve_language(profile)
     session_repo, _, _, _ = _get_repos(context)
     session = await session_repo.get(update.effective_user.id) if session_repo else None
     if session is None:
@@ -50,7 +51,7 @@ async def dream_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     session.state = ConversationState.DREAM_AWAITING_CONTENT
     if session_repo:
         await session_repo.save(session)
-    await update.message.reply_text(_messages(update)["dream_prompt"])
+    await update.message.reply_text(_messages_for_lang(lang)["dream_prompt"])
 
 
 async def handle_dream_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> bool:
@@ -64,9 +65,10 @@ async def handle_dream_text(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         return False
 
     profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
+    lang = resolve_language(profile)
     sheet_id = profile.sheet_id if profile else None
     if not sheet_id:
-        await update.message.reply_text(_messages(update)["sheet_not_configured"])
+        await update.message.reply_text(_messages_for_lang(lang)["sheet_not_configured"])
         session.state = ConversationState.IDLE
         session.pending_entry = None
         if session_repo:
@@ -82,8 +84,8 @@ async def handle_dream_text(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
     preview = json.dumps(entry.model_dump(), ensure_ascii=False, indent=2, default=str)
     await update.message.reply_text(
-        _messages(update)["confirm_generic"].format(preview=preview),
-        reply_markup=build_confirmation_keyboard(prefix="dream"),
+        _messages_for_lang(lang)["confirm_generic"].format(preview=preview),
+        reply_markup=build_confirmation_keyboard(prefix="dream", language=lang),
         parse_mode="Markdown",
     )
     return True
@@ -101,23 +103,25 @@ async def handle_dream_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
     session = await session_repo.get(update.effective_user.id) if session_repo else None
     if session is None or session.state != ConversationState.DREAM_AWAITING_CONFIRMATION or not session.pending_entry:
         await query.answer()
-        await query.edit_message_text(_messages(update)["error_occurred"])
+        lang = resolve_language(await resolve_user_profile(update, context))
+        await query.edit_message_text(_messages_for_lang(lang)["error_occurred"])
         return
 
     decision = data.split(":", 1)[1]
     if decision == "yes":
         profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
+        lang = resolve_language(profile)
         sheet_id = profile.sheet_id if profile else None
         if sheet_id and sheets_client:
             entry = DreamEntry(**session.pending_entry)
             try:
-                await _safe_edit_message(query, _messages(update)["saving_data"])
+                await _safe_edit_message(query, _messages_for_lang(lang)["saving_data"])
                 await asyncio.wait_for(
                     sheets_client.append_dream_entry(sheet_id, entry),
                     timeout=_OP_TIMEOUT,
                 )
             except SheetAccessError:
-                await _safe_edit_message(query, _messages(update)["sheet_permission_error"])
+                await _safe_edit_message(query, _messages_for_lang(lang)["sheet_permission_error"])
                 session.state = ConversationState.IDLE
                 session.pending_entry = None
                 if session_repo:
@@ -125,7 +129,7 @@ async def handle_dream_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
                 await query.answer()
                 return
             except asyncio.TimeoutError:
-                await _safe_edit_message(query, _messages(update)["external_timeout_error"])
+                await _safe_edit_message(query, _messages_for_lang(lang)["external_timeout_error"])
                 session.state = ConversationState.IDLE
                 session.pending_entry = None
                 if session_repo:
@@ -133,7 +137,7 @@ async def handle_dream_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
                 await query.answer()
                 return
             except ExternalTimeoutError:
-                await _safe_edit_message(query, _messages(update)["external_timeout_error"])
+                await _safe_edit_message(query, _messages_for_lang(lang)["external_timeout_error"])
                 session.state = ConversationState.IDLE
                 session.pending_entry = None
                 if session_repo:
@@ -141,7 +145,7 @@ async def handle_dream_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
                 await query.answer()
                 return
             except SheetWriteError:
-                await _safe_edit_message(query, _messages(update)["sheet_write_error"])
+                await _safe_edit_message(query, _messages_for_lang(lang)["sheet_write_error"])
                 session.state = ConversationState.IDLE
                 session.pending_entry = None
                 if session_repo:
@@ -154,12 +158,13 @@ async def handle_dream_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
                 pass
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=_messages(update)["dream_saved"]
+                text=_messages_for_lang(lang)["dream_saved"]
             )
         else:
-            await query.edit_message_text(_messages(update)["sheet_not_configured"])
+            await query.edit_message_text(_messages_for_lang(lang)["sheet_not_configured"])
     else:
-        await query.edit_message_text(_messages(update)["cancelled"])
+        lang = resolve_language(await resolve_user_profile(update, context))
+        await query.edit_message_text(_messages_for_lang(lang)["cancelled"])
 
     session.state = ConversationState.IDLE
     session.pending_entry = None

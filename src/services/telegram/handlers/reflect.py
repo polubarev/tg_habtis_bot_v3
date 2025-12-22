@@ -5,7 +5,7 @@ import re
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from src.config.constants import DEFAULT_REFLECTION_QUESTIONS, MESSAGES_EN, MESSAGES_RU
+from src.config.constants import DEFAULT_REFLECTION_QUESTIONS_EN, DEFAULT_REFLECTION_QUESTIONS_RU, MESSAGES_EN, MESSAGES_RU
 from src.config.settings import get_settings
 from src.models.entry import ReflectionEntry
 from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, SheetAccessError, SheetWriteError
@@ -13,16 +13,15 @@ from src.models.user import CustomQuestion
 from src.models.session import ConversationState, SessionData
 from src.services.telegram.keyboards import build_confirmation_keyboard
 from src.services.llm.extractors.reflection_extractor import ReflectionExtractor
-from src.services.telegram.utils import resolve_user_timezone
+from src.services.telegram.utils import resolve_language, resolve_user_profile, resolve_user_timezone
 import json
 
 
 _OP_TIMEOUT = get_settings().operation_timeout_seconds
 
 
-def _messages(update: Update):
-    code = (update.effective_user.language_code or "").lower() if update.effective_user else ""
-    return MESSAGES_RU if code.startswith("ru") else MESSAGES_EN
+def _messages_for_lang(lang: str):
+    return MESSAGES_RU if lang == "ru" else MESSAGES_EN
 
 
 def _get_repos(context: ContextTypes.DEFAULT_TYPE):
@@ -48,20 +47,22 @@ async def reflect_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
     session_repo, user_repo, _, llm_client = _get_repos(context)
     profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
+    lang = resolve_language(profile)
     questions = [q for q in (profile.custom_questions if profile else []) if q.active]
     if not questions:
         if profile is None:
-            await update.message.reply_text("Нет вопросов для размышлений. Добавь их в /config.")
+            await update.message.reply_text(_messages_for_lang(lang)["no_reflection_questions"])
             return
+        defaults = DEFAULT_REFLECTION_QUESTIONS_RU if lang == "ru" else DEFAULT_REFLECTION_QUESTIONS_EN
         profile.custom_questions = [
-            CustomQuestion(**q, language=profile.language) for q in DEFAULT_REFLECTION_QUESTIONS
+            CustomQuestion(**q, language=lang) for q in defaults
         ]
         await user_repo.update(profile)
         questions = [q for q in profile.custom_questions if q.active]
-        await update.message.reply_text(_messages(update)["reflect_seeded"])
+        await update.message.reply_text(_messages_for_lang(lang)["reflect_seeded"])
     sheet_id = profile.sheet_id if profile else None
     if not sheet_id:
-        await update.message.reply_text(_messages(update)["sheet_not_configured"])
+        await update.message.reply_text(_messages_for_lang(lang)["sheet_not_configured"])
         return
     session = await session_repo.get(update.effective_user.id) if session_repo else None
     if session is None:
@@ -73,7 +74,7 @@ async def reflect_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     session.temp_data["reflect_questions"] = [q.text for q in questions]
     await session_repo.save(session)
     question_lines = "\n".join(f"{idx+1}. {q.text}" for idx, q in enumerate(questions))
-    await update.message.reply_text(_messages(update)["reflect_intro"].format(questions=question_lines))
+    await update.message.reply_text(_messages_for_lang(lang)["reflect_intro"].format(questions=question_lines))
 
 
 async def handle_reflect_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> bool:
@@ -87,31 +88,30 @@ async def handle_reflect_text(update: Update, context: ContextTypes.DEFAULT_TYPE
         return False
 
     profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
+    lang = resolve_language(profile)
     questions = session.temp_data.get("reflect_questions") if session and session.temp_data else []
     if not questions:
         questions = [q.text for q in (profile.custom_questions if profile else []) if q.active]
     if not questions:
-        await update.message.reply_text(_messages(update)["error_occurred"])
+        await update.message.reply_text(_messages_for_lang(lang)["error_occurred"])
         return True
-
-    lang = "ru" if (update.effective_user and (update.effective_user.language_code or "").lower().startswith("ru")) else "en"
     answers = {}
     if llm_client:
         try:
             extractor = ReflectionExtractor(llm_client)
-            await update.message.reply_text(_messages(update)["processing"])
+            await update.message.reply_text(_messages_for_lang(lang)["processing"])
             answers = await asyncio.wait_for(
                 extractor.extract(text, questions, language=lang),
                 timeout=_OP_TIMEOUT,
             )
         except asyncio.TimeoutError:
-            await update.message.reply_text(_messages(update)["external_timeout_error"])
+            await update.message.reply_text(_messages_for_lang(lang)["external_timeout_error"])
             answers = {}
         except ExternalTimeoutError:
-            await update.message.reply_text(_messages(update)["external_timeout_error"])
+            await update.message.reply_text(_messages_for_lang(lang)["external_timeout_error"])
             answers = {}
         except ExternalResponseError:
-            await update.message.reply_text(_messages(update)["external_response_error"])
+            await update.message.reply_text(_messages_for_lang(lang)["external_response_error"])
             answers = {}
         except Exception:
             answers = {}
@@ -145,8 +145,8 @@ async def handle_reflect_text(update: Update, context: ContextTypes.DEFAULT_TYPE
         await session_repo.save(session)
     preview = json.dumps(entry.model_dump(), ensure_ascii=False, indent=2, default=str)
     await update.message.reply_text(
-        _messages(update)["confirm_generic"].format(preview=preview),
-        reply_markup=build_confirmation_keyboard(prefix="reflect"),
+        _messages_for_lang(lang)["confirm_generic"].format(preview=preview),
+        reply_markup=build_confirmation_keyboard(prefix="reflect", language=lang),
         parse_mode="Markdown",
     )
     return True
@@ -164,23 +164,25 @@ async def handle_reflect_confirm(update: Update, context: ContextTypes.DEFAULT_T
     session = await session_repo.get(update.effective_user.id) if session_repo else None
     if session is None or session.state != ConversationState.REFLECT_AWAITING_CONFIRMATION or not session.pending_entry:
         await query.answer()
-        await query.edit_message_text(_messages(update)["error_occurred"])
+        lang = resolve_language(await resolve_user_profile(update, context))
+        await query.edit_message_text(_messages_for_lang(lang)["error_occurred"])
         return
 
     decision = data.split(":", 1)[1]
     if decision == "yes":
         profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
+        lang = resolve_language(profile)
         sheet_id = profile.sheet_id if profile else None
         if sheet_id and sheets_client:
             entry = ReflectionEntry(**session.pending_entry)
             try:
-                await _safe_edit_message(query, _messages(update)["saving_data"])
+                await _safe_edit_message(query, _messages_for_lang(lang)["saving_data"])
                 await asyncio.wait_for(
                     sheets_client.append_reflection_entry(sheet_id, entry),
                     timeout=_OP_TIMEOUT,
                 )
             except SheetAccessError:
-                await _safe_edit_message(query, _messages(update)["sheet_permission_error"])
+                await _safe_edit_message(query, _messages_for_lang(lang)["sheet_permission_error"])
                 session.state = ConversationState.IDLE
                 session.pending_entry = None
                 session.reflection_answers = {}
@@ -189,7 +191,7 @@ async def handle_reflect_confirm(update: Update, context: ContextTypes.DEFAULT_T
                 await query.answer()
                 return
             except asyncio.TimeoutError:
-                await _safe_edit_message(query, _messages(update)["external_timeout_error"])
+                await _safe_edit_message(query, _messages_for_lang(lang)["external_timeout_error"])
                 session.state = ConversationState.IDLE
                 session.pending_entry = None
                 session.reflection_answers = {}
@@ -198,7 +200,7 @@ async def handle_reflect_confirm(update: Update, context: ContextTypes.DEFAULT_T
                 await query.answer()
                 return
             except ExternalTimeoutError:
-                await _safe_edit_message(query, _messages(update)["external_timeout_error"])
+                await _safe_edit_message(query, _messages_for_lang(lang)["external_timeout_error"])
                 session.state = ConversationState.IDLE
                 session.pending_entry = None
                 session.reflection_answers = {}
@@ -207,7 +209,7 @@ async def handle_reflect_confirm(update: Update, context: ContextTypes.DEFAULT_T
                 await query.answer()
                 return
             except SheetWriteError:
-                await _safe_edit_message(query, _messages(update)["sheet_write_error"])
+                await _safe_edit_message(query, _messages_for_lang(lang)["sheet_write_error"])
                 session.state = ConversationState.IDLE
                 session.pending_entry = None
                 session.reflection_answers = {}
@@ -221,12 +223,13 @@ async def handle_reflect_confirm(update: Update, context: ContextTypes.DEFAULT_T
                 pass
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=_messages(update)["reflect_done"]
+                text=_messages_for_lang(lang)["reflect_done"]
             )
         else:
-            await query.edit_message_text(_messages(update)["sheet_not_configured"])
+            await query.edit_message_text(_messages_for_lang(lang)["sheet_not_configured"])
     else:
-        await query.edit_message_text(_messages(update)["cancelled"])
+        lang = resolve_language(await resolve_user_profile(update, context))
+        await query.edit_message_text(_messages_for_lang(lang)["cancelled"])
 
     session.state = ConversationState.IDLE
     session.pending_entry = None
