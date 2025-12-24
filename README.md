@@ -7,9 +7,9 @@ structured data with an LLM, and writes everything to user-managed Google Sheets
 
 ## Getting started
 1. Create and activate a Python 3.11+ virtualenv.
-2. Install dependencies: `pip install -e .[dev]` or `pip install -r requirements.txt` once added.
+2. Install dependencies: `pip install -e '.[dev]'` or `pip install -r requirements.txt` once added.
 3. Copy `.env.example` to `.env` and fill tokens/IDs (Telegram bot token, OpenRouter key, OpenAI key for Whisper, webhook secret, GCP project info).
-4. Run locally: `uvicorn src.main:app --reload`.
+4. Run locally: `uvicorn src.main:app --reload --port 8001`.
 
 ## Set Telegram webhook
 - Fill `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_URL` (base service URL), and optionally `TELEGRAM_WEBHOOK_SECRET` in `.env`.

@@ -18,6 +18,7 @@ from src.services.telegram.utils import (
     get_user_repo,
     resolve_language,
     resolve_user_profile,
+    safe_delete_message,
 )
 
 def _messages_for_lang(lang: str):
@@ -157,22 +158,28 @@ async def handle_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await user_repo.update(profile)
 
     if sheets_client:
+        progress_message = None
         try:
             if update.message:
-                await update.message.reply_text(_messages_for_lang(lang)["processing"])
+                progress_message = await update.message.reply_text(_messages_for_lang(lang)["processing"])
             await asyncio.wait_for(sheets_client.ensure_tabs(sheet_id), timeout=_OP_TIMEOUT)
         except SheetAccessError:  # pragma: no cover - external dependency
+            await safe_delete_message(progress_message)
             await update.message.reply_text(_messages_for_lang(lang)["sheet_permission_error"])
             return True
         except asyncio.TimeoutError:  # pragma: no cover - external dependency
+            await safe_delete_message(progress_message)
             await update.message.reply_text(_messages_for_lang(lang)["external_timeout_error"])
             return True
         except ExternalTimeoutError:  # pragma: no cover - external dependency
+            await safe_delete_message(progress_message)
             await update.message.reply_text(_messages_for_lang(lang)["external_timeout_error"])
             return True
         except SheetWriteError:  # pragma: no cover - external dependency
+            await safe_delete_message(progress_message)
             await update.message.reply_text(_messages_for_lang(lang)["sheet_write_error"])
             return True
+        await safe_delete_message(progress_message)
         if user_repo and profile:
             profile.sheets_validated = True
             await user_repo.update(profile)

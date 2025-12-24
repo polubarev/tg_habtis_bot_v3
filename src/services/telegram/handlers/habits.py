@@ -23,6 +23,7 @@ from src.services.telegram.utils import (
     resolve_language,
     resolve_user_profile,
     resolve_user_timezone,
+    safe_delete_message,
 )
 
 
@@ -218,9 +219,10 @@ async def handle_habits_text(
     # keep schema_fields as-is; diary is now part of default schema
     field_order = [f for f in schema_fields if f not in BASE_HABIT_FIELDS]
     if llm_client:
+        progress_message = None
         try:
             if update.message:
-                await update.message.reply_text(_messages_for_lang(lang)["processing"])
+                progress_message = await update.message.reply_text(_messages_for_lang(lang)["processing"])
             extractor = HabitExtractor(llm_client)
             extraction = await asyncio.wait_for(
                 extractor.extract(combined_text, language=lang, schema=habit_schema or None),
@@ -240,6 +242,8 @@ async def handle_habits_text(
             extraction = {}
         except Exception:
             extraction = {}
+        finally:
+            await safe_delete_message(progress_message)
     else:
         if update.message:
             await update.message.reply_text(_messages_for_lang(lang)["llm_disabled"])
@@ -340,34 +344,26 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
                 input_type=InputType(session.pending_entry.get("input_type") or InputType.TEXT),
                 created_at=created_at,
             )
+            error_key = None
             try:
                 await asyncio.wait_for(
                     sheets_client.append_habit_entry(sheet_id, field_order, entry),
                     timeout=_OP_TIMEOUT,
                 )
             except SheetAccessError:
-                await _safe_edit_message(query, _messages_for_lang(lang)["sheet_permission_error"])
-                session.reset()
-                if session_repo:
-                    await session_repo.save(session)
-                _safe_answer(query)
-                return
+                error_key = "sheet_permission_error"
             except asyncio.TimeoutError:
-                await _safe_edit_message(query, _messages_for_lang(lang)["external_timeout_error"])
-                session.reset()
-                if session_repo:
-                    await session_repo.save(session)
-                _safe_answer(query)
-                return
+                error_key = "external_timeout_error"
             except ExternalTimeoutError:
-                await _safe_edit_message(query, _messages_for_lang(lang)["external_timeout_error"])
-                session.reset()
-                if session_repo:
-                    await session_repo.save(session)
-                _safe_answer(query)
-                return
+                error_key = "external_timeout_error"
             except SheetWriteError:
-                await _safe_edit_message(query, _messages_for_lang(lang)["sheet_write_error"])
+                error_key = "sheet_write_error"
+            if error_key:
+                await safe_delete_message(query.message)
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=_messages_for_lang(lang)[error_key],
+                )
                 session.reset()
                 if session_repo:
                     await session_repo.save(session)
@@ -377,6 +373,7 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
                 await query.edit_message_reply_markup(reply_markup=None)
             except Exception:
                 pass
+            await safe_delete_message(query.message)
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=_messages_for_lang(lang)["saved_success"]
@@ -394,7 +391,14 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
         if session_repo:
             await session_repo.save(session)
         lang = resolve_language(await resolve_user_profile(update, context))
-        await query.edit_message_text(_messages_for_lang(lang)["habits_update_prompt"])
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=_messages_for_lang(lang)["habits_update_prompt"],
+        )
         _safe_answer(query)
         return
 

@@ -87,6 +87,10 @@ INLINE_BUTTONS_RU = {
     "habit_json": "📦 JSON",
     "habit_reset": "↩️ Сбросить",
     "habit_cancel": "✖ Отмена",
+    "habit_type_string": "string",
+    "habit_type_int": "int",
+    "habit_type_float": "float",
+    "habit_type_bool": "bool",
     "question_add": "➕ Добавить",
     "question_remove": "➖ Удалить",
     "question_reset": "↩️ Сбросить",
@@ -107,6 +111,10 @@ INLINE_BUTTONS_EN = {
     "habit_json": "📦 JSON",
     "habit_reset": "↩️ Reset",
     "habit_cancel": "✖ Cancel",
+    "habit_type_string": "string",
+    "habit_type_int": "int",
+    "habit_type_float": "float",
+    "habit_type_bool": "bool",
     "question_add": "➕ Add",
     "question_remove": "➖ Remove",
     "question_reset": "↩️ Reset",
@@ -228,9 +236,9 @@ MESSAGES_RU = {
         "• int — целое число (например, 3)\n"
         "• float — число с точкой (например, 2.5)\n"
         "• bool — да/нет (например, выпил витамины)\n\n"
-        "Напиши одно слово: string / int / float / bool."
+        "Нажми кнопку ниже."
     ),
-    "habit_add_type_error": "Не понял тип. Напиши: string, int, float или bool. Пример: int.",
+    "habit_add_type_error": "Не понял тип. Нажми кнопку или напиши: string, int, float или bool. Пример: int.",
     "habit_add_min_prompt_int": (
         "⭐️ *Шаг 4: Минимум (необязательно)*\n"
         "Введи минимальное целое число, например 0. Или '-' чтобы пропустить."
@@ -285,7 +293,7 @@ MESSAGES_RU = {
     "habit_json_result_added": "✅ Добавлены поля: {added}",
     "habit_json_result_skipped": "⚠️ Пропущены (уже есть или базовые): {skipped}",
     "habit_json_result_none": "Ничего не добавлено. Проверь JSON по примеру или используй ➕ Добавить.",
-    "habit_remove_prompt": "Напиши название поля, которое нужно удалить. Пример: вода.",
+    "habit_remove_prompt": "Текущие пользовательские поля:\n{fields}\nНапиши название поля, которое нужно удалить. Пример: вода.",
     "habit_remove_error": "Не нашёл такое поле. Проверь название и попробуй ещё раз. Пример: вода.",
     "habit_added": "Поле добавлено: {name}",
     "habit_removed": "Поле удалено: {name}",
@@ -426,9 +434,9 @@ MESSAGES_EN = {
         "• int — whole number (e.g., 3)\n"
         "• float — decimal (e.g., 2.5)\n"
         "• bool — yes/no (e.g., took vitamins)\n\n"
-        "Send one word: string / int / float / bool."
+        "Tap a button below."
     ),
-    "habit_add_type_error": "I didn't understand the type. Send: string, int, float, or bool. Example: int.",
+    "habit_add_type_error": "I didn't understand the type. Use a button or send: string, int, float, or bool. Example: int.",
     "habit_add_min_prompt_int": (
         "⭐️ *Step 4: Minimum (optional)*\n"
         "Send the smallest whole number, e.g., 0. Or '-' to skip."
@@ -479,7 +487,7 @@ MESSAGES_EN = {
     "habit_json_result_added": "✅ Added fields: {added}",
     "habit_json_result_skipped": "⚠️ Skipped (already exist or base): {skipped}",
     "habit_json_result_none": "No fields added. Check the JSON example or use ➕ Add.",
-    "habit_remove_prompt": "Send the field name to remove. Example: water.",
+    "habit_remove_prompt": "Current custom fields:\n{fields}\nSend the field name to remove. Example: water.",
     "habit_remove_error": "I couldn't find that field. Check the name and try again. Example: water.",
     "habit_added": "Field added: {name}",
     "habit_removed": "Field removed: {name}",

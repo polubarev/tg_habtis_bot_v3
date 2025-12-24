@@ -2,6 +2,7 @@ import json
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
+from telegram.helpers import escape_markdown
 from telegram.ext import ContextTypes
 
 from src.config.constants import (
@@ -14,7 +15,7 @@ from src.config.constants import (
 )
 from src.models.habit import HabitFieldConfig
 from src.models.session import ConversationState
-from src.services.telegram.keyboards import build_main_menu_keyboard
+from src.services.telegram.keyboards import build_habit_type_keyboard, build_main_menu_keyboard
 from src.services.telegram.utils import get_session_repo, get_user_repo, resolve_language
 
 BASE_HABIT_FIELDS = set(HABITS_SHEET_COLUMNS)
@@ -54,6 +55,15 @@ def _format_fields(profile, lang: str) -> str:
     if not fields:
         return _messages_for_lang(lang)["empty_value"]
     return ", ".join(fields.keys())
+
+
+def _format_custom_fields(profile, lang: str) -> str:
+    fields = profile.habit_schema.fields if profile and profile.habit_schema else {}
+    custom = [name for name in fields.keys() if name not in BASE_HABIT_FIELDS]
+    if not custom:
+        return _messages_for_lang(lang)["empty_value"]
+    escaped = [escape_markdown(name) for name in custom]
+    return "\n".join(f"- {name}" for name in escaped)
 
 
 def _base_numeric_type(type_value) -> str:
@@ -124,7 +134,12 @@ async def handle_habits_config_callback(update: Update, context: ContextTypes.DE
                 parse_mode=ParseMode.MARKDOWN,
             )
         elif action == "remove":
-            await query.edit_message_text(_messages_for_lang(lang)["habit_remove_prompt"])
+            await query.edit_message_text(
+                _messages_for_lang(lang)["habit_remove_prompt"].format(
+                    fields=_format_custom_fields(profile, lang)
+                ),
+                parse_mode=ParseMode.MARKDOWN,
+            )
         elif action == "json":
             await query.edit_message_text(
                 _messages_for_lang(lang)["habit_json_prompt"],
@@ -154,6 +169,69 @@ async def handle_habits_config_callback(update: Update, context: ContextTypes.DE
                 await session_repo.save(session)
     except Exception:
         # ignore edit collisions (e.g., message not modified/expired)
+        pass
+
+
+async def handle_habit_type_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle habit field type selection."""
+
+    if not update.callback_query or not update.effective_user:
+        return
+    query = update.callback_query
+    data = query.data or ""
+    if not data.startswith("habit_type:"):
+        return
+
+    type_key = data.split(":", 1)[1]
+    type_map = {
+        "string": "string",
+        "int": "integer",
+        "float": "number",
+        "bool": "boolean",
+    }
+    type_value = type_map.get(type_key)
+    if not type_value:
+        return
+
+    session_repo, user_repo = _get_repos(context)
+    session = await session_repo.get(update.effective_user.id) if session_repo else None
+    profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
+    lang = resolve_language(profile)
+    if session is None or session.state != ConversationState.CONFIG_EDITING_HABITS:
+        return
+    temp = session.temp_data or {}
+    if temp.get("habit_action") != "add" or temp.get("habit_add_stage") != "type":
+        return
+
+    new_field = temp.get("habit_new_field") or {}
+    field_name = new_field.get("name")
+    if not field_name:
+        return
+    new_field["type"] = type_value
+    if type_value in {"integer", "number"}:
+        session.temp_data = {"habit_action": "add", "habit_add_stage": "min", "habit_new_field": new_field}
+        if session_repo:
+            await session_repo.save(session)
+        await query.edit_message_text(_min_prompt(lang, type_value), parse_mode=ParseMode.MARKDOWN)
+        return
+
+    if profile and user_repo:
+        profile.habit_schema.fields[field_name] = HabitFieldConfig(
+            type=type_value,
+            description=new_field.get("description", field_name),
+            required=True,
+        )
+        await user_repo.update(profile)
+    session.state = ConversationState.IDLE
+    session.temp_data = {}
+    if session_repo:
+        await session_repo.save(session)
+    try:
+        await query.edit_message_text(
+            _messages_for_lang(lang)["habit_added"].format(name=field_name),
+            reply_markup=_keyboard(lang),
+        )
+    except Exception:
         pass
 
 
@@ -306,12 +384,17 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
             msg = _messages_for_lang(lang)["habit_json_result_none"]
         if skipped:
             msg += "\n" + _messages_for_lang(lang)["habit_json_result_skipped"].format(skipped=", ".join(skipped))
-        await update.message.reply_text(msg, reply_markup=build_main_menu_keyboard(lang))
+        await update.message.reply_text(msg, reply_markup=_keyboard(lang))
         return True
     if action == "remove":
         name = text.strip()
         if not name:
-            await update.message.reply_text(_messages_for_lang(lang)["habit_remove_prompt"])
+            await update.message.reply_text(
+                _messages_for_lang(lang)["habit_remove_prompt"].format(
+                    fields=_format_custom_fields(profile, lang)
+                ),
+                parse_mode=ParseMode.MARKDOWN,
+            )
             return True
         removed = False
         if name in profile.habit_schema.fields:
@@ -373,7 +456,11 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
             session.temp_data = {"habit_action": "add", "habit_add_stage": "type", "habit_new_field": new_field}
             if session_repo:
                 await session_repo.save(session)
-            await update.message.reply_text(_messages_for_lang(lang)["habit_add_type_prompt"], parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text(
+                _messages_for_lang(lang)["habit_add_type_prompt"],
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=build_habit_type_keyboard(lang),
+            )
             return True
 
         # Stage 3: type
@@ -389,7 +476,10 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
             elif type_hint in {"string", "text", ""}:
                 type_value = "string"
             if not type_value:
-                await update.message.reply_text(_messages_for_lang(lang)["habit_add_type_error"])
+                await update.message.reply_text(
+                    _messages_for_lang(lang)["habit_add_type_error"],
+                    reply_markup=build_habit_type_keyboard(lang),
+                )
                 return True
             new_field["type"] = type_value
             if type_value in {"integer", "number"}:
@@ -405,7 +495,10 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                 required=True,
             )
             await user_repo.update(profile)
-            await update.message.reply_text(_messages_for_lang(lang)["habit_added"].format(name=new_field["name"]))
+            await update.message.reply_text(
+                _messages_for_lang(lang)["habit_added"].format(name=new_field["name"]),
+                reply_markup=_keyboard(lang),
+            )
             await _finish_and_reset()
             return True
 
@@ -452,7 +545,10 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                 required=True,
             )
             await user_repo.update(profile)
-            await update.message.reply_text(_messages_for_lang(lang)["habit_added"].format(name=new_field["name"]))
+            await update.message.reply_text(
+                _messages_for_lang(lang)["habit_added"].format(name=new_field["name"]),
+                reply_markup=_keyboard(lang),
+            )
             await _finish_and_reset()
             return True
     elif action == "remove":

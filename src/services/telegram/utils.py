@@ -4,7 +4,7 @@ from datetime import timezone
 from zoneinfo import ZoneInfo
 from typing import Optional
 
-from telegram import Update
+from telegram import Message, Update
 from telegram.ext import ContextTypes
 
 from src.models.user import UserProfile
@@ -64,3 +64,12 @@ def get_llm_client(context: ContextTypes.DEFAULT_TYPE):
 def get_whisper_client(context: ContextTypes.DEFAULT_TYPE):
     deps = _get_deps(context)
     return deps.whisper_client() if deps else None
+
+
+async def safe_delete_message(message: Message | None) -> None:
+    if message is None:
+        return
+    try:
+        await message.delete()
+    except Exception:
+        return

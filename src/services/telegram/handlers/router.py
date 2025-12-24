@@ -25,6 +25,7 @@ from src.services.telegram.utils import (
     get_whisper_client,
     resolve_language,
     resolve_user_profile,
+    safe_delete_message,
 )
 
 
@@ -161,24 +162,29 @@ async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     voice = update.message.voice
     tg_file = await context.bot.get_file(voice.file_id)
     data = await tg_file.download_as_bytearray()
+    progress_message = await update.message.reply_text(msgs["processing"])
     try:
-        await update.message.reply_text(msgs["processing"])
         result = await asyncio.wait_for(
             whisper_client.transcribe(bytes(data), format="ogg"),
             timeout=_OP_TIMEOUT,
         )
     except asyncio.TimeoutError:
+        await safe_delete_message(progress_message)
         await update.message.reply_text(msgs["external_timeout_error"])
         return
     except ExternalTimeoutError:
+        await safe_delete_message(progress_message)
         await update.message.reply_text(msgs["external_timeout_error"])
         return
     except (ExternalResponseError, TranscriptionError):
+        await safe_delete_message(progress_message)
         await update.message.reply_text(msgs["voice_transcription_error"])
         return
     if not result.text:
+        await safe_delete_message(progress_message)
         await update.message.reply_text(msgs["voice_transcription_error"])
         return
+    await safe_delete_message(progress_message)
     # Echo transcription to user
     await update.message.reply_text(msgs["voice_transcribed"].format(text=result.text))
 

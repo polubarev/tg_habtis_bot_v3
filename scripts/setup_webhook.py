@@ -1,9 +1,15 @@
 #!/usr/bin/env python
 from __future__ import annotations
 
+import argparse
 import asyncio
+import sys
 from pathlib import Path
 from typing import Optional
+
+repo_root = Path(__file__).resolve().parent.parent
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
 
 from telegram import Bot
 from telegram.error import TelegramError
@@ -21,14 +27,26 @@ def build_webhook_url(raw_url: str) -> str:
     return f"{trimmed}{suffix}"
 
 
-def load_settings() -> Settings:
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Register Telegram webhook.")
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Use *_DEBUG values from .env (overrides DEBUG flag).",
+    )
+    return parser.parse_args()
+
+
+def load_settings(debug_override: bool | None = None) -> Settings:
     """Load settings from .env at the repo root (falls back to env vars)."""
 
-    repo_root = Path(__file__).resolve().parent.parent
     env_file = repo_root / ".env"
+    overrides = {}
+    if debug_override is not None:
+        overrides["debug"] = debug_override
     if env_file.exists():
-        return Settings(_env_file=env_file)
-    return Settings()
+        return Settings(_env_file=env_file, **overrides)
+    return Settings(**overrides)
 
 
 async def set_webhook(
@@ -47,21 +65,28 @@ async def set_webhook(
 
 
 async def main() -> int:
-    settings = load_settings()
+    args = _parse_args()
+    settings = load_settings(debug_override=True if args.debug else None)
+    debug_mode = bool(settings.debug)
 
-    if not settings.telegram_bot_token:
-        print("TELEGRAM_BOT_TOKEN is missing in .env or environment.")
+    bot_token = settings.get_telegram_bot_token()
+    webhook_base = settings.get_telegram_webhook_url()
+
+    if not bot_token:
+        missing_token = "TELEGRAM_BOT_TOKEN_DEBUG" if debug_mode else "TELEGRAM_BOT_TOKEN"
+        print(f"{missing_token} is missing in .env or environment.")
         return 1
-    if not settings.telegram_webhook_url:
-        print("TELEGRAM_WEBHOOK_URL is missing in .env or environment.")
+    if not webhook_base:
+        missing_url = "TELEGRAM_WEBHOOK_URL_DEBUG" if debug_mode else "TELEGRAM_WEBHOOK_URL"
+        print(f"{missing_url} is missing in .env or environment.")
         return 1
 
-    webhook_url = build_webhook_url(settings.telegram_webhook_url)
+    webhook_url = build_webhook_url(webhook_base)
 
     try:
         await set_webhook(
             webhook_url=webhook_url,
-            bot_token=settings.telegram_bot_token,
+            bot_token=bot_token,
             secret_token=settings.telegram_webhook_secret or None,
         )
     except TelegramError as exc:

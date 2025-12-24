@@ -70,3 +70,20 @@ def build_language_keyboard() -> InlineKeyboardMarkup:
         ]
     ]
     return InlineKeyboardMarkup(buttons)
+
+
+def build_habit_type_keyboard(language: str = "en") -> InlineKeyboardMarkup:
+    """Inline keyboard for selecting habit field type."""
+
+    btns = INLINE_BUTTONS_RU if language == "ru" else INLINE_BUTTONS_EN
+    buttons = [
+        [
+            InlineKeyboardButton(btns["habit_type_string"], callback_data="habit_type:string"),
+            InlineKeyboardButton(btns["habit_type_int"], callback_data="habit_type:int"),
+        ],
+        [
+            InlineKeyboardButton(btns["habit_type_float"], callback_data="habit_type:float"),
+            InlineKeyboardButton(btns["habit_type_bool"], callback_data="habit_type:bool"),
+        ],
+    ]
+    return InlineKeyboardMarkup(buttons)

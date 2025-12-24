@@ -28,7 +28,11 @@ from src.services.telegram.handlers.help import help_command
 from src.services.telegram.handlers.config import config_command, handle_reset_confirm
 from src.services.telegram.handlers.language import handle_language_select
 from src.services.telegram.handlers.router import route_text, route_voice
-from src.services.telegram.handlers.habits_config import habits_config_command, handle_habits_config_callback
+from src.services.telegram.handlers.habits_config import (
+    habits_config_command,
+    handle_habits_config_callback,
+    handle_habit_type_callback,
+)
 from src.services.telegram.handlers.questions import questions_command, handle_questions_callback
 from src.services.telegram.deps import DependencyProvider
 from src.services.telegram.handlers.start import start_command
@@ -84,6 +88,9 @@ class TelegramBotService:
         )
         self.app.add_handler(
             CallbackQueryHandler(handle_habits_config_callback, pattern="^habit_cfg:")
+        )
+        self.app.add_handler(
+            CallbackQueryHandler(handle_habit_type_callback, pattern="^habit_type:")
         )
         self.app.add_handler(
             CallbackQueryHandler(handle_questions_callback, pattern="^q_cfg:")

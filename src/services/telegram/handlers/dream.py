@@ -18,6 +18,7 @@ from src.services.telegram.utils import (
     resolve_language,
     resolve_user_profile,
     resolve_user_timezone,
+    safe_delete_message,
 )
 
 
@@ -120,6 +121,7 @@ async def handle_dream_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
         sheet_id = profile.sheet_id if profile else None
         if sheet_id and sheets_client:
             entry = DreamEntry(**session.pending_entry)
+            error_key = None
             try:
                 await _safe_edit_message(query, _messages_for_lang(lang)["saving_data"])
                 await asyncio.wait_for(
@@ -127,41 +129,30 @@ async def handle_dream_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
                     timeout=_OP_TIMEOUT,
                 )
             except SheetAccessError:
-                await _safe_edit_message(query, _messages_for_lang(lang)["sheet_permission_error"])
-                session.state = ConversationState.IDLE
-                session.pending_entry = None
-                if session_repo:
-                    await session_repo.save(session)
-                await query.answer()
-                return
+                error_key = "sheet_permission_error"
             except asyncio.TimeoutError:
-                await _safe_edit_message(query, _messages_for_lang(lang)["external_timeout_error"])
-                session.state = ConversationState.IDLE
-                session.pending_entry = None
-                if session_repo:
-                    await session_repo.save(session)
-                await query.answer()
-                return
+                error_key = "external_timeout_error"
             except ExternalTimeoutError:
-                await _safe_edit_message(query, _messages_for_lang(lang)["external_timeout_error"])
-                session.state = ConversationState.IDLE
-                session.pending_entry = None
-                if session_repo:
-                    await session_repo.save(session)
-                await query.answer()
-                return
+                error_key = "external_timeout_error"
             except SheetWriteError:
-                await _safe_edit_message(query, _messages_for_lang(lang)["sheet_write_error"])
+                error_key = "sheet_write_error"
+            if error_key:
+                await safe_delete_message(query.message)
                 session.state = ConversationState.IDLE
                 session.pending_entry = None
                 if session_repo:
                     await session_repo.save(session)
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=_messages_for_lang(lang)[error_key],
+                )
                 await query.answer()
                 return
             try:
                 await query.edit_message_reply_markup(reply_markup=None)
             except Exception:
                 pass
+            await safe_delete_message(query.message)
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=_messages_for_lang(lang)["dream_saved"]
