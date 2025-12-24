@@ -1,0 +1,4 @@
+#!include:.gitignore
+
+# Include service account json in Cloud Build context (still ignored by git).
+!src/secrets/*.json

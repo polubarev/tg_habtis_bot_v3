@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     telegram_webhook_url: Optional[str] = None
     telegram_webhook_url_debug: Optional[str] = None
     telegram_webhook_secret: str = Field(default="")
+    reminders_dispatch_url: Optional[str] = None
+    reminders_dispatch_url_debug: Optional[str] = None
+    reminders_queue_name: str = "reminders"
+    reminders_dispatch_secret: str = Field(default="")
 
     # OpenRouter / LLM
     openrouter_api_key: str | None = None
@@ -65,6 +69,11 @@ class Settings(BaseSettings):
         if self.debug and self.telegram_webhook_url_debug:
             return self.telegram_webhook_url_debug
         return self.telegram_webhook_url
+
+    def get_reminders_dispatch_url(self) -> Optional[str]:
+        if self.debug and self.reminders_dispatch_url_debug:
+            return self.reminders_dispatch_url_debug
+        return self.reminders_dispatch_url
 
 
 @lru_cache()

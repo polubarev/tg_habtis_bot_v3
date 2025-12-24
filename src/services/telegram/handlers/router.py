@@ -5,7 +5,14 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from src.config.settings import get_settings
-from src.services.telegram.handlers.config import handle_config_text, config_command, handle_timezone_text, reset_command
+from src.services.telegram.handlers.config import (
+    handle_config_text,
+    config_command,
+    handle_timezone_text,
+    reset_command,
+    reminder_command,
+    handle_reminder_text,
+)
 from src.services.telegram.handlers.habits_config import handle_habits_config_text, habits_config_command
 from src.services.telegram.handlers.questions import handle_questions_text, questions_command
 from src.services.telegram.handlers.dream import handle_dream_text, dream_command
@@ -115,6 +122,9 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
             session.state = ConversationState.CONFIG_TIMEZONE
             await session_repo.save(session)
         return
+    if matched("reminders"):
+        await reminder_command(update, context)
+        return
     if matched("language"):
         await language_command(update, context)
         return
@@ -123,6 +133,7 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
     # Order matters: config first, then active flows.
     for handler in (
         handle_timezone_text,
+        handle_reminder_text,
         handle_config_text,
         handle_habits_config_text,
         handle_habits_config_text,

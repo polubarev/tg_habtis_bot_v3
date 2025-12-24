@@ -55,6 +55,7 @@ BUTTONS_RU = {
     "reflect_config": "❓ Вопросы",
     "timezone": "🌍 Часовой пояс",
     "language": "🌐 Язык",
+    "reminders": "🔔 Напоминания",
     "reset": "🧹 Сбросить всё",
 }
 
@@ -72,6 +73,7 @@ BUTTONS_EN = {
     "reflect_config": "❓ Questions",
     "timezone": "🌍 Timezone",
     "language": "🌐 Language",
+    "reminders": "🔔 Reminders",
     "reset": "🧹 Reset",
 }
 
@@ -136,6 +138,7 @@ MESSAGES_RU = {
         "• Сон — записать сон\n"
         "• Мысль — быстрая заметка\n"
         "• Рефлексия — ответить на вопросы\n"
+        "• Напоминания — ежедневные напоминания (в Настройках)\n"
         "• Настройки — подключить Google Sheet и настроить поля\n\n"
         "Нажми кнопку ниже, чтобы начать."
     ),
@@ -200,6 +203,7 @@ MESSAGES_RU = {
         "• 😴 *Сон* — запишу сон (добавлю в таблицу).\n"
         "• 💭 *Мысль* — быстрая заметка, чтобы не забыть.\n"
         "• 🤔 *Рефлексия* — задам список вопросов (настраиваются).\n"
+        "• 🔔 *Напоминания* — ежедневное напоминание (Настройки → 🔔 Напоминания).\n"
         "• ⚙️ *Настройки* — подключение таблицы и редактирование полей.\n\n"
         "Если бот «завис» или ведёт себя странно — нажми ❌ *Отмена*."
     ),
@@ -317,6 +321,16 @@ MESSAGES_RU = {
     "timezone_prompt": "Текущий пояс: {tz}. Отправь новый (например, Europe/Moscow, Asia/Jerusalem) или нажми Отмена.",
     "timezone_saved": "✅ Часовой пояс сохранён: {tz}",
     "timezone_error": "⚠ Не могу найти такой пояс. Попробуй: Europe/London, UTC, Asia/Jerusalem.",
+    "reminder_prompt": (
+        "Текущее время напоминания: {time}\n"
+        "Отправь время в формате HH:MM (например, 21:00).\n"
+        "Чтобы отключить, отправь off или выкл."
+    ),
+    "reminder_saved": "✅ Напоминание установлено на {time}.",
+    "reminder_disabled": "🔕 Напоминания отключены.",
+    "reminder_invalid_time": "Не понял время. Используй формат HH:MM, например 21:00.",
+    "reminder_schedule_error": "⚠️ Не удалось запланировать напоминание. Попробуй ещё раз позже.",
+    "reminder_message": "⏰ Напоминание: заполни дневник и привычки.",
     "config_menu": "⚙️ Настройки",
     "main_menu": "Главное меню",
     "reset_prompt": (
@@ -340,6 +354,7 @@ MESSAGES_EN = {
         "• Dream — log a dream\n"
         "• Thought — quick note\n"
         "• Reflection — answer custom questions\n"
+        "• Reminders — daily reminders (via Config)\n"
         "• Config — set Google Sheet and fields\n\n"
         "Tap a button below to start."
     ),
@@ -398,6 +413,7 @@ MESSAGES_EN = {
         "• 😴 *Dream* — log a dream.\n"
         "• 💭 *Thought* — quick note.\n"
         "• 🤔 *Reflection* — answer Q&A check-ins.\n"
+        "• 🔔 *Reminders* — daily reminders (Config → 🔔 Reminders).\n"
         "• ⚙️ *Config* — setup Sheet and custom fields.\n\n"
         "If stuck — press ❌ *Cancel*."
     ),
@@ -511,6 +527,16 @@ MESSAGES_EN = {
     "timezone_prompt": "Current: {tz}. Send new timezone (e.g. Europe/London, Asia/Jerusalem) or Cancel.",
     "timezone_saved": "✅ Timezone saved: {tz}",
     "timezone_error": "⚠ Unknown timezone. Try: Europe/London, UTC, Asia/Jerusalem.",
+    "reminder_prompt": (
+        "Current reminder time: {time}\n"
+        "Send time as HH:MM (e.g., 21:00).\n"
+        "To disable, send off or disable."
+    ),
+    "reminder_saved": "✅ Reminder set for {time}.",
+    "reminder_disabled": "🔕 Reminders disabled.",
+    "reminder_invalid_time": "Couldn't parse time. Use HH:MM, e.g., 21:00.",
+    "reminder_schedule_error": "⚠️ Couldn't schedule the reminder. Please try again later.",
+    "reminder_message": "⏰ Reminder: log your day and habits.",
     "config_menu": "⚙️ Settings",
     "main_menu": "Main Menu",
     "reset_prompt": (

@@ -53,6 +53,7 @@ def build_config_keyboard(language: str = "en") -> ReplyKeyboardMarkup:
     keyboard = [
         [btns["sheet_config"]],
         [btns["habits_config"], btns["reflect_config"]],
+        [btns["reminders"]],
         [btns["language"], btns["timezone"]],
         [btns["reset"]],
         [btns["back"], btns["cancel"]]

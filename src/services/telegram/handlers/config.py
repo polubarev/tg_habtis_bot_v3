@@ -5,6 +5,13 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from src.services.telegram.keyboards import build_main_menu_keyboard, build_confirmation_keyboard
+from src.services.reminders import (
+    ReminderScheduleError,
+    delete_reminder_task,
+    format_time_value,
+    parse_time_text,
+    schedule_reminder_task,
+)
 
 from src.config.constants import MESSAGES_EN, MESSAGES_RU
 from src.config.settings import get_settings
@@ -26,6 +33,7 @@ def _messages_for_lang(lang: str):
 
 
 _OP_TIMEOUT = get_settings().operation_timeout_seconds
+_REMINDER_DISABLE_WORDS = {"off", "disable", "disabled", "выкл", "отключить", "выключить"}
 
 
 def _get_repos(context: ContextTypes.DEFAULT_TYPE):
@@ -230,10 +238,24 @@ async def handle_timezone_text(update: Update, context: ContextTypes.DEFAULT_TYP
          return True
 
     # Save
+    schedule_error = False
     if user_repo:
         profile = await user_repo.get_by_telegram_id(update.effective_user.id)
         if profile:
             profile.timezone = text
+            if profile.reminder_enabled and profile.reminder_time:
+                parsed = parse_time_text(profile.reminder_time)
+                if parsed:
+                    try:
+                        profile.reminder_task_name = schedule_reminder_task(
+                            get_settings(),
+                            update.effective_user.id,
+                            parsed,
+                            profile.timezone,
+                            profile.reminder_task_name,
+                        )
+                    except ReminderScheduleError:
+                        schedule_error = True
             await user_repo.update(profile)
 
     if session_repo:
@@ -245,6 +267,120 @@ async def handle_timezone_text(update: Update, context: ContextTypes.DEFAULT_TYP
     await update.message.reply_text(
         _messages_for_lang(lang)["timezone_saved"].format(tz=text),
         reply_markup=build_main_menu_keyboard(lang)
+    )
+    if schedule_error:
+        await update.message.reply_text(
+            _messages_for_lang(lang)["reminder_schedule_error"],
+            reply_markup=build_main_menu_keyboard(lang),
+        )
+    return True
+
+
+async def reminder_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Prompt user to set daily reminder time."""
+
+    if not update.effective_user or not update.message:
+        return
+    session_repo, user_repo, _ = _get_repos(context)
+    profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
+    lang = resolve_language(profile)
+    current_time = profile.reminder_time if profile and profile.reminder_enabled else None
+    time_label = current_time or _messages_for_lang(lang)["empty_value"]
+    await update.message.reply_text(
+        _messages_for_lang(lang)["reminder_prompt"].format(time=time_label)
+    )
+    if session_repo:
+        session = await session_repo.get(update.effective_user.id) or SessionData(user_id=update.effective_user.id)
+        session.state = ConversationState.CONFIG_REMINDER_TIME
+        await session_repo.save(session)
+
+
+async def handle_reminder_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Handle reminder time input."""
+
+    if not update.effective_user or not update.message:
+        return False
+    lang = await _get_lang(update, context)
+    text = (update.message.text or "").strip()
+    session_repo, user_repo, _ = _get_repos(context)
+    session = await session_repo.get(update.effective_user.id) if session_repo else None
+
+    if text.lower() in {"/cancel", "cancel", "отмена"}:
+        if session:
+            session.state = ConversationState.IDLE
+            if session_repo:
+                await session_repo.save(session)
+        await update.message.reply_text(
+            _messages_for_lang(lang)["cancelled_config"],
+            reply_markup=build_main_menu_keyboard(lang)
+        )
+        return True
+
+    if session is None or session.state != ConversationState.CONFIG_REMINDER_TIME:
+        return False
+
+    if user_repo:
+        profile = await user_repo.get_by_telegram_id(update.effective_user.id)
+        if profile is None:
+            profile = UserProfile(
+                telegram_user_id=update.effective_user.id,
+                telegram_username=update.effective_user.username,
+            )
+    else:
+        profile = None
+
+    if text.lower() in _REMINDER_DISABLE_WORDS:
+        if profile and user_repo:
+            delete_reminder_task(get_settings(), profile.reminder_task_name)
+            profile.reminder_enabled = False
+            profile.reminder_time = None
+            profile.reminder_task_name = None
+            await user_repo.update(profile)
+        if session:
+            session.state = ConversationState.IDLE
+            if session_repo:
+                await session_repo.save(session)
+        await update.message.reply_text(
+            _messages_for_lang(lang)["reminder_disabled"],
+            reply_markup=build_main_menu_keyboard(lang),
+        )
+        return True
+
+    parsed = parse_time_text(text)
+    if not parsed:
+        await update.message.reply_text(_messages_for_lang(lang)["reminder_invalid_time"])
+        return True
+
+    formatted = format_time_value(parsed)
+    if not profile or not user_repo:
+        await update.message.reply_text(_messages_for_lang(lang)["reminder_schedule_error"])
+        return True
+
+    try:
+        new_task_name = schedule_reminder_task(
+            get_settings(),
+            update.effective_user.id,
+            parsed,
+            profile.timezone,
+            profile.reminder_task_name,
+        )
+    except ReminderScheduleError:
+        await update.message.reply_text(_messages_for_lang(lang)["reminder_schedule_error"])
+        return True
+
+    profile.reminder_time = formatted
+    profile.reminder_enabled = True
+    profile.reminder_task_name = new_task_name
+    await user_repo.update(profile)
+
+    if session:
+        session.state = ConversationState.IDLE
+        if session_repo:
+            await session_repo.save(session)
+
+    await update.message.reply_text(
+        _messages_for_lang(lang)["reminder_saved"].format(time=formatted),
+        reply_markup=build_main_menu_keyboard(lang),
     )
     return True
 

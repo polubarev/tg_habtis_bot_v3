@@ -29,6 +29,9 @@ class UserProfile(BaseModel):
     custom_questions: list[CustomQuestion] = Field(default_factory=list)
     language: str = Language.EN.value
     timezone: str = "Europe/Moscow"
+    reminder_time: Optional[str] = None
+    reminder_enabled: bool = False
+    reminder_task_name: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     onboarding_completed: bool = False

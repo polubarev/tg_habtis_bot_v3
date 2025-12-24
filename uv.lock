@@ -299,6 +299,23 @@ wheels = [
 ]
 
 [[package]]
+name = "google-cloud-tasks"
+version = "2.20.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-api-core", extra = ["grpc"] },
+    { name = "google-auth" },
+    { name = "grpc-google-iam-v1" },
+    { name = "grpcio" },
+    { name = "proto-plus" },
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/86/b6/44a74a2478990fde2bfc504b3c83e80be1ab9c5bde3f8f00a13578341b6f/google_cloud_tasks-2.20.0.tar.gz", hash = "sha256:733cf440a25d34fe1cdb4e6c946d173bd83a2c22c3d7b2c76a24591f3c160412", size = 344143, upload-time = "2025-10-20T14:57:23.544Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/de/48/3c7a26ec216dd0cd58b86a74915026a5b9c2e43ae48bdd6df9554d33698b/google_cloud_tasks-2.20.0-py3-none-any.whl", hash = "sha256:3d261a8d1f3ab90454b3e2780f484373031b0b6061506571190dc5c300768422", size = 290144, upload-time = "2025-10-20T14:54:14.17Z" },
+]
+
+[[package]]
 name = "googleapis-common-protos"
 version = "1.72.0"
 source = { registry = "https://pypi.org/simple" }
@@ -427,6 +444,7 @@ dependencies = [
     { name = "google-auth-oauthlib" },
     { name = "google-cloud-firestore" },
     { name = "google-cloud-secret-manager" },
+    { name = "google-cloud-tasks" },
     { name = "gspread" },
     { name = "httpx" },
     { name = "langchain" },
@@ -459,6 +477,7 @@ requires-dist = [
     { name = "google-auth-oauthlib", specifier = ">=1.1" },
     { name = "google-cloud-firestore", specifier = ">=2.12" },
     { name = "google-cloud-secret-manager", specifier = ">=2.16" },
+    { name = "google-cloud-tasks", specifier = ">=2.14" },
     { name = "gspread", specifier = ">=6.0.0" },
     { name = "httpx", specifier = ">=0.25" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.25" },

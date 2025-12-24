@@ -23,6 +23,7 @@ dependencies = [
     "tenacity>=8.2",
     "structlog>=23.2",
     "google-cloud-firestore>=2.12",
+    "google-cloud-tasks>=2.14",
     "google-cloud-secret-manager>=2.16",
     "google-api-python-client>=2.100",
     "google-auth>=2.23",
