@@ -42,3 +42,7 @@ structured data with an LLM, and writes everything to user-managed Google Sheets
 - Add LLM prompt templates and schema-driven extraction using LangChain + OpenRouter.
 - Wire STT provider (Whisper) and media download pipeline with proper auth and storage.
 - Add tests (unit + integration) per the technical description.
+
+# TODOs
+- update habit feature
+- option to choose habit for deletion using buttons

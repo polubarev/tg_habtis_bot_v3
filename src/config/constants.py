@@ -85,6 +85,7 @@ INLINE_BUTTONS_RU = {
     "confirm_yes": "✅ Да",
     "confirm_no": "✖ Нет",
     "habit_add": "➕ Добавить",
+    "habit_edit": "✏️ Изменить",
     "habit_remove": "➖ Удалить",
     "habit_json": "📦 JSON",
     "habit_reset": "↩️ Сбросить",
@@ -93,6 +94,11 @@ INLINE_BUTTONS_RU = {
     "habit_type_int": "int",
     "habit_type_float": "float",
     "habit_type_bool": "bool",
+    "habit_edit_name": "Название",
+    "habit_edit_description": "Описание",
+    "habit_edit_type": "Тип",
+    "habit_edit_min": "Минимум",
+    "habit_edit_max": "Максимум",
     "question_add": "➕ Добавить",
     "question_remove": "➖ Удалить",
     "question_reset": "↩️ Сбросить",
@@ -109,6 +115,7 @@ INLINE_BUTTONS_EN = {
     "confirm_yes": "✅ Yes",
     "confirm_no": "✖ No",
     "habit_add": "➕ Add",
+    "habit_edit": "✏️ Edit",
     "habit_remove": "➖ Remove",
     "habit_json": "📦 JSON",
     "habit_reset": "↩️ Reset",
@@ -117,6 +124,11 @@ INLINE_BUTTONS_EN = {
     "habit_type_int": "int",
     "habit_type_float": "float",
     "habit_type_bool": "bool",
+    "habit_edit_name": "Name",
+    "habit_edit_description": "Description",
+    "habit_edit_type": "Type",
+    "habit_edit_min": "Min",
+    "habit_edit_max": "Max",
     "question_add": "➕ Add",
     "question_remove": "➖ Remove",
     "question_reset": "↩️ Reset",
@@ -211,6 +223,7 @@ MESSAGES_RU = {
         "Текущие поля: {fields}\n\n"
         "Что сделать:\n"
         "• ➕ Добавить поле (короткие шаги)\n"
+        "• ✏️ Изменить поле\n"
         "• ➖ Удалить поле\n"
         "• ↩️ Сбросить к стандартным\n"
         "• 📦 Добавить несколько сразу (JSON, для опытных)\n\n"
@@ -297,8 +310,32 @@ MESSAGES_RU = {
     "habit_json_result_added": "✅ Добавлены поля: {added}",
     "habit_json_result_skipped": "⚠️ Пропущены (уже есть или базовые): {skipped}",
     "habit_json_result_none": "Ничего не добавлено. Проверь JSON по примеру или используй ➕ Добавить.",
-    "habit_remove_prompt": "Текущие пользовательские поля:\n{fields}\nНапиши название поля, которое нужно удалить. Пример: вода.",
+    "habit_remove_prompt": (
+        "Текущие пользовательские поля:\n{fields}\n"
+        "Нажми кнопку поля или напиши его название. Пример: вода."
+    ),
     "habit_remove_error": "Не нашёл такое поле. Проверь название и попробуй ещё раз. Пример: вода.",
+    "habit_edit_prompt": (
+        "Выбери поле для редактирования или напиши его название. Пример: вода."
+    ),
+    "habit_edit_not_found": "Не нашёл такое поле. Проверь название и попробуй ещё раз.",
+    "habit_edit_attr_prompt": "Что изменить в поле *{name}*?",
+    "habit_edit_name_prompt": "Введи новое название для поля *{name}*.",
+    "habit_edit_name_invalid": "Название не подошло. Нужны буквы/цифры без пробелов. Пример: вода.",
+    "habit_edit_name_taken": "Такое название уже есть. Придумай другое, например вода2.",
+    "habit_edit_name_reserved": "Это служебное название. Выбери другое, например вода.",
+    "habit_edit_description_prompt": "Введи новое описание для поля *{name}*.",
+    "habit_edit_description_error": "Нужно короткое описание. Пример: «Стаканы воды».",
+    "habit_edit_type_prompt": "Выбери новый тип для поля *{name}*.",
+    "habit_edit_min_not_numeric": "Минимум и максимум доступны только для числовых типов. Сначала измени тип.",
+    "habit_edit_min_prompt_int": "Введи новый минимум (целое число) или '-' чтобы очистить.",
+    "habit_edit_min_prompt_float": "Введи новый минимум (число) или '-' чтобы очистить.",
+    "habit_edit_max_prompt_int": "Введи новый максимум (целое число) или '-' чтобы очистить.",
+    "habit_edit_max_prompt_float": "Введи новый максимум (число) или '-' чтобы очистить.",
+    "habit_edit_min_error": "Не похоже на число. Введи число или '-' чтобы очистить.",
+    "habit_edit_max_error": "Не похоже на число. Введи число или '-' чтобы очистить.",
+    "habit_edit_max_less_than_min": "Максимум не может быть меньше минимума ({min}).",
+    "habit_updated": "✅ Поле обновлено: {name}",
     "habit_added": "Поле добавлено: {name}",
     "habit_removed": "Поле удалено: {name}",
     "habit_reset": "Схема привычек сброшена к стандартной.",
@@ -421,6 +458,7 @@ MESSAGES_EN = {
         "Current fields: {fields}\n\n"
         "What do you want to do?\n"
         "• ➕ Add a field (simple steps)\n"
+        "• ✏️ Edit a field\n"
         "• ➖ Remove a field\n"
         "• ↩️ Reset to defaults\n"
         "• 📦 Add many at once (JSON, advanced)\n\n"
@@ -503,8 +541,30 @@ MESSAGES_EN = {
     "habit_json_result_added": "✅ Added fields: {added}",
     "habit_json_result_skipped": "⚠️ Skipped (already exist or base): {skipped}",
     "habit_json_result_none": "No fields added. Check the JSON example or use ➕ Add.",
-    "habit_remove_prompt": "Current custom fields:\n{fields}\nSend the field name to remove. Example: water.",
+    "habit_remove_prompt": (
+        "Current custom fields:\n{fields}\n"
+        "Tap a field button or send its name. Example: water."
+    ),
     "habit_remove_error": "I couldn't find that field. Check the name and try again. Example: water.",
+    "habit_edit_prompt": "Choose a field to edit or send its name. Example: water.",
+    "habit_edit_not_found": "I couldn't find that field. Check the name and try again.",
+    "habit_edit_attr_prompt": "What do you want to edit in *{name}*?",
+    "habit_edit_name_prompt": "Send a new name for *{name}*.",
+    "habit_edit_name_invalid": "That name doesn't work. Use letters/numbers only, no spaces. Example: water.",
+    "habit_edit_name_taken": "That name is already used. Pick another, e.g., water2.",
+    "habit_edit_name_reserved": "That name is reserved. Pick another, e.g., water.",
+    "habit_edit_description_prompt": "Send a new description for *{name}*.",
+    "habit_edit_description_error": "Please send a short description. Example: \"Glasses of water\".",
+    "habit_edit_type_prompt": "Choose a new type for *{name}*.",
+    "habit_edit_min_not_numeric": "Min/max only work for numeric types. Change the type first.",
+    "habit_edit_min_prompt_int": "Send a new minimum (whole number) or '-' to clear.",
+    "habit_edit_min_prompt_float": "Send a new minimum (number) or '-' to clear.",
+    "habit_edit_max_prompt_int": "Send a new maximum (whole number) or '-' to clear.",
+    "habit_edit_max_prompt_float": "Send a new maximum (number) or '-' to clear.",
+    "habit_edit_min_error": "That doesn't look like a number. Send a number or '-' to clear.",
+    "habit_edit_max_error": "That doesn't look like a number. Send a number or '-' to clear.",
+    "habit_edit_max_less_than_min": "Max can't be smaller than min ({min}).",
+    "habit_updated": "✅ Field updated: {name}",
     "habit_added": "Field added: {name}",
     "habit_removed": "Field removed: {name}",
     "habit_reset": "Habit schema reset to defaults.",
