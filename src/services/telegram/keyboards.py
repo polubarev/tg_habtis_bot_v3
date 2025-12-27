@@ -112,6 +112,27 @@ def build_habit_fields_keyboard(
     return InlineKeyboardMarkup(buttons)
 
 
+def build_question_fields_keyboard(
+    question_ids: list[str],
+    language: str = "en",
+    per_row: int = 2,
+) -> InlineKeyboardMarkup:
+    """Inline keyboard for selecting a question to remove."""
+
+    btns = INLINE_BUTTONS_RU if language == "ru" else INLINE_BUTTONS_EN
+    buttons = []
+    row = []
+    for name in question_ids:
+        row.append(InlineKeyboardButton(name, callback_data=f"question_field:remove:{name}"))
+        if len(row) >= per_row:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
+    buttons.append([InlineKeyboardButton(btns["question_cancel"], callback_data="q_cfg:cancel")])
+    return InlineKeyboardMarkup(buttons)
+
+
 def build_habit_edit_attr_keyboard(language: str = "en") -> InlineKeyboardMarkup:
     """Inline keyboard for selecting which habit field attribute to edit."""
 

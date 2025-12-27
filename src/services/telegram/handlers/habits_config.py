@@ -58,9 +58,31 @@ def _keyboard(lang: str):
 
 def _format_fields(profile, lang: str) -> str:
     fields = profile.habit_schema.fields if profile and profile.habit_schema else {}
-    if not fields:
+    custom_fields = {name: cfg for name, cfg in fields.items() if name not in BASE_HABIT_FIELDS}
+    if not custom_fields:
         return _messages_for_lang(lang)["empty_value"]
-    return ", ".join(fields.keys())
+    lines = []
+    for name, cfg in custom_fields.items():
+        lines.append(f"- {name} — {_format_field_type(cfg, lang)}")
+    return "\n".join(lines)
+
+
+def _format_field_type(cfg: HabitFieldConfig, lang: str) -> str:
+    type_value = cfg.type[0] if isinstance(cfg.type, list) and cfg.type else cfg.type
+    if type_value in {"integer", "number"}:
+        label = "число" if lang == "ru" else "number"
+        if cfg.minimum is not None and cfg.maximum is not None:
+            return f"{label} {cfg.minimum}–{cfg.maximum}"
+        if cfg.minimum is not None:
+            return f"{label} ≥ {cfg.minimum}"
+        if cfg.maximum is not None:
+            return f"{label} ≤ {cfg.maximum}"
+        return label
+    if type_value == "boolean":
+        return "да/нет" if lang == "ru" else "yes/no"
+    if type_value == "string":
+        return "текст" if lang == "ru" else "text"
+    return str(type_value or "string")
 
 
 def _format_custom_fields(profile, lang: str) -> str:

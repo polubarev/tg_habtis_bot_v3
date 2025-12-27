@@ -35,7 +35,11 @@ from src.services.telegram.handlers.habits_config import (
     handle_habit_field_callback,
     handle_habit_type_callback,
 )
-from src.services.telegram.handlers.questions import questions_command, handle_questions_callback
+from src.services.telegram.handlers.questions import (
+    handle_question_field_callback,
+    handle_questions_callback,
+    questions_command,
+)
 from src.services.telegram.deps import DependencyProvider
 from src.services.telegram.handlers.start import start_command
 
@@ -102,6 +106,9 @@ class TelegramBotService:
         )
         self.app.add_handler(
             CallbackQueryHandler(handle_questions_callback, pattern="^q_cfg:")
+        )
+        self.app.add_handler(
+            CallbackQueryHandler(handle_question_field_callback, pattern="^question_field:")
         )
         self.app.add_handler(
             CallbackQueryHandler(handle_reset_confirm, pattern="^reset_confirm:")

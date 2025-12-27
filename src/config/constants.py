@@ -165,7 +165,7 @@ MESSAGES_RU = {
     "describe_day": "Опиши свой день для {date} текстом или голосом.",
     "processing": "⏳ Обрабатываю...",
     "saving_data": "💾 Сохраняю данные...",
-    "confirm_entry": "📝 *Черновик*\nПосмотри JSON ниже и подтверди.",
+    "confirm_entry": "📝 Черновик\nПосмотри черновик ниже и подтверди.",
     "saved_success": "✅ Сохранено!",
     "cancelled": "✖ Отменено.",
     "habits_update_prompt": "✏️ Отправь правки или новый текст. Я пересоберу черновик с учётом предыдущего сообщения.",
@@ -220,7 +220,7 @@ MESSAGES_RU = {
         "Если бот «завис» или ведёт себя странно — нажми ❌ *Отмена*."
     ),
     "habit_config_intro": (
-        "Текущие поля: {fields}\n\n"
+        "Текущие поля:\n{fields}\n\n"
         "Что сделать:\n"
         "• ➕ Добавить поле (короткие шаги)\n"
         "• ✏️ Изменить поле\n"
@@ -230,7 +230,9 @@ MESSAGES_RU = {
         "Примеры полей:\n"
         "• вода — число 0–20\n"
         "• настроение — текст\n"
-        "• боль — число 0–10\n\n"
+        "• боль — число 0–10\n"
+        "• витамины — да/нет\n"
+        "• кофе — число 0.0–5.0\n\n"
         "Нажми кнопку ниже."
     ),
     "habit_add_name_prompt": (
@@ -340,7 +342,10 @@ MESSAGES_RU = {
     "habit_removed": "Поле удалено: {name}",
     "habit_reset": "Схема привычек сброшена к стандартной.",
     "question_intro": "Текущие вопросы:\n{questions}\nЧто сделать?",
-    "question_add_id_prompt": "⭐️ *Шаг 1: ID*\nУкажи id вопроса (латиницей, без пробелов).",
+    "question_add_id_prompt": (
+        "⭐️ *Шаг 1: Название*\n"
+        "Короткое имя без пробелов. Примеры: *благодарность*, *фокус*."
+    ),
     "question_add_text_prompt": "⭐️ *Шаг 2: Текст*\nНапиши текст вопроса.",
     "question_add_lang_prompt": "⭐️ *Шаг 3: Язык*\nВыбери язык вопроса: *ru*/*en* (по умолчанию текущий).",
     "question_add_active_prompt": "⭐️ *Шаг 4: Активен?*\nОтветь *yes/no* (по умолчанию *yes*).",
@@ -350,7 +355,7 @@ MESSAGES_RU = {
         '{"id":"gratitude","text":"За что ты благодарен?","language":"ru","active":true}\n'
         "```"
     ),
-    "question_remove_prompt": "Отправь id вопроса, который удалить.",
+    "question_remove_prompt": "Выбери вопрос ниже, который удалить.",
     "question_added": "Вопрос добавлен: {id}",
     "question_removed": "Вопрос удалён: {id}",
     "question_reset": "Вопросы сброшены к стандартным.",
@@ -406,7 +411,7 @@ MESSAGES_EN = {
     "describe_day": "Describe your day for {date} using text or voice.",
     "processing": "⏳ Processing...",
     "saving_data": "💾 Saving data...",
-    "confirm_entry": "📝 *Draft*\nReview the JSON below and confirm.",
+    "confirm_entry": "📝 Draft\nReview the draft below and confirm.",
     "saved_success": "✅ Saved!",
     "cancelled": "✖ Cancelled.",
     "habits_update_prompt": "✏️ Send corrections or a new message. I’ll rebuild the draft using the previous text as context.",
@@ -455,7 +460,7 @@ MESSAGES_EN = {
         "If stuck — press ❌ *Cancel*."
     ),
     "habit_config_intro": (
-        "Current fields: {fields}\n\n"
+        "Current fields:\n{fields}\n\n"
         "What do you want to do?\n"
         "• ➕ Add a field (simple steps)\n"
         "• ✏️ Edit a field\n"
@@ -465,7 +470,9 @@ MESSAGES_EN = {
         "Examples:\n"
         "• water — number 0–20\n"
         "• mood — text\n"
-        "• pain — number 0–10\n\n"
+        "• pain — number 0–10\n"
+        "• vitamins — yes/no\n"
+        "• coffee — number 0.0–5.0\n\n"
         "Tap a button below."
     ),
     "habit_add_name_prompt": (
@@ -569,7 +576,10 @@ MESSAGES_EN = {
     "habit_removed": "Field removed: {name}",
     "habit_reset": "Habit schema reset to defaults.",
     "question_intro": "Current questions:\n{questions}\nWhat would you like to do?",
-    "question_add_id_prompt": "⭐️ *Step 1: ID*\nSet a question id (letters/numbers, no spaces).",
+    "question_add_id_prompt": (
+        "⭐️ *Step 1: Name*\n"
+        "Short name, no spaces. Examples: *gratitude*, *focus*."
+    ),
     "question_add_text_prompt": "⭐️ *Step 2: Text*\nSend the question text.",
     "question_add_lang_prompt": "⭐️ *Step 3: Language*\nChoose *en*/*ru* (defaults to your current language).",
     "question_add_active_prompt": "⭐️ *Step 4: Active?*\nReply *yes/no* (default *yes*).",
@@ -579,7 +589,7 @@ MESSAGES_EN = {
         '{"id":"gratitude","text":"What are you grateful for?","language":"en","active":true}\n'
         "```"
     ),
-    "question_remove_prompt": "Send the question id to remove.",
+    "question_remove_prompt": "Pick a question below to remove.",
     "question_added": "Question added: {id}",
     "question_removed": "Question removed: {id}",
     "question_reset": "Questions reset to defaults.",

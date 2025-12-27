@@ -18,6 +18,7 @@ from src.services.telegram.utils import (
     get_session_repo,
     get_sheets_client,
     get_user_repo,
+    increment_usage_stat,
     resolve_language,
     resolve_user_profile,
     resolve_user_timezone,
@@ -224,6 +225,7 @@ async def handle_reflect_confirm(update: Update, context: ContextTypes.DEFAULT_T
                 chat_id=update.effective_chat.id,
                 text=_messages_for_lang(lang)["reflect_done"]
             )
+            await increment_usage_stat(profile, user_repo, "reflection")
         else:
             await query.edit_message_text(_messages_for_lang(lang)["sheet_not_configured"])
     else:

@@ -12,7 +12,7 @@ from src.config.constants import (
 )
 from src.models.session import ConversationState
 from src.models.user import CustomQuestion
-from src.services.telegram.keyboards import build_main_menu_keyboard
+from src.services.telegram.keyboards import build_main_menu_keyboard, build_question_fields_keyboard
 from src.services.telegram.utils import get_session_repo, get_user_repo, resolve_language
 
 
@@ -47,6 +47,10 @@ def _format_questions(profile, lang: str) -> str:
     if not questions:
         return _messages_for_lang(lang)["empty_value"]
     return "\n".join(f"- {q.id}: {q.text}" for q in questions)
+
+
+def _question_ids(profile) -> list[str]:
+    return [q.id for q in (profile.custom_questions if profile else [])]
 
 
 async def questions_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -100,7 +104,11 @@ async def handle_questions_callback(update: Update, context: ContextTypes.DEFAUL
             parse_mode=ParseMode.MARKDOWN,
         )
     elif action == "remove":
-        await query.edit_message_text(_messages_for_lang(lang)["question_remove_prompt"])
+        question_ids = _question_ids(profile)
+        await query.edit_message_text(
+            _messages_for_lang(lang)["question_remove_prompt"],
+            reply_markup=build_question_fields_keyboard(question_ids, lang),
+        )
     elif action == "reset":
         if profile and user_repo:
             defaults = DEFAULT_REFLECTION_QUESTIONS_RU if lang == "ru" else DEFAULT_REFLECTION_QUESTIONS_EN
@@ -122,6 +130,49 @@ async def handle_questions_callback(update: Update, context: ContextTypes.DEFAUL
             session.state = ConversationState.IDLE
             session.temp_data = {}
             await session_repo.save(session)
+
+
+async def handle_question_field_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle question selection for remove via inline buttons."""
+
+    if not update.callback_query or not update.effective_user:
+        return
+    query = update.callback_query
+    data = query.data or ""
+    if not data.startswith("question_field:"):
+        return
+    try:
+        _, action, q_id = data.split(":", 2)
+    except ValueError:
+        return
+    if action != "remove":
+        return
+
+    session_repo, user_repo = _get_repos(context)
+    session = await session_repo.get(update.effective_user.id) if session_repo else None
+    profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
+    if profile is None:
+        return
+    lang = resolve_language(profile)
+
+    before = len(profile.custom_questions)
+    profile.custom_questions = [q for q in profile.custom_questions if q.id != q_id]
+    if len(profile.custom_questions) == before:
+        await query.edit_message_text(
+            _messages_for_lang(lang)["question_remove_prompt"],
+            reply_markup=build_question_fields_keyboard(_question_ids(profile), lang),
+        )
+        return
+
+    await user_repo.update(profile)
+    await query.edit_message_text(
+        _messages_for_lang(lang)["question_removed"].format(id=q_id),
+        reply_markup=_keyboard(lang),
+    )
+    if session_repo and session:
+        session.state = ConversationState.IDLE
+        session.temp_data = {}
+        await session_repo.save(session)
 
 
 async def handle_questions_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
@@ -146,11 +197,14 @@ async def handle_questions_text(update: Update, context: ContextTypes.DEFAULT_TY
         stage = temp.get("q_add_stage") or "id"
         q_new = temp.get("q_new") or {}
 
-        async def _finish():
-            session.state = ConversationState.IDLE
-            session.temp_data = {}
-            if session_repo:
-                await session_repo.save(session)
+        async def _return_to_questions_overview():
+            if session:
+                session.state = ConversationState.CONFIG_ADDING_QUESTION
+                session.temp_data = {"q_action": None}
+                if session_repo:
+                    await session_repo.save(session)
+            msg = _messages_for_lang(lang)["question_intro"].format(questions=_format_questions(profile, lang))
+            await update.message.reply_text(msg, reply_markup=_keyboard(lang))
 
         def _try_parse_json(raw: str):
             import json
@@ -181,7 +235,7 @@ async def handle_questions_text(update: Update, context: ContextTypes.DEFAULT_TY
                 profile.custom_questions.append(parsed)
                 await user_repo.update(profile)
                 await update.message.reply_text(_messages_for_lang(lang)["question_added"].format(id=parsed.id))
-                await _finish()
+                await _return_to_questions_overview()
                 return True
             q_id = text.strip()
             if not q_id or " " in q_id:
@@ -242,7 +296,7 @@ async def handle_questions_text(update: Update, context: ContextTypes.DEFAULT_TY
             )
             await user_repo.update(profile)
             await update.message.reply_text(_messages_for_lang(lang)["question_added"].format(id=q_new.get("id")))
-            await _finish()
+            await _return_to_questions_overview()
             return True
     elif action == "remove":
         q_id = text.strip()

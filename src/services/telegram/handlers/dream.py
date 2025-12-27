@@ -15,6 +15,7 @@ from src.services.telegram.utils import (
     get_session_repo,
     get_sheets_client,
     get_user_repo,
+    increment_usage_stat,
     resolve_language,
     resolve_user_profile,
     resolve_user_timezone,
@@ -157,6 +158,7 @@ async def handle_dream_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
                 chat_id=update.effective_chat.id,
                 text=_messages_for_lang(lang)["dream_saved"]
             )
+            await increment_usage_stat(profile, user_repo, "dream")
         else:
             await query.edit_message_text(_messages_for_lang(lang)["sheet_not_configured"])
     else:

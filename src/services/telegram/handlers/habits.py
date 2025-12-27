@@ -1,13 +1,13 @@
 from datetime import date, datetime
 import asyncio
-import json
 from typing import Any, Dict
 
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from src.config.constants import DEFAULT_HABIT_SCHEMA, HABITS_SHEET_COLUMNS, MESSAGES_EN, MESSAGES_RU
+from src.config.constants import HABITS_SHEET_COLUMNS, MESSAGES_EN, MESSAGES_RU
 from src.config.settings import get_settings
+from src.models.habit import HabitSchema
 from src.models.session import ConversationState, SessionData
 from src.services.telegram.keyboards import build_confirmation_keyboard, build_date_keyboard
 from src.utils.date_parser import parse_relative_date
@@ -20,6 +20,7 @@ from src.services.telegram.utils import (
     get_session_repo,
     get_sheets_client,
     get_user_repo,
+    increment_usage_stat,
     resolve_language,
     resolve_user_profile,
     resolve_user_timezone,
@@ -33,6 +34,92 @@ _OP_TIMEOUT = get_settings().operation_timeout_seconds
 
 def _messages_for_lang(lang: str) -> Dict[str, str]:
     return MESSAGES_RU if lang == "ru" else MESSAGES_EN
+
+
+def _bool_label(value: bool, lang: str) -> str:
+    if lang == "ru":
+        return "да" if value else "нет"
+    return "yes" if value else "no"
+
+
+def _normalize_field_types(field_type: str | list[str] | None) -> set[str]:
+    if not field_type:
+        return set()
+    if isinstance(field_type, list):
+        return {str(item).lower() for item in field_type}
+    return {str(field_type).lower()}
+
+
+def _compact_text(text: str) -> str:
+    return " ".join(text.split())
+
+
+def _truncate_text(text: str, max_len: int) -> str:
+    compact = _compact_text(text)
+    if len(compact) <= max_len:
+        return compact
+    return compact[: max_len - 3].rstrip() + "..."
+
+
+def _field_label(field_name: str, lang: str) -> str:
+    if lang == "ru":
+        return {
+            "date": "дата",
+            "diary": "дневник",
+            "raw_record": "исходный текст",
+        }.get(field_name, field_name)
+    return {
+        "raw_record": "raw record",
+    }.get(field_name, field_name)
+
+
+def _format_habit_value(value: Any, lang: str, field_type: str | list[str] | None) -> str:
+    if value is None:
+        return ""
+    types = _normalize_field_types(field_type)
+    if "bool" in types or isinstance(value, bool):
+        bool_value = None
+        if isinstance(value, bool):
+            bool_value = value
+        elif isinstance(value, (int, float)) and value in (0, 1):
+            bool_value = bool(value)
+        elif isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"true", "yes", "1", "да"}:
+                bool_value = True
+            elif normalized in {"false", "no", "0", "нет"}:
+                bool_value = False
+        if bool_value is not None:
+            return _bool_label(bool_value, lang)
+    if isinstance(value, (list, tuple)):
+        return ", ".join(_format_habit_value(item, lang, None) for item in value)
+    return str(value)
+
+
+def _format_habit_preview(entry_data: Dict[str, Any], habit_schema: HabitSchema | None, lang: str) -> str:
+    exclude = {"input_type", "field_order", "timestamp"}
+    field_order = entry_data.get("field_order") or []
+    keys: list[str] = []
+    for key in ("date", "diary", "raw_record"):
+        if key in entry_data and key not in exclude:
+            keys.append(key)
+    for key in field_order:
+        if key in entry_data and key not in exclude and key not in keys:
+            keys.append(key)
+    for key in entry_data:
+        if key in exclude or key in keys:
+            continue
+        keys.append(key)
+
+    lines = []
+    for key in keys:
+        value = entry_data.get(key)
+        if key == "raw_record" and isinstance(value, str):
+            value = _truncate_text(value, 280)
+        field_type = habit_schema.fields[key].type if habit_schema and key in habit_schema.fields else None
+        label = _field_label(key, lang)
+        lines.append(f"- {label}: {_format_habit_value(value, lang, field_type)}")
+    return "\n".join(lines)
 
 
 def _get_session_repo(context: ContextTypes.DEFAULT_TYPE):
@@ -267,17 +354,13 @@ async def handle_habits_text(
         await session_repo.save(session)
 
     msgs = _messages_for_lang(lang)
-    preview_obj = {k: v for k, v in entry_data.items() if k not in {"input_type", "field_order"}}
-    preview = json.dumps(preview_obj, ensure_ascii=False, indent=2, default=str)
+    preview = _format_habit_preview(entry_data, habit_schema, lang)
     if update.message:
         await update.message.reply_text(
             msgs["confirm_entry"]
             + "\n\n"
-            + "```json\n"
-            + preview
-            + "\n```",
+            + preview,
             reply_markup=build_confirmation_keyboard(prefix="habits", language=lang),
-            parse_mode="Markdown",
         )
     return True
 
@@ -378,6 +461,7 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
                 chat_id=update.effective_chat.id,
                 text=_messages_for_lang(lang)["saved_success"]
             )
+            await increment_usage_stat(profile, user_repo, "habits")
         else:
             await query.edit_message_text(_messages_for_lang(lang)["sheet_not_configured"])
     else:

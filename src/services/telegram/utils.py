@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timezone
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from typing import Optional
 
@@ -64,6 +64,19 @@ def get_llm_client(context: ContextTypes.DEFAULT_TYPE):
 def get_whisper_client(context: ContextTypes.DEFAULT_TYPE):
     deps = _get_deps(context)
     return deps.whisper_client() if deps else None
+
+
+async def increment_usage_stat(profile: Optional[UserProfile], user_repo, field: str) -> None:
+    if profile is None or user_repo is None:
+        return
+    stats = profile.usage_stats
+    if not hasattr(stats, field):
+        return
+    current = getattr(stats, field, 0) or 0
+    setattr(stats, field, current + 1)
+    profile.usage_stats = stats
+    profile.updated_at = datetime.utcnow()
+    await user_repo.update(profile)
 
 
 async def safe_delete_message(message: Message | None) -> None:

@@ -17,6 +17,15 @@ class CustomQuestion(BaseModel):
     active: bool = True
 
 
+class UsageStats(BaseModel):
+    """Per-user usage counters for bot features."""
+
+    habits: int = 0
+    dream: int = 0
+    thought: int = 0
+    reflection: int = 0
+
+
 class UserProfile(BaseModel):
     """Complete user profile stored in Firestore."""
 
@@ -27,6 +36,7 @@ class UserProfile(BaseModel):
     sheets_validated: bool = False
     habit_schema: HabitSchema = Field(default_factory=HabitSchema)
     custom_questions: list[CustomQuestion] = Field(default_factory=list)
+    usage_stats: UsageStats = Field(default_factory=UsageStats)
     language: str = Language.EN.value
     timezone: str = "Europe/Moscow"
     reminder_time: Optional[str] = None
