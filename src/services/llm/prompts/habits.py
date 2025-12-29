@@ -7,6 +7,7 @@ HABIT_EXTRACTION_SYSTEM_PROMPT = (
     "- Preserve the user's language in text fields.\n"
     "- Always include raw_record exactly as provided (no edits).\n"
     "- Only include fields defined in the schema; omit anything else.\n"
+    "- Do not infer or assume habits; if a habit is not explicitly mentioned, set it to null.\n"
     "- If a value is not inferable, use null for optional fields.\n"
     "- Do not add explanations, prefaces, or markdown—return only JSON."
 )

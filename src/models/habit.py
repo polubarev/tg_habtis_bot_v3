@@ -20,6 +20,7 @@ class HabitSchema(BaseModel):
 
     fields: dict[str, HabitFieldConfig] = Field(default_factory=dict)
     version: int = 1
+    include_diary: bool = True
 
     class Config:
         extra = "forbid"

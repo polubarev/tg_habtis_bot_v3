@@ -13,7 +13,7 @@ from src.services.reminders import (
     schedule_reminder_task,
 )
 
-from src.config.constants import MESSAGES_EN, MESSAGES_RU
+from src.config.constants import DEFAULT_HABIT_SCHEMA, MESSAGES_EN, MESSAGES_RU
 from src.config.settings import get_settings
 from src.core.exceptions import ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.models.session import ConversationState, SessionData
@@ -159,6 +159,7 @@ async def handle_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
             profile = UserProfile(
                 telegram_user_id=update.effective_user.id,
                 telegram_username=update.effective_user.username,
+                habit_schema=DEFAULT_HABIT_SCHEMA.model_copy(deep=True),
             )
         profile.sheet_id = sheet_id
         profile.sheet_url = cleaned_url

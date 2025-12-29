@@ -2,12 +2,12 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from src.config.constants import (
+    DEFAULT_HABIT_SCHEMA,
     DEFAULT_REFLECTION_QUESTIONS_EN,
     DEFAULT_REFLECTION_QUESTIONS_RU,
     MESSAGES_EN,
     MESSAGES_RU,
 )
-from src.models.habit import HabitSchema
 from src.models.session import ConversationState, SessionData
 from src.models.user import CustomQuestion, UserProfile
 from src.services.telegram.keyboards import build_config_keyboard, build_language_keyboard, build_main_menu_keyboard
@@ -72,7 +72,7 @@ async def handle_language_select(update: Update, context: ContextTypes.DEFAULT_T
         profile = UserProfile(
             telegram_user_id=update.effective_user.id,
             telegram_username=update.effective_user.username,
-            habit_schema=HabitSchema(fields={}),
+            habit_schema=DEFAULT_HABIT_SCHEMA.model_copy(deep=True),
             custom_questions=[],
             onboarding_completed=False,
             language=selected,

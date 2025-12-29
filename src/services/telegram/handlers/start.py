@@ -1,8 +1,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from src.config.constants import MESSAGES_EN, MESSAGES_RU
-from src.models.habit import HabitSchema
+from src.config.constants import DEFAULT_HABIT_SCHEMA, MESSAGES_EN, MESSAGES_RU
 from src.models.session import ConversationState, SessionData
 from src.models.user import UserProfile
 from src.services.telegram.keyboards import build_language_keyboard, build_main_menu_keyboard
@@ -37,7 +36,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             profile = UserProfile(
                 telegram_user_id=update.effective_user.id,
                 telegram_username=update.effective_user.username,
-                habit_schema=HabitSchema(fields={}),  # start empty; user config adds fields
+                habit_schema=DEFAULT_HABIT_SCHEMA.model_copy(deep=True),  # include default diary field
                 custom_questions=[],
                 onboarding_completed=False,
                 language="en",

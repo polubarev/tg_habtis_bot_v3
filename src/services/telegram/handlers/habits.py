@@ -1,8 +1,10 @@
 from datetime import date, datetime
+import html
 import asyncio
 from typing import Any, Dict
 
 from telegram import Update
+from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from src.config.constants import HABITS_SHEET_COLUMNS, MESSAGES_EN, MESSAGES_RU
@@ -100,13 +102,20 @@ def _format_habit_preview(entry_data: Dict[str, Any], habit_schema: HabitSchema 
     exclude = {"input_type", "field_order", "timestamp"}
     field_order = entry_data.get("field_order") or []
     keys: list[str] = []
-    for key in ("date", "diary", "raw_record"):
+    include_diary = habit_schema.include_diary if habit_schema else True
+    for key in ("date", "raw_record"):
         if key in entry_data and key not in exclude:
             keys.append(key)
+    if include_diary and "diary" in entry_data and "diary" not in exclude:
+        keys.insert(1, "diary")
     for key in field_order:
+        if key == "diary" and not include_diary:
+            continue
         if key in entry_data and key not in exclude and key not in keys:
             keys.append(key)
     for key in entry_data:
+        if key == "diary" and not include_diary:
+            continue
         if key in exclude or key in keys:
             continue
         keys.append(key)
@@ -117,9 +126,34 @@ def _format_habit_preview(entry_data: Dict[str, Any], habit_schema: HabitSchema 
         if key == "raw_record" and isinstance(value, str):
             value = _truncate_text(value, 280)
         field_type = habit_schema.fields[key].type if habit_schema and key in habit_schema.fields else None
-        label = _field_label(key, lang)
-        lines.append(f"- {label}: {_format_habit_value(value, lang, field_type)}")
-    return "\n".join(lines)
+        label = html.escape(_field_label(key, lang))
+        formatted_value = html.escape(_format_habit_value(value, lang, field_type))
+        lines.append(f"<b>{label}</b>\n→ {formatted_value}")
+    return "\n\n".join(lines)
+
+
+def _expected_habit_fields(profile, lang: str) -> list[str]:
+    if not profile or not profile.habit_schema:
+        return []
+    schema = profile.habit_schema
+    include_diary = schema.include_diary
+    fields = schema.fields or {}
+    names = []
+    for name in fields.keys():
+        if name in BASE_HABIT_FIELDS:
+            continue
+        if name == "diary" and not include_diary:
+            continue
+        names.append(_field_label(name, lang))
+    return names
+
+
+def _habit_fields_hint(profile, lang: str) -> str:
+    fields = _expected_habit_fields(profile, lang)
+    if not fields:
+        return _messages_for_lang(lang)["habit_fields_hint_empty"]
+    formatted = "\n".join(f"• {name}" for name in fields)
+    return _messages_for_lang(lang)["habit_fields_hint"].format(fields=formatted)
 
 
 def _get_session_repo(context: ContextTypes.DEFAULT_TYPE):
@@ -234,12 +268,18 @@ async def handle_habits_date_callback(update: Update, context: ContextTypes.DEFA
     if session_repo:
         await session_repo.save(session)
 
-    lang = resolve_language(await resolve_user_profile(update, context))
+    profile = await resolve_user_profile(update, context)
+    lang = resolve_language(profile)
     msgs = _messages_for_lang(lang)
     try:
         _safe_answer(query)
     except Exception:
         pass
+    if update.effective_chat:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=_habit_fields_hint(profile, lang),
+        )
     await query.edit_message_text(msgs["describe_day"].format(date=selected.isoformat()))
 
 
@@ -264,8 +304,10 @@ async def handle_habits_date_text(update: Update, context: ContextTypes.DEFAULT_
     if session_repo:
         await session_repo.save(session)
 
-    lang = resolve_language(await resolve_user_profile(update, context))
+    profile = await resolve_user_profile(update, context)
+    lang = resolve_language(profile)
     msgs = _messages_for_lang(lang)
+    await update.message.reply_text(_habit_fields_hint(profile, lang))
     await update.message.reply_text(msgs["describe_day"].format(date=parsed.isoformat()))
     return True
 
@@ -299,6 +341,7 @@ async def handle_habits_text(
     lang = resolve_language(profile)
     user_tz = resolve_user_timezone(profile)
     habit_schema = profile.habit_schema if profile else None
+    include_diary = habit_schema.include_diary if habit_schema else True
     schema_fields: list[str] = (
         list(habit_schema.fields.keys()) if habit_schema and habit_schema.fields else []
     )
@@ -335,16 +378,19 @@ async def handle_habits_text(
         if update.message:
             await update.message.reply_text(_messages_for_lang(lang)["llm_disabled"])
 
-    diary_text = extraction.get("diary") or combined_text
+    diary_text = None
+    if include_diary:
+        diary_text = extraction.get("diary") or combined_text
 
     entry_data: Dict[str, Any] = {
         "timestamp": datetime.now(user_tz).isoformat(),
         "date": selected_date.isoformat(),
         "raw_record": combined_text,
-        "diary": diary_text,
         "input_type": input_type.value,
         "field_order": field_order,
     }
+    if include_diary:
+        entry_data["diary"] = diary_text
     for k, v in extraction.items():
         if k not in {"timestamp", "date", "raw_record", "diary", "input_type"}:
             entry_data[k] = v
@@ -361,6 +407,7 @@ async def handle_habits_text(
             + "\n\n"
             + preview,
             reply_markup=build_confirmation_keyboard(prefix="habits", language=lang),
+            parse_mode=ParseMode.HTML,
         )
     return True
 

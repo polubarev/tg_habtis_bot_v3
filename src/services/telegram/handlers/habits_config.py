@@ -7,7 +7,6 @@ from telegram.ext import ContextTypes
 
 from src.config.constants import (
     DEFAULT_HABIT_SCHEMA,
-    HABITS_SHEET_COLUMNS,
     INLINE_BUTTONS_EN,
     INLINE_BUTTONS_RU,
     MESSAGES_EN,
@@ -23,7 +22,56 @@ from src.services.telegram.keyboards import (
 )
 from src.services.telegram.utils import get_session_repo, get_user_repo, resolve_language
 
-BASE_HABIT_FIELDS = set(HABITS_SHEET_COLUMNS)
+PROTECTED_HABIT_FIELDS = {"timestamp", "date", "raw_record"}
+
+
+def _ensure_diary_field(profile) -> bool:
+    if not profile or not profile.habit_schema:
+        return False
+    schema = profile.habit_schema
+    include_diary = getattr(schema, "include_diary", True)
+    updated = False
+    if include_diary and "diary" not in schema.fields:
+        schema.fields["diary"] = DEFAULT_HABIT_SCHEMA.fields["diary"].model_copy(deep=True)
+        updated = True
+    if not include_diary and "diary" in schema.fields:
+        schema.fields.pop("diary", None)
+        updated = True
+    return updated
+
+
+def _diary_label(lang: str) -> str:
+    return "дневник" if lang == "ru" else "diary"
+
+
+def _display_field_name(name: str, lang: str, fields: dict[str, HabitFieldConfig] | None = None) -> str:
+    if name != "diary":
+        return name
+    label = _diary_label(lang)
+    if fields and label in fields and label != "diary":
+        return name
+    return label
+
+
+def _field_label_map(profile, lang: str) -> dict[str, str]:
+    fields = profile.habit_schema.fields if profile and profile.habit_schema else {}
+    if "diary" not in fields:
+        return {}
+    label = _display_field_name("diary", lang, fields)
+    return {"diary": label} if label != "diary" else {}
+
+
+def _normalize_field_input(name: str, profile, lang: str) -> str:
+    raw = name.strip()
+    if not raw or not profile or not profile.habit_schema:
+        return raw
+    fields = profile.habit_schema.fields
+    if raw in fields:
+        return raw
+    diary_label = _display_field_name("diary", lang, fields)
+    if diary_label and raw.casefold() == diary_label.casefold() and "diary" in fields:
+        return "diary"
+    return raw
 
 
 def _messages_for_lang(lang: str):
@@ -58,12 +106,13 @@ def _keyboard(lang: str):
 
 def _format_fields(profile, lang: str) -> str:
     fields = profile.habit_schema.fields if profile and profile.habit_schema else {}
-    custom_fields = {name: cfg for name, cfg in fields.items() if name not in BASE_HABIT_FIELDS}
+    custom_fields = {name: cfg for name, cfg in fields.items() if name not in PROTECTED_HABIT_FIELDS}
     if not custom_fields:
         return _messages_for_lang(lang)["empty_value"]
     lines = []
     for name, cfg in custom_fields.items():
-        lines.append(f"- {name} — {_format_field_type(cfg, lang)}")
+        display_name = _display_field_name(name, lang, fields)
+        lines.append(f"- {display_name} — {_format_field_type(cfg, lang)}")
     return "\n".join(lines)
 
 
@@ -87,10 +136,10 @@ def _format_field_type(cfg: HabitFieldConfig, lang: str) -> str:
 
 def _format_custom_fields(profile, lang: str) -> str:
     fields = profile.habit_schema.fields if profile and profile.habit_schema else {}
-    custom = [name for name in fields.keys() if name not in BASE_HABIT_FIELDS]
+    custom = [name for name in fields.keys() if name not in PROTECTED_HABIT_FIELDS]
     if not custom:
         return _messages_for_lang(lang)["empty_value"]
-    escaped = [escape_markdown(name) for name in custom]
+    escaped = [escape_markdown(_display_field_name(name, lang, fields)) for name in custom]
     return "\n".join(f"- {name}" for name in escaped)
 
 
@@ -102,7 +151,7 @@ def _base_numeric_type(type_value) -> str:
 
 def _custom_field_names(profile) -> list[str]:
     fields = profile.habit_schema.fields if profile and profile.habit_schema else {}
-    return [name for name in fields.keys() if name not in BASE_HABIT_FIELDS]
+    return [name for name in fields.keys() if name not in PROTECTED_HABIT_FIELDS]
 
 
 def _min_prompt(lang: str, type_value) -> str:
@@ -145,6 +194,8 @@ async def habits_config_command(update: Update, context: ContextTypes.DEFAULT_TY
             session.state = ConversationState.CONFIG_EDITING_HABITS
             session.temp_data = {"habit_action": None}
             await session_repo.save(session)
+    if _ensure_diary_field(profile) and user_repo:
+        await user_repo.update(profile)
     msg = _messages_for_lang(lang)["habit_config_intro"].format(fields=_format_fields(profile, lang))
     await update.message.reply_text(msg, reply_markup=_keyboard(lang))
 
@@ -164,6 +215,8 @@ async def handle_habits_config_callback(update: Update, context: ContextTypes.DE
     session = await session_repo.get(update.effective_user.id) if session_repo else None
     profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
     lang = resolve_language(profile)
+    if _ensure_diary_field(profile) and user_repo:
+        await user_repo.update(profile)
     if session:
         session.state = ConversationState.CONFIG_EDITING_HABITS
         session.temp_data = {"habit_action": action}
@@ -180,22 +233,24 @@ async def handle_habits_config_callback(update: Update, context: ContextTypes.DE
             )
         elif action == "edit":
             custom_fields = _custom_field_names(profile)
+            labels = _field_label_map(profile, lang)
             if session:
                 session.temp_data.update({"habit_edit_stage": "field"})
                 await session_repo.save(session)
             await query.edit_message_text(
                 _messages_for_lang(lang)["habit_edit_prompt"],
                 parse_mode=ParseMode.MARKDOWN,
-                reply_markup=build_habit_fields_keyboard(custom_fields, "edit", lang),
+                reply_markup=build_habit_fields_keyboard(custom_fields, "edit", lang, labels=labels),
             )
         elif action == "remove":
             custom_fields = _custom_field_names(profile)
+            labels = _field_label_map(profile, lang)
             await query.edit_message_text(
                 _messages_for_lang(lang)["habit_remove_prompt"].format(
                     fields=_format_custom_fields(profile, lang)
                 ),
                 parse_mode=ParseMode.MARKDOWN,
-                reply_markup=build_habit_fields_keyboard(custom_fields, "remove", lang),
+                reply_markup=build_habit_fields_keyboard(custom_fields, "remove", lang, labels=labels),
             )
         elif action == "json":
             await query.edit_message_text(
@@ -204,7 +259,7 @@ async def handle_habits_config_callback(update: Update, context: ContextTypes.DE
             )
         elif action == "reset":
             if profile and user_repo:
-                profile.habit_schema = DEFAULT_HABIT_SCHEMA
+                profile.habit_schema = DEFAULT_HABIT_SCHEMA.model_copy(deep=True)
                 await user_repo.update(profile)
             await query.edit_message_text(_messages_for_lang(lang)["habit_reset"])
             if session_repo and session:
@@ -250,7 +305,7 @@ async def handle_habit_field_callback(update: Update, context: ContextTypes.DEFA
         return
     lang = resolve_language(profile)
 
-    if field_name in BASE_HABIT_FIELDS or field_name not in profile.habit_schema.fields:
+    if field_name in PROTECTED_HABIT_FIELDS or field_name not in profile.habit_schema.fields:
         msg_key = "habit_remove_error" if action == "remove" else "habit_edit_not_found"
         await query.edit_message_text(
             _messages_for_lang(lang)[msg_key],
@@ -259,10 +314,13 @@ async def handle_habit_field_callback(update: Update, context: ContextTypes.DEFA
         return
 
     if action == "remove":
+        if field_name == "diary":
+            profile.habit_schema.include_diary = False
         profile.habit_schema.fields.pop(field_name, None)
         await user_repo.update(profile)
+        display_name = _display_field_name(field_name, lang, profile.habit_schema.fields)
         await query.edit_message_text(
-            _messages_for_lang(lang)["habit_removed"].format(name=field_name),
+            _messages_for_lang(lang)["habit_removed"].format(name=display_name),
             reply_markup=_keyboard(lang),
         )
         if session_repo and session:
@@ -280,10 +338,14 @@ async def handle_habit_field_callback(update: Update, context: ContextTypes.DEFA
                 "habit_edit_field": field_name,
             }
             await session_repo.save(session)
+        display_name = _display_field_name(field_name, lang, profile.habit_schema.fields)
         await query.edit_message_text(
-            _messages_for_lang(lang)["habit_edit_attr_prompt"].format(name=field_name),
+            _messages_for_lang(lang)["habit_edit_attr_prompt"].format(name=display_name),
             parse_mode=ParseMode.MARKDOWN,
-            reply_markup=build_habit_edit_attr_keyboard(lang),
+            reply_markup=build_habit_edit_attr_keyboard(
+                lang,
+                allowed={"description"} if field_name == "diary" else None,
+            ),
         )
         return
 
@@ -315,12 +377,22 @@ async def handle_habit_edit_attr_callback(update: Update, context: ContextTypes.
             reply_markup=_keyboard(lang),
         )
         return
+    if field_name == "diary" and attr != "description":
+        display_name = _display_field_name(field_name, lang, profile.habit_schema.fields)
+        await query.edit_message_text(
+            _messages_for_lang(lang)["habit_edit_attr_prompt"].format(name=display_name),
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=build_habit_edit_attr_keyboard(lang, allowed={"description"}),
+        )
+        return
 
     cfg = profile.habit_schema.fields[field_name]
     if attr in {"min", "max"} and _base_numeric_type(cfg.type) not in {"integer", "number"}:
         await query.edit_message_text(
             _messages_for_lang(lang)["habit_edit_min_not_numeric"],
-            reply_markup=build_habit_edit_attr_keyboard(lang),
+            reply_markup=build_habit_edit_attr_keyboard(
+                lang, allowed={"description"} if field_name == "diary" else None
+            ),
         )
         return
 
@@ -334,20 +406,23 @@ async def handle_habit_edit_attr_callback(update: Update, context: ContextTypes.
         await session_repo.save(session)
 
     if attr == "name":
+        display_name = _display_field_name(field_name, lang, profile.habit_schema.fields)
         await query.edit_message_text(
-            _messages_for_lang(lang)["habit_edit_name_prompt"].format(name=field_name),
+            _messages_for_lang(lang)["habit_edit_name_prompt"].format(name=display_name),
             parse_mode=ParseMode.MARKDOWN,
         )
         return
     if attr == "description":
+        display_name = _display_field_name(field_name, lang, profile.habit_schema.fields)
         await query.edit_message_text(
-            _messages_for_lang(lang)["habit_edit_description_prompt"].format(name=field_name),
+            _messages_for_lang(lang)["habit_edit_description_prompt"].format(name=display_name),
             parse_mode=ParseMode.MARKDOWN,
         )
         return
     if attr == "type":
+        display_name = _display_field_name(field_name, lang, profile.habit_schema.fields)
         await query.edit_message_text(
-            _messages_for_lang(lang)["habit_edit_type_prompt"].format(name=field_name),
+            _messages_for_lang(lang)["habit_edit_type_prompt"].format(name=display_name),
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=build_habit_type_keyboard(lang),
         )
@@ -420,7 +495,9 @@ async def handle_habit_type_callback(update: Update, context: ContextTypes.DEFAU
             await session_repo.save(session)
         try:
             await query.edit_message_text(
-                _messages_for_lang(lang)["habit_added"].format(name=field_name),
+                _messages_for_lang(lang)["habit_added"].format(
+                    name=_display_field_name(field_name, lang, profile.habit_schema.fields if profile else None)
+                ),
                 reply_markup=_keyboard(lang),
             )
         except Exception:
@@ -447,7 +524,9 @@ async def handle_habit_type_callback(update: Update, context: ContextTypes.DEFAU
         await session_repo.save(session)
     try:
         await query.edit_message_text(
-            _messages_for_lang(lang)["habit_updated"].format(name=field_name),
+            _messages_for_lang(lang)["habit_updated"].format(
+                name=_display_field_name(field_name, lang, profile.habit_schema.fields if profile else None)
+            ),
             reply_markup=_keyboard(lang),
         )
     except Exception:
@@ -587,10 +666,12 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
             return True
         added, skipped = [], []
         for name, cfg in parsed:
-            if not name or name in BASE_HABIT_FIELDS or name in profile.habit_schema.fields:
+            if not name or name in PROTECTED_HABIT_FIELDS or name in profile.habit_schema.fields:
                 skipped.append(name or "?")
                 continue
             profile.habit_schema.fields[name] = cfg
+            if name == "diary":
+                profile.habit_schema.include_diary = True
             added.append(name)
         await user_repo.update(profile)
         session.state = ConversationState.IDLE
@@ -598,7 +679,10 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
         if session_repo:
             await session_repo.save(session)
         if added:
-            msg = _messages_for_lang(lang)["habit_json_result_added"].format(added=", ".join(added))
+            display_added = [
+                _display_field_name(name, lang, profile.habit_schema.fields) for name in added
+            ]
+            msg = _messages_for_lang(lang)["habit_json_result_added"].format(added=", ".join(display_added))
         else:
             msg = _messages_for_lang(lang)["habit_json_result_none"]
         if skipped:
@@ -606,23 +690,31 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
         await update.message.reply_text(msg, reply_markup=_keyboard(lang))
         return True
     if action == "remove":
-        name = text.strip()
+        name = _normalize_field_input(text, profile, lang)
         if not name:
             await update.message.reply_text(
                 _messages_for_lang(lang)["habit_remove_prompt"].format(
                     fields=_format_custom_fields(profile, lang)
                 ),
                 parse_mode=ParseMode.MARKDOWN,
-                reply_markup=build_habit_fields_keyboard(_custom_field_names(profile), "remove", lang),
+                reply_markup=build_habit_fields_keyboard(
+                    _custom_field_names(profile),
+                    "remove",
+                    lang,
+                    labels=_field_label_map(profile, lang),
+                ),
             )
             return True
         removed = False
-        if name in profile.habit_schema.fields and name not in BASE_HABIT_FIELDS:
+        if name in profile.habit_schema.fields and name not in PROTECTED_HABIT_FIELDS:
+            if name == "diary":
+                profile.habit_schema.include_diary = False
             profile.habit_schema.fields.pop(name, None)
             removed = True
             await user_repo.update(profile)
+        display_name = _display_field_name(name, lang, profile.habit_schema.fields)
         await update.message.reply_text(
-            _messages_for_lang(lang)["habit_removed"].format(name=name)
+            _messages_for_lang(lang)["habit_removed"].format(name=display_name)
             if removed
             else _messages_for_lang(lang)["habit_remove_error"]
         )
@@ -639,29 +731,31 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
         field_name = temp.get("habit_edit_field")
         attr = temp.get("habit_edit_attr")
         custom_fields = _custom_field_names(profile)
+        labels = _field_label_map(profile, lang)
 
         async def _finish_and_reset(updated_name: str):
             session.state = ConversationState.IDLE
             session.temp_data = {}
             if session_repo:
                 await session_repo.save(session)
+            display_name = _display_field_name(updated_name, lang, profile.habit_schema.fields)
             await update.message.reply_text(
-                _messages_for_lang(lang)["habit_updated"].format(name=updated_name),
+                _messages_for_lang(lang)["habit_updated"].format(name=display_name),
                 reply_markup=_keyboard(lang),
             )
 
         if stage == "field":
-            name = text.strip()
+            name = _normalize_field_input(text, profile, lang)
             if not name:
                 await update.message.reply_text(
                     _messages_for_lang(lang)["habit_edit_prompt"],
-                    reply_markup=build_habit_fields_keyboard(custom_fields, "edit", lang),
+                    reply_markup=build_habit_fields_keyboard(custom_fields, "edit", lang, labels=labels),
                 )
                 return True
-            if name in BASE_HABIT_FIELDS or name not in profile.habit_schema.fields:
+            if name in PROTECTED_HABIT_FIELDS or name not in profile.habit_schema.fields:
                 await update.message.reply_text(
                     _messages_for_lang(lang)["habit_edit_not_found"],
-                    reply_markup=build_habit_fields_keyboard(custom_fields, "edit", lang),
+                    reply_markup=build_habit_fields_keyboard(custom_fields, "edit", lang, labels=labels),
                 )
                 return True
             session.temp_data = {
@@ -672,18 +766,28 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
             if session_repo:
                 await session_repo.save(session)
             await update.message.reply_text(
-                _messages_for_lang(lang)["habit_edit_attr_prompt"].format(name=name),
+                _messages_for_lang(lang)["habit_edit_attr_prompt"].format(
+                    name=_display_field_name(name, lang, profile.habit_schema.fields)
+                ),
                 parse_mode=ParseMode.MARKDOWN,
-                reply_markup=build_habit_edit_attr_keyboard(lang),
+                reply_markup=build_habit_edit_attr_keyboard(
+                    lang,
+                    allowed={"description"} if name == "diary" else None,
+                ),
             )
             return True
 
         if stage == "attr":
             name = field_name or ""
             await update.message.reply_text(
-                _messages_for_lang(lang)["habit_edit_attr_prompt"].format(name=name),
+                _messages_for_lang(lang)["habit_edit_attr_prompt"].format(
+                    name=_display_field_name(name, lang, profile.habit_schema.fields)
+                ),
                 parse_mode=ParseMode.MARKDOWN,
-                reply_markup=build_habit_edit_attr_keyboard(lang),
+                reply_markup=build_habit_edit_attr_keyboard(
+                    lang,
+                    allowed={"description"} if name == "diary" else None,
+                ),
             )
             return True
 
@@ -701,13 +805,22 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
 
             cfg = profile.habit_schema.fields[field_name]
             raw = text.strip()
+            if field_name == "diary" and attr != "description":
+                await update.message.reply_text(
+                    _messages_for_lang(lang)["habit_edit_attr_prompt"].format(
+                        name=_display_field_name(field_name, lang, profile.habit_schema.fields)
+                    ),
+                    parse_mode=ParseMode.MARKDOWN,
+                    reply_markup=build_habit_edit_attr_keyboard(lang, allowed={"description"}),
+                )
+                return True
 
             if attr == "name":
                 new_name = raw
                 if not new_name or " " in new_name:
                     await update.message.reply_text(_messages_for_lang(lang)["habit_edit_name_invalid"])
                     return True
-                if new_name in BASE_HABIT_FIELDS:
+                if new_name in PROTECTED_HABIT_FIELDS:
                     await update.message.reply_text(_messages_for_lang(lang)["habit_edit_name_reserved"])
                     return True
                 if new_name != field_name and new_name in profile.habit_schema.fields:
@@ -807,7 +920,7 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
             if " " in name:
                 await update.message.reply_text(_messages_for_lang(lang)["habit_add_name_invalid"])
                 return True
-            if name in BASE_HABIT_FIELDS:
+            if name in PROTECTED_HABIT_FIELDS:
                 await update.message.reply_text(_messages_for_lang(lang)["habit_add_name_reserved"])
                 return True
             if name in profile.habit_schema.fields:
@@ -827,6 +940,22 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                 await update.message.reply_text(_messages_for_lang(lang)["habit_add_description_error"])
                 return True
             new_field["description"] = description
+            if new_field.get("name") == "diary":
+                profile.habit_schema.fields["diary"] = HabitFieldConfig(
+                    type="string",
+                    description=description,
+                    required=False,
+                )
+                profile.habit_schema.include_diary = True
+                await user_repo.update(profile)
+                await update.message.reply_text(
+                    _messages_for_lang(lang)["habit_added"].format(
+                        name=_display_field_name(new_field["name"], lang, profile.habit_schema.fields)
+                    ),
+                    reply_markup=_keyboard(lang),
+                )
+                await _finish_and_reset()
+                return True
             session.temp_data = {"habit_action": "add", "habit_add_stage": "type", "habit_new_field": new_field}
             if session_repo:
                 await session_repo.save(session)
@@ -870,7 +999,9 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
             )
             await user_repo.update(profile)
             await update.message.reply_text(
-                _messages_for_lang(lang)["habit_added"].format(name=new_field["name"]),
+                _messages_for_lang(lang)["habit_added"].format(
+                    name=_display_field_name(new_field["name"], lang, profile.habit_schema.fields)
+                ),
                 reply_markup=_keyboard(lang),
             )
             await _finish_and_reset()
@@ -920,7 +1051,9 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
             )
             await user_repo.update(profile)
             await update.message.reply_text(
-                _messages_for_lang(lang)["habit_added"].format(name=new_field["name"]),
+                _messages_for_lang(lang)["habit_added"].format(
+                    name=_display_field_name(new_field["name"], lang, profile.habit_schema.fields)
+                ),
                 reply_markup=_keyboard(lang),
             )
             await _finish_and_reset()

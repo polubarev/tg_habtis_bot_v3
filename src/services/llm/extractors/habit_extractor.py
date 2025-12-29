@@ -60,19 +60,27 @@ class HabitExtractor:
         base = DEFAULT_HABIT_SCHEMA.model_copy(deep=True)
         if schema is None:
             return base
+        include_diary = getattr(schema, "include_diary", True)
         user_fields = getattr(schema, "fields", None) or {}
+        if not include_diary:
+            merged = schema.model_copy(deep=True)
+            merged.fields.pop("diary", None)
+            merged.include_diary = False
+            return merged
         if not user_fields:
             return base
         merged = base.model_copy(deep=True)
         merged.fields.update(user_fields)
         merged.version = getattr(schema, "version", merged.version)
+        merged.include_diary = True
         return merged
 
     def _build_model(self, schema: Optional[HabitSchema]) -> Optional[type]:
         """Build a loose Pydantic model from habit schema fields."""
-        fields: dict[str, tuple[Any, Any]] = {
-            "diary": (Optional[Any], None),  # always request diary summary
-        }
+        include_diary = getattr(schema, "include_diary", True)
+        fields: dict[str, tuple[Any, Any]] = {}
+        if include_diary:
+            fields["diary"] = (Optional[Any], None)  # request diary summary when enabled
         if schema and getattr(schema, "fields", None):
             for name, field_config in schema.fields.items():
                 py_type = self._type_annotation(field_config)

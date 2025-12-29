@@ -15,7 +15,10 @@ DEFAULT_HABIT_SCHEMA = HabitSchema(
     fields={
         "diary": HabitFieldConfig(
             type="string",
-            description="Brief diary summary in the same language as input.",
+            description=(
+                "Ensure the diary matches the input description fully, "
+                "only fixing typos and punctuation, and keep the same language."
+            ),
             required=False,
         ),
     },  # base fields (timestamp, date, raw_record) are always present
@@ -162,6 +165,8 @@ MESSAGES_RU = {
     "select_date": "За какую дату хочешь сделать запись?",
     "date_custom_prompt": "Введи дату в формате YYYY-MM-DD (или dd.mm.yyyy).",
     "date_parse_error": "Не понял дату. Используй YYYY-MM-DD или dd.mm.yyyy.",
+    "habit_fields_hint": "Я буду искать такие поля:\n{fields}",
+    "habit_fields_hint_empty": "Пока нет полей привычек. Просто опиши день.",
     "describe_day": "Опиши свой день для {date} текстом или голосом.",
     "processing": "⏳ Обрабатываю...",
     "saving_data": "💾 Сохраняю данные...",
@@ -408,6 +413,8 @@ MESSAGES_EN = {
     "select_date": "Which date do you want to record?",
     "date_custom_prompt": "Enter a date as YYYY-MM-DD (or dd.mm.yyyy).",
     "date_parse_error": "Couldn't parse the date. Use YYYY-MM-DD or dd.mm.yyyy.",
+    "habit_fields_hint": "I'll look for these fields:\n{fields}",
+    "habit_fields_hint_empty": "No habit fields yet. Just describe your day.",
     "describe_day": "Describe your day for {date} using text or voice.",
     "processing": "⏳ Processing...",
     "saving_data": "💾 Saving data...",
