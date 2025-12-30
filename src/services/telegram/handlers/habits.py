@@ -99,11 +99,11 @@ def _format_habit_value(value: Any, lang: str, field_type: str | list[str] | Non
 
 
 def _format_habit_preview(entry_data: Dict[str, Any], habit_schema: HabitSchema | None, lang: str) -> str:
-    exclude = {"input_type", "field_order", "timestamp"}
+    exclude = {"input_type", "field_order", "timestamp", "raw_record"}
     field_order = entry_data.get("field_order") or []
     keys: list[str] = []
     include_diary = habit_schema.include_diary if habit_schema else True
-    for key in ("date", "raw_record"):
+    for key in ("date",):
         if key in entry_data and key not in exclude:
             keys.append(key)
     if include_diary and "diary" in entry_data and "diary" not in exclude:
@@ -120,16 +120,32 @@ def _format_habit_preview(entry_data: Dict[str, Any], habit_schema: HabitSchema 
             continue
         keys.append(key)
 
-    lines = []
+    date_line = None
+    diary_block = None
+    rest_lines = []
     for key in keys:
         value = entry_data.get(key)
         if key == "raw_record" and isinstance(value, str):
             value = _truncate_text(value, 280)
         field_type = habit_schema.fields[key].type if habit_schema and key in habit_schema.fields else None
         label = html.escape(_field_label(key, lang))
-        formatted_value = html.escape(_format_habit_value(value, lang, field_type))
-        lines.append(f"<b>{label}</b>\n→ {formatted_value}")
-    return "\n\n".join(lines)
+        formatted_value = _format_habit_value(value, lang, field_type)
+        formatted_value = formatted_value if formatted_value else "—"
+        formatted_value = html.escape(formatted_value)
+        if key == "date":
+            date_line = f"<b>{label}</b>: {formatted_value}"
+        elif key == "diary":
+            diary_block = f"<b>{label}</b>:\n{formatted_value}"
+        else:
+            rest_lines.append(f"<b>{label}</b>: {formatted_value}")
+    sections = []
+    if date_line:
+        sections.append(date_line)
+    if diary_block:
+        sections.append(diary_block)
+    if rest_lines:
+        sections.append("\n".join(rest_lines))
+    return "\n\n".join(sections)
 
 
 def _expected_habit_fields(profile, lang: str) -> list[str]:
