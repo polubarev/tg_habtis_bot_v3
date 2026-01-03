@@ -20,6 +20,7 @@ from src.services.telegram.handlers.habits import handle_habits_text, habits_com
 from src.services.telegram.handlers.reflect import handle_reflect_text, reflect_command
 from src.services.telegram.handlers.thought import handle_thought_text, thought_command
 from src.services.telegram.handlers.help import help_command
+from src.services.telegram.handlers.feedback import feedback_command, handle_feedback_text
 from src.services.telegram.keyboards import build_main_menu_keyboard, build_config_keyboard
 from src.services.transcription.whisper import WhisperClient
 from src.models.session import ConversationState, SessionData
@@ -128,6 +129,9 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
     if matched("language"):
         await language_command(update, context)
         return
+    if matched("feedback"):
+        await feedback_command(update, context)
+        return
 
     handled = False
     # Order matters: config first, then active flows.
@@ -135,6 +139,7 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
         handle_timezone_text,
         handle_reminder_text,
         handle_config_text,
+        handle_feedback_text,
         handle_habits_config_text,
         handle_habits_config_text,
         handle_questions_text,

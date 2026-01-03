@@ -59,6 +59,7 @@ BUTTONS_RU = {
     "timezone": "🌍 Часовой пояс",
     "language": "🌐 Язык",
     "reminders": "🔔 Напоминания",
+    "feedback": "💬 Обратная связь",
     "reset": "🧹 Сбросить всё",
 }
 
@@ -77,6 +78,7 @@ BUTTONS_EN = {
     "timezone": "🌍 Timezone",
     "language": "🌐 Language",
     "reminders": "🔔 Reminders",
+    "feedback": "💬 Feedback",
     "reset": "🧹 Reset",
 }
 
@@ -384,6 +386,9 @@ MESSAGES_RU = {
     "reminder_schedule_error": "⚠️ Не удалось запланировать напоминание. Попробуй ещё раз позже.",
     "reminder_message": "⏰ Напоминание: заполни дневник и привычки.",
     "config_menu": "⚙️ Настройки",
+    "feedback_prompt": "Напиши, что можно улучшить или что не работает. Я сохраню отзыв.",
+    "feedback_saved": "✅ Спасибо! Отзыв сохранён.",
+    "feedback_error": "⚠️ Не удалось сохранить отзыв (Firestore недоступен). Попробуй позже.",
     "main_menu": "Главное меню",
     "reset_prompt": (
         "⚠️ Сбросит все данные в боте: подключённую таблицу, поля привычек, вопросы, часовой пояс и сессию. "
@@ -621,6 +626,9 @@ MESSAGES_EN = {
     "reminder_schedule_error": "⚠️ Couldn't schedule the reminder. Please try again later.",
     "reminder_message": "⏰ Reminder: log your day and habits.",
     "config_menu": "⚙️ Settings",
+    "feedback_prompt": "Share what could be improved or what doesn’t work. I’ll save your feedback.",
+    "feedback_saved": "✅ Thanks! Your feedback was saved.",
+    "feedback_error": "⚠️ Couldn't save feedback (Firestore unavailable). Please try again later.",
     "main_menu": "Main Menu",
     "reset_prompt": (
         "⚠️ This will wipe your bot data: connected Sheet, habit fields, questions, timezone, and session. "

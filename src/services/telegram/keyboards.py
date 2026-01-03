@@ -57,7 +57,7 @@ def build_main_menu_keyboard(language: str = "en") -> ReplyKeyboardMarkup:
         [btns["config"], btns["help"]],
         [btns["cancel"]]
     ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=True)
 
 
 def build_config_keyboard(language: str = "en") -> ReplyKeyboardMarkup:
@@ -69,10 +69,11 @@ def build_config_keyboard(language: str = "en") -> ReplyKeyboardMarkup:
         [btns["habits_config"], btns["reflect_config"]],
         [btns["reminders"]],
         [btns["language"], btns["timezone"]],
+        [btns["feedback"]],
         [btns["reset"]],
         [btns["back"], btns["cancel"]]
     ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=True)
 
 
 def build_language_keyboard() -> InlineKeyboardMarkup:

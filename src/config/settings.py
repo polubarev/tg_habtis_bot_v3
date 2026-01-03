@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     # Firestore
     firestore_collection_users: str = "users"
     firestore_collection_sessions: str = "sessions"
+    firestore_collection_feedback: str = "feedback"
 
     # Session
     session_ttl_minutes: int = 60

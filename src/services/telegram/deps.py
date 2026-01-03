@@ -7,6 +7,7 @@ from src.config.settings import Settings
 if TYPE_CHECKING:
     from src.services.llm.client import LLMClient
     from src.services.storage.firestore.client import FirestoreClient
+    from src.services.storage.firestore.feedback_repo import FeedbackRepository
     from src.services.storage.firestore.session_repo import SessionRepository
     from src.services.storage.firestore.user_repo import UserRepository
     from src.services.storage.sheets.client import SheetsClient
@@ -21,6 +22,7 @@ class DependencyProvider:
         self._firestore_client: FirestoreClient | None = None
         self._session_repo: SessionRepository | None = None
         self._user_repo: UserRepository | None = None
+        self._feedback_repo: FeedbackRepository | None = None
         self._sheets_client: SheetsClient | None = None
         self._llm_client: LLMClient | None = None
         self._whisper_client: WhisperClient | None = None
@@ -50,6 +52,13 @@ class DependencyProvider:
 
             self._user_repo = UserRepository(self.firestore_client())
         return self._user_repo
+
+    def feedback_repo(self) -> FeedbackRepository:
+        if self._feedback_repo is None:
+            from src.services.storage.firestore.feedback_repo import FeedbackRepository
+
+            self._feedback_repo = FeedbackRepository(self.firestore_client())
+        return self._feedback_repo
 
     def sheets_client(self) -> SheetsClient:
         if self._sheets_client is None:

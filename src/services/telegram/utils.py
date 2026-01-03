@@ -51,6 +51,11 @@ def get_user_repo(context: ContextTypes.DEFAULT_TYPE):
     return deps.user_repo() if deps else None
 
 
+def get_feedback_repo(context: ContextTypes.DEFAULT_TYPE):
+    deps = _get_deps(context)
+    return deps.feedback_repo() if deps else None
+
+
 def get_sheets_client(context: ContextTypes.DEFAULT_TYPE):
     deps = _get_deps(context)
     return deps.sheets_client() if deps else None

@@ -64,7 +64,7 @@ class SheetsClient(ISheetsClient):
                 return datetime.fromisoformat(text).date()
             except ValueError:
                 pass
-            for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d.%m.%y", "%m/%d/%Y", "%d/%m/%Y"):
+            for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d.%m.%y", "%d-%m-%Y", "%m/%d/%Y", "%d/%m/%Y"):
                 try:
                     return datetime.strptime(text, fmt).date()
                 except ValueError:
@@ -210,7 +210,7 @@ class SheetsClient(ISheetsClient):
             if col == "timestamp":
                 row.append(entry.created_at.isoformat())
             elif col == "date":
-                row.append(entry.date.isoformat())
+                row.append(entry.date.strftime("%d-%m-%Y"))
             elif col == "raw_record":
                 row.append(entry.raw_record)
             elif col == "diary":

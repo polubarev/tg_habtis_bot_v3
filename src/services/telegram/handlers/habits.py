@@ -60,6 +60,29 @@ def _compact_text(text: str) -> str:
     return " ".join(text.split())
 
 
+def _format_date_display(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, datetime):
+        return value.date().strftime("%d-%m-%Y")
+    if isinstance(value, date):
+        return value.strftime("%d-%m-%Y")
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return ""
+        try:
+            return datetime.fromisoformat(text).date().strftime("%d-%m-%Y")
+        except ValueError:
+            pass
+        for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d-%m-%Y"):
+            try:
+                return datetime.strptime(text, fmt).date().strftime("%d-%m-%Y")
+            except ValueError:
+                continue
+    return str(value)
+
+
 def _truncate_text(text: str, max_len: int) -> str:
     compact = _compact_text(text)
     if len(compact) <= max_len:
@@ -170,7 +193,10 @@ def _format_habit_preview(entry_data: Dict[str, Any], habit_schema: HabitSchema 
             value = _truncate_text(value, 280)
         field_type = habit_schema.fields[key].type if habit_schema and key in habit_schema.fields else None
         label = html.escape(_field_label(key, lang))
-        formatted_value = _format_habit_value(value, lang, field_type)
+        if key == "date":
+            formatted_value = _format_date_display(value)
+        else:
+            formatted_value = _format_habit_value(value, lang, field_type)
         formatted_value = formatted_value if formatted_value else "—"
         formatted_value = html.escape(formatted_value)
         if key == "date":
@@ -249,7 +275,7 @@ def _get_llm_client(context: ContextTypes.DEFAULT_TYPE):
 def _parse_custom_date(text: str) -> date | None:
     """Try parsing user-provided date."""
 
-    for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d.%m"):
+    for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d-%m-%Y", "%d.%m"):
         try:
             parsed = datetime.strptime(text.strip(), fmt).date()
             # if year missing, assume current year
@@ -316,7 +342,7 @@ async def _maybe_prompt_existing_entry(
     if session_repo:
         await session_repo.save(session)
 
-    prompt = _messages_for_lang(lang)["habits_existing_prompt"].format(date=selected.isoformat())
+    prompt = _messages_for_lang(lang)["habits_existing_prompt"].format(date=_format_date_display(selected))
     preview = None
     if existing.entry_data:
         preview = _format_habit_preview(existing.entry_data, habit_schema, lang)
@@ -419,7 +445,7 @@ async def handle_habits_date_callback(update: Update, context: ContextTypes.DEFA
             text=_habit_fields_hint(profile, lang),
             parse_mode=ParseMode.HTML,
         )
-    await query.edit_message_text(msgs["describe_day"].format(date=selected.isoformat()))
+    await query.edit_message_text(msgs["describe_day"].format(date=_format_date_display(selected)))
 
 
 async def handle_habits_date_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> bool:
@@ -452,7 +478,7 @@ async def handle_habits_date_text(update: Update, context: ContextTypes.DEFAULT_
         _habit_fields_hint(profile, lang),
         parse_mode=ParseMode.HTML,
     )
-    await update.message.reply_text(msgs["describe_day"].format(date=parsed.isoformat()))
+    await update.message.reply_text(msgs["describe_day"].format(date=_format_date_display(parsed)))
     return True
 
 
@@ -498,7 +524,7 @@ async def handle_habits_existing_choice(update: Update, context: ContextTypes.DE
         )
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=_messages_for_lang(lang)["describe_day"].format(date=selected_date.isoformat()),
+            text=_messages_for_lang(lang)["describe_day"].format(date=_format_date_display(selected_date)),
         )
 
 
