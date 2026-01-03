@@ -1,7 +1,8 @@
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from datetime import date
-from typing import Optional
+from typing import Any, Optional
 
 from src.models.entry import HabitEntry, DreamEntry, ThoughtEntry, ReflectionEntry
 from src.models.user import UserProfile
@@ -43,6 +44,13 @@ class ISessionRepository(ABC):
         raise NotImplementedError
 
 
+@dataclass
+class HabitRowLookup:
+    row_index: int
+    raw_record: str
+    entry_data: dict[str, Any] | None = None
+
+
 class ISheetsClient(ABC):
     """Interface for working with Google Sheets."""
 
@@ -60,6 +68,24 @@ class ISheetsClient(ABC):
 
     @abstractmethod
     async def append_reflection_entry(self, sheet_id: str, entry: ReflectionEntry) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def find_latest_habit_entry(
+        self,
+        sheet_id: str,
+        entry_date: date,
+    ) -> Optional[HabitRowLookup]:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def update_habit_entry(
+        self,
+        sheet_id: str,
+        row_index: int,
+        field_order: list[str],
+        entry: HabitEntry,
+    ) -> None:
         raise NotImplementedError
 
     @abstractmethod

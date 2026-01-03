@@ -1,6 +1,7 @@
 
 import asyncio
-from typing import Dict, List, Optional
+from datetime import date, datetime, timedelta
+from typing import Any, Dict, List, Optional
 
 import gspread
 import json
@@ -15,7 +16,7 @@ from src.config.constants import (
 )
 from src.core.exceptions import ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.models.entry import DreamEntry, HabitEntry, ThoughtEntry
-from src.services.storage.interfaces import ISheetsClient
+from src.services.storage.interfaces import HabitRowLookup, ISheetsClient
 
 
 class SheetsClient(ISheetsClient):
@@ -25,6 +26,7 @@ class SheetsClient(ISheetsClient):
         self.credentials_path = credentials_path
         self.client: gspread.Client | None = None
         self.service_email: str | None = None
+        self._tabs_ensured: set[str] = set()
         if credentials_path:
             creds = Credentials.from_service_account_file(
                 credentials_path, scopes=["https://www.googleapis.com/auth/spreadsheets"]
@@ -39,6 +41,40 @@ class SheetsClient(ISheetsClient):
             return ""
         value = values[0][0]
         return "" if value is None else str(value)
+
+    @staticmethod
+    def _parse_sheet_date(value: object) -> date | None:
+        if value is None or value == "":
+            return None
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, date):
+            return value
+        if isinstance(value, (int, float)):
+            try:
+                base = date(1899, 12, 30)
+                return base + timedelta(days=int(value))
+            except Exception:
+                return None
+        if isinstance(value, str):
+            text = value.strip()
+            if not text:
+                return None
+            try:
+                return datetime.fromisoformat(text).date()
+            except ValueError:
+                pass
+            for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d.%m.%y", "%m/%d/%Y", "%d/%m/%Y"):
+                try:
+                    return datetime.strptime(text, fmt).date()
+                except ValueError:
+                    continue
+        return None
+
+    @staticmethod
+    def _column_letter(col_index: int) -> str:
+        a1 = gspread.utils.rowcol_to_a1(1, col_index)
+        return "".join(ch for ch in a1 if ch.isalpha())
 
     @staticmethod
     def _is_permission_error(exc: Exception) -> bool:
@@ -99,6 +135,8 @@ class SheetsClient(ISheetsClient):
             raise
 
     def _ensure_tabs_sync(self, sheet_id: str) -> None:
+        if sheet_id in self._tabs_ensured:
+            return
         try:
             ss = self._open(sheet_id)
             existing = {ws.title: ws for ws in ss.worksheets()}
@@ -132,12 +170,55 @@ class SheetsClient(ISheetsClient):
                             new_header = migrated + [m for m in missing if m not in migrated]
                         if new_header != current:
                             ws.update("1:1", [new_header])
+            self._tabs_ensured.add(sheet_id)
         except Exception as exc:
             self._raise_mapped_error(exc)
             raise
 
     async def ensure_tabs(self, sheet_id: str) -> None:
         await asyncio.to_thread(self._ensure_tabs_sync, sheet_id)
+
+    def _prepare_habit_header_and_row(
+        self,
+        header: list[str],
+        field_order: list[str],
+        entry: HabitEntry,
+    ) -> tuple[list[str], list[str]]:
+        base_header = ["timestamp", "date", "raw_record", "diary"]
+        if header:
+            header = [("raw_record" if col == "raw_diary" else col) for col in header]
+        else:
+            header = []
+
+        # Preserve existing custom columns to keep alignment of old rows
+        canonical_header = list(header)
+
+        for field in base_header:
+            if field not in canonical_header:
+                canonical_header.append(field)
+
+        for field in field_order:
+            if field not in canonical_header:
+                canonical_header.append(field)
+
+        for field in entry.extra_fields.keys():
+            if field not in canonical_header:
+                canonical_header.append(field)
+
+        row = []
+        for col in canonical_header:
+            if col == "timestamp":
+                row.append(entry.created_at.isoformat())
+            elif col == "date":
+                row.append(entry.date.isoformat())
+            elif col == "raw_record":
+                row.append(entry.raw_record)
+            elif col == "diary":
+                row.append(entry.diary or "")
+            else:
+                row.append(entry.extra_fields.get(col, ""))
+
+        return canonical_header, row
 
     def _append_habit_entry_sync(
         self,
@@ -150,50 +231,10 @@ class SheetsClient(ISheetsClient):
             ss = self._open(sheet_id)
             ws = ss.worksheet("Habits")
             self._ensure_write_access(ws)
-            base_header = ["timestamp", "date", "raw_record", "diary"]
-
-            # Read and migrate header (handles legacy raw_diary and keeps existing custom columns)
             header = ws.row_values(1)
-            if header:
-                header = [("raw_record" if col == "raw_diary" else col) for col in header]
-            else:
-                header = []
-
-            # Preserve existing custom columns to keep alignment of old rows
-            # Preserve existing column order from the sheet
-            canonical_header = list(header)
-
-            # Append missing base fields
-            for field in base_header:
-                if field not in canonical_header:
-                    canonical_header.append(field)
-
-            # Append missing schema fields
-            for field in field_order:
-                if field not in canonical_header:
-                    canonical_header.append(field)
-
-            # Append any extra fields from the entry
-            for field in entry.extra_fields.keys():
-                if field not in canonical_header:
-                    canonical_header.append(field)
-
+            canonical_header, row = self._prepare_habit_header_and_row(header, field_order, entry)
             if header != canonical_header:
                 ws.update("1:1", [canonical_header])
-
-            # Build row aligned to canonical header (so removed fields stay empty, no shifts)
-            row = []
-            for col in canonical_header:
-                if col == "timestamp":
-                    row.append(entry.created_at.isoformat())
-                elif col == "date":
-                    row.append(entry.date.isoformat())
-                elif col == "raw_record":
-                    row.append(entry.raw_record)
-                elif col == "diary":
-                    row.append(entry.diary or "")
-                else:
-                    row.append(entry.extra_fields.get(col, ""))
 
             ws.append_row(row, value_input_option="USER_ENTERED")
         except Exception as exc:
@@ -202,6 +243,109 @@ class SheetsClient(ISheetsClient):
 
     async def append_habit_entry(self, sheet_id: str, field_order: list[str], entry: HabitEntry) -> None:
         await asyncio.to_thread(self._append_habit_entry_sync, sheet_id, field_order, entry)
+
+    def _find_latest_habit_entry_sync(
+        self,
+        sheet_id: str,
+        entry_date: date,
+    ) -> HabitRowLookup | None:
+        try:
+            self._ensure_tabs_sync(sheet_id)
+            ss = self._open(sheet_id)
+            ws = ss.worksheet("Habits")
+            header = ws.row_values(1)
+            if not header:
+                return None
+            normalized = [("raw_record" if col == "raw_diary" else col) for col in header]
+            if "date" not in normalized:
+                return None
+            date_idx = normalized.index("date")
+            raw_idx = normalized.index("raw_record") if "raw_record" in normalized else None
+            if raw_idx is None and "raw_diary" in normalized:
+                raw_idx = normalized.index("raw_diary")
+
+            col_letter = self._column_letter(date_idx + 1)
+            values = ws.get(
+                f"{col_letter}2:{col_letter}",
+                value_render_option="UNFORMATTED_VALUE",
+            )
+            match_row = None
+            for row_index, row in enumerate(values, start=2):
+                value = row[0] if row else None
+                parsed = self._parse_sheet_date(value)
+                if parsed == entry_date:
+                    match_row = row_index
+            if match_row is None:
+                return None
+            row_values = ws.row_values(match_row)
+            raw_record = ""
+            if raw_idx is not None and raw_idx < len(row_values):
+                raw_record = row_values[raw_idx]
+            entry_data: dict[str, Any] = {}
+            for idx, column in enumerate(normalized):
+                entry_data[column] = row_values[idx] if idx < len(row_values) else ""
+            entry_data["field_order"] = [
+                col
+                for col in normalized
+                if col not in {"timestamp", "date", "raw_record", "diary"}
+            ]
+            if "raw_record" not in entry_data and raw_record:
+                entry_data["raw_record"] = raw_record
+            return HabitRowLookup(
+                row_index=match_row,
+                raw_record=raw_record,
+                entry_data=entry_data,
+            )
+        except Exception as exc:
+            self._raise_mapped_error(exc)
+            raise
+
+    async def find_latest_habit_entry(
+        self,
+        sheet_id: str,
+        entry_date: date,
+    ) -> HabitRowLookup | None:
+        return await asyncio.to_thread(self._find_latest_habit_entry_sync, sheet_id, entry_date)
+
+    def _update_habit_entry_sync(
+        self,
+        sheet_id: str,
+        row_index: int,
+        field_order: list[str],
+        entry: HabitEntry,
+    ) -> None:
+        try:
+            self._ensure_tabs_sync(sheet_id)
+            ss = self._open(sheet_id)
+            ws = ss.worksheet("Habits")
+            self._ensure_write_access(ws)
+            header = ws.row_values(1)
+            canonical_header, row = self._prepare_habit_header_and_row(header, field_order, entry)
+            if header != canonical_header:
+                ws.update("1:1", [canonical_header])
+            ws.update(
+                f"A{row_index}",
+                [row],
+                value_input_option="USER_ENTERED",
+            )
+        except Exception as exc:
+            self._raise_mapped_error(exc)
+            raise
+
+    async def update_habit_entry(
+        self,
+        sheet_id: str,
+        row_index: int,
+        field_order: list[str],
+        entry: HabitEntry,
+    ) -> None:
+        await asyncio.to_thread(
+            self._update_habit_entry_sync,
+            sheet_id,
+            row_index,
+            field_order,
+            entry,
+        )
 
     def _append_dream_entry_sync(self, sheet_id: str, entry: DreamEntry) -> None:
         try:

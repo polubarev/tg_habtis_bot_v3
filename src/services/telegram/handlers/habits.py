@@ -11,7 +11,11 @@ from src.config.constants import HABITS_SHEET_COLUMNS, MESSAGES_EN, MESSAGES_RU
 from src.config.settings import get_settings
 from src.models.habit import HabitSchema
 from src.models.session import ConversationState, SessionData
-from src.services.telegram.keyboards import build_confirmation_keyboard, build_date_keyboard
+from src.services.telegram.keyboards import (
+    build_confirmation_keyboard,
+    build_date_keyboard,
+    build_existing_habits_keyboard,
+)
 from src.utils.date_parser import parse_relative_date
 from src.models.entry import HabitEntry
 from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, SheetAccessError, SheetWriteError
@@ -98,6 +102,43 @@ def _format_habit_value(value: Any, lang: str, field_type: str | list[str] | Non
     return str(value)
 
 
+def _coerce_bool_value(value: Any) -> Any:
+    if isinstance(value, bool):
+        return 1 if value else 0
+    if isinstance(value, (int, float)) and value in (0, 1):
+        return int(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "yes", "1", "да"}:
+            return 1
+        if normalized in {"false", "no", "0", "нет"}:
+            return 0
+    if isinstance(value, (list, tuple)):
+        coerced = []
+        for item in value:
+            coerced_item = _coerce_bool_value(item)
+            if isinstance(coerced_item, list):
+                coerced.extend(coerced_item)
+            else:
+                coerced.append(coerced_item)
+        return ", ".join(str(item) for item in coerced)
+    return value
+
+
+def _coerce_entry_for_sheet(entry_data: Dict[str, Any], habit_schema: HabitSchema | None) -> Dict[str, Any]:
+    if not habit_schema or not habit_schema.fields:
+        return dict(entry_data)
+    coerced = dict(entry_data)
+    for field_name, config in habit_schema.fields.items():
+        if field_name not in coerced:
+            continue
+        field_type = config.type if hasattr(config, "type") else config.get("type")
+        types = _normalize_field_types(field_type)
+        if "bool" in types or "boolean" in types:
+            coerced[field_name] = _coerce_bool_value(coerced[field_name])
+    return coerced
+
+
 def _format_habit_preview(entry_data: Dict[str, Any], habit_schema: HabitSchema | None, lang: str) -> str:
     exclude = {"input_type", "field_order", "timestamp", "raw_record"}
     field_order = entry_data.get("field_order") or []
@@ -148,6 +189,21 @@ def _format_habit_preview(entry_data: Dict[str, Any], habit_schema: HabitSchema 
     return "\n\n".join(sections)
 
 
+def _format_habit_field_lines(field_config: Any, lang: str) -> list[str]:
+    description = None
+    if hasattr(field_config, "description"):
+        description = field_config.description
+    elif isinstance(field_config, dict):
+        description = field_config.get("description")
+
+    lines = []
+    if description:
+        desc_label = "Описание" if lang == "ru" else "Description"
+        compact = _compact_text(str(description))
+        lines.append(f"  {desc_label}: {html.escape(compact)}")
+    return lines
+
+
 def _expected_habit_fields(profile, lang: str) -> list[str]:
     if not profile or not profile.habit_schema:
         return []
@@ -155,12 +211,14 @@ def _expected_habit_fields(profile, lang: str) -> list[str]:
     include_diary = schema.include_diary
     fields = schema.fields or {}
     names = []
-    for name in fields.keys():
+    for name, config in fields.items():
         if name in BASE_HABIT_FIELDS:
             continue
         if name == "diary" and not include_diary:
             continue
-        names.append(_field_label(name, lang))
+        label = html.escape(_field_label(name, lang))
+        names.append(f"• <b>{label}</b>")
+        names.extend(_format_habit_field_lines(config, lang))
     return names
 
 
@@ -168,7 +226,7 @@ def _habit_fields_hint(profile, lang: str) -> str:
     fields = _expected_habit_fields(profile, lang)
     if not fields:
         return _messages_for_lang(lang)["habit_fields_hint_empty"]
-    formatted = "\n".join(f"• {name}" for name in fields)
+    formatted = "\n".join(fields)
     return _messages_for_lang(lang)["habit_fields_hint"].format(fields=formatted)
 
 
@@ -222,6 +280,68 @@ async def _safe_edit_message(query, text: str) -> None:
         await query.edit_message_text(text)
     except Exception:
         return None
+
+
+async def _maybe_prompt_existing_entry(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    session: SessionData,
+    selected: date,
+    lang: str,
+) -> bool:
+    sheet_client = _get_sheets_client(context)
+    session_repo = _get_session_repo(context)
+    profile = await resolve_user_profile(update, context)
+    habit_schema = profile.habit_schema if profile else None
+    sheet_id = profile.sheet_id if profile else None
+    if not sheet_id or not sheet_client:
+        return False
+    try:
+        existing = await asyncio.wait_for(
+            sheet_client.find_latest_habit_entry(sheet_id, selected),
+            timeout=_OP_TIMEOUT,
+        )
+    except (SheetAccessError, ExternalTimeoutError, SheetWriteError, asyncio.TimeoutError):
+        return False
+    if not existing:
+        return False
+
+    if session.temp_data is None:
+        session.temp_data = {}
+    session.temp_data["existing_row_index"] = existing.row_index
+    session.temp_data["existing_raw_record"] = existing.raw_record
+    session.temp_data["existing_entry_action"] = None
+    session.selected_date = selected
+    session.state = ConversationState.HABITS_AWAITING_EXISTING_CHOICE
+    if session_repo:
+        await session_repo.save(session)
+
+    prompt = _messages_for_lang(lang)["habits_existing_prompt"].format(date=selected.isoformat())
+    preview = None
+    if existing.entry_data:
+        preview = _format_habit_preview(existing.entry_data, habit_schema, lang)
+        prompt = f"{prompt}\n\n{preview}"
+    parse_mode = ParseMode.HTML if preview else None
+    keyboard = build_existing_habits_keyboard(lang)
+    if update.callback_query:
+        _safe_answer(update.callback_query)
+        try:
+            await update.callback_query.edit_message_text(
+                prompt,
+                reply_markup=keyboard,
+                parse_mode=parse_mode,
+            )
+        except Exception:
+            if update.effective_chat:
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=prompt,
+                    reply_markup=keyboard,
+                    parse_mode=parse_mode,
+                )
+    elif update.message:
+        await update.message.reply_text(prompt, reply_markup=keyboard, parse_mode=parse_mode)
+    return True
 
 
 async def habits_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -280,12 +400,14 @@ async def handle_habits_date_callback(update: Update, context: ContextTypes.DEFA
 
     selected = parse_relative_date(label)
     session.selected_date = selected
+    profile = await resolve_user_profile(update, context)
+    lang = resolve_language(profile)
+    if await _maybe_prompt_existing_entry(update, context, session, selected, lang):
+        return
+
     session.state = ConversationState.HABITS_AWAITING_CONTENT
     if session_repo:
         await session_repo.save(session)
-
-    profile = await resolve_user_profile(update, context)
-    lang = resolve_language(profile)
     msgs = _messages_for_lang(lang)
     try:
         _safe_answer(query)
@@ -295,6 +417,7 @@ async def handle_habits_date_callback(update: Update, context: ContextTypes.DEFA
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=_habit_fields_hint(profile, lang),
+            parse_mode=ParseMode.HTML,
         )
     await query.edit_message_text(msgs["describe_day"].format(date=selected.isoformat()))
 
@@ -316,16 +439,67 @@ async def handle_habits_date_text(update: Update, context: ContextTypes.DEFAULT_
         return True
 
     session.selected_date = parsed
+    profile = await resolve_user_profile(update, context)
+    lang = resolve_language(profile)
+    if await _maybe_prompt_existing_entry(update, context, session, parsed, lang):
+        return True
+
+    session.state = ConversationState.HABITS_AWAITING_CONTENT
+    if session_repo:
+        await session_repo.save(session)
+    msgs = _messages_for_lang(lang)
+    await update.message.reply_text(
+        _habit_fields_hint(profile, lang),
+        parse_mode=ParseMode.HTML,
+    )
+    await update.message.reply_text(msgs["describe_day"].format(date=parsed.isoformat()))
+    return True
+
+
+async def handle_habits_existing_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle append/rewrite choice for existing habits entries."""
+
+    if not update.callback_query or not update.effective_user:
+        return
+    query = update.callback_query
+    data = query.data or ""
+    if not data.startswith("habits_existing:"):
+        return
+    action = data.split(":", 1)[1]
+    if action not in {"append", "rewrite"}:
+        return
+
+    session_repo = _get_session_repo(context)
+    session = await session_repo.get(update.effective_user.id) if session_repo else None
+    if session is None or session.state != ConversationState.HABITS_AWAITING_EXISTING_CHOICE:
+        _safe_answer(query)
+        return
+
+    if session.temp_data is None:
+        session.temp_data = {}
+    session.temp_data["existing_entry_action"] = action
     session.state = ConversationState.HABITS_AWAITING_CONTENT
     if session_repo:
         await session_repo.save(session)
 
     profile = await resolve_user_profile(update, context)
     lang = resolve_language(profile)
-    msgs = _messages_for_lang(lang)
-    await update.message.reply_text(_habit_fields_hint(profile, lang))
-    await update.message.reply_text(msgs["describe_day"].format(date=parsed.isoformat()))
-    return True
+    selected_date = session.selected_date or date.today()
+    try:
+        await query.edit_message_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    _safe_answer(query)
+    if update.effective_chat:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=_habit_fields_hint(profile, lang),
+            parse_mode=ParseMode.HTML,
+        )
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=_messages_for_lang(lang)["describe_day"].format(date=selected_date.isoformat()),
+        )
 
 
 async def handle_habits_text(
@@ -345,11 +519,18 @@ async def handle_habits_text(
 
     raw_text = text or (update.message.text if update.message else "") or ""
     selected_date = session.selected_date or date.today()
-    diary_text = raw_text
     previous_raw = (session.temp_data or {}).get("previous_raw_record")
+    existing_action = (session.temp_data or {}).get("existing_entry_action")
+    existing_raw = (
+        (session.temp_data or {}).get("existing_raw_record")
+        if existing_action == "append"
+        else None
+    )
     combined_text = raw_text
     if previous_raw:
         combined_text = f"{previous_raw}\n\n[Update]\n{raw_text}"
+    elif existing_raw:
+        combined_text = f"{existing_raw}\n\n[Update]\n{raw_text}"
 
     llm_client = _get_llm_client(context)
     extraction: Dict[str, Any] = {}
@@ -455,9 +636,9 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
     if decision == "yes":
         profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
         lang = resolve_language(profile)
+        habit_schema = profile.habit_schema if profile else None
         sheet_id = profile.sheet_id if profile else None
         if sheet_id and sheets_client:
-            await _safe_edit_message(query, _messages_for_lang(lang)["saving_data"])
             field_order = (
                 [f for f in (profile.habit_schema.fields.keys()) if f not in base_fields]
                 if profile and profile.habit_schema and profile.habit_schema.fields
@@ -478,24 +659,39 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
             ]
             field_order = field_order + extra_pending_fields
             created_at = datetime.fromisoformat(session.pending_entry.get("timestamp")) if session.pending_entry.get("timestamp") else datetime.utcnow()
+            coerced_entry = _coerce_entry_for_sheet(session.pending_entry, habit_schema)
             entry = HabitEntry(
-                date=date.fromisoformat(session.pending_entry.get("date")),
-                raw_record=session.pending_entry.get("raw_record", ""),
-                diary=session.pending_entry.get("diary"),
+                date=date.fromisoformat(coerced_entry.get("date")),
+                raw_record=coerced_entry.get("raw_record", ""),
+                diary=coerced_entry.get("diary"),
                 extra_fields={
                     k: v
-                    for k, v in session.pending_entry.items()
+                    for k, v in coerced_entry.items()
                     if k not in base_fields | {"input_type", "field_order"}
+                    and v is not None
                 },
-                input_type=InputType(session.pending_entry.get("input_type") or InputType.TEXT),
+                input_type=InputType(coerced_entry.get("input_type") or InputType.TEXT),
                 created_at=created_at,
             )
             error_key = None
             try:
-                await asyncio.wait_for(
-                    sheets_client.append_habit_entry(sheet_id, field_order, entry),
-                    timeout=_OP_TIMEOUT,
-                )
+                existing_action = (session.temp_data or {}).get("existing_entry_action")
+                existing_row_index = (session.temp_data or {}).get("existing_row_index")
+                if existing_action in {"append", "rewrite"} and existing_row_index:
+                    await asyncio.wait_for(
+                        sheets_client.update_habit_entry(
+                            sheet_id,
+                            int(existing_row_index),
+                            field_order,
+                            entry,
+                        ),
+                        timeout=_OP_TIMEOUT,
+                    )
+                else:
+                    await asyncio.wait_for(
+                        sheets_client.append_habit_entry(sheet_id, field_order, entry),
+                        timeout=_OP_TIMEOUT,
+                    )
             except SheetAccessError:
                 error_key = "sheet_permission_error"
             except asyncio.TimeoutError:
@@ -505,7 +701,10 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
             except SheetWriteError:
                 error_key = "sheet_write_error"
             if error_key:
-                await safe_delete_message(query.message)
+                try:
+                    await query.edit_message_reply_markup(reply_markup=None)
+                except Exception:
+                    pass
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
                     text=_messages_for_lang(lang)[error_key],
@@ -519,7 +718,6 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
                 await query.edit_message_reply_markup(reply_markup=None)
             except Exception:
                 pass
-            await safe_delete_message(query.message)
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=_messages_for_lang(lang)["saved_success"]

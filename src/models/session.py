@@ -10,6 +10,7 @@ class ConversationState(str, Enum):
 
     IDLE = "idle"
     HABITS_AWAITING_DATE = "habits_awaiting_date"
+    HABITS_AWAITING_EXISTING_CHOICE = "habits_awaiting_existing_choice"
     HABITS_AWAITING_CONTENT = "habits_awaiting_content"
     HABITS_AWAITING_CONFIRMATION = "habits_awaiting_confirmation"
     HABITS_AWAITING_EDIT = "habits_awaiting_edit"

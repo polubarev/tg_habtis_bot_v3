@@ -19,7 +19,6 @@ from src.services.telegram.utils import (
     resolve_language,
     resolve_user_profile,
     resolve_user_timezone,
-    safe_delete_message,
 )
 
 
@@ -123,7 +122,6 @@ async def handle_thought_confirm(update: Update, context: ContextTypes.DEFAULT_T
             entry = ThoughtEntry(**session.pending_entry)
             error_key = None
             try:
-                await _safe_edit_message(query, _messages_for_lang(lang)["saving_data"])
                 await asyncio.wait_for(
                     sheets_client.append_thought_entry(sheet_id, entry),
                     timeout=_OP_TIMEOUT,
@@ -137,7 +135,10 @@ async def handle_thought_confirm(update: Update, context: ContextTypes.DEFAULT_T
             except SheetWriteError:
                 error_key = "sheet_write_error"
             if error_key:
-                await safe_delete_message(query.message)
+                try:
+                    await query.edit_message_reply_markup(reply_markup=None)
+                except Exception:
+                    pass
                 session.state = ConversationState.IDLE
                 session.pending_entry = None
                 if session_repo:
@@ -152,7 +153,6 @@ async def handle_thought_confirm(update: Update, context: ContextTypes.DEFAULT_T
                 await query.edit_message_reply_markup(reply_markup=None)
             except Exception:
                 pass
-            await safe_delete_message(query.message)
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=_messages_for_lang(lang)["thought_saved"]

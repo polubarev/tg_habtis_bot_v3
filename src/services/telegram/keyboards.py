@@ -33,6 +33,20 @@ def build_confirmation_keyboard(prefix: str = "habits", language: str = "en") ->
     return InlineKeyboardMarkup(buttons)
 
 
+def build_existing_habits_keyboard(language: str = "en") -> InlineKeyboardMarkup:
+    """Inline keyboard for handling existing habits entries."""
+
+    btns = INLINE_BUTTONS_RU if language == "ru" else INLINE_BUTTONS_EN
+    buttons = [
+        [
+            InlineKeyboardButton(btns["existing_append"], callback_data="habits_existing:append"),
+            InlineKeyboardButton(btns["existing_rewrite"], callback_data="habits_existing:rewrite"),
+        ],
+        [InlineKeyboardButton(btns["cancel"], callback_data="habits_cancel")],
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+
 def build_main_menu_keyboard(language: str = "en") -> ReplyKeyboardMarkup:
     """Main menu 2x2 grid + Config + Help + Cancel."""
     btns = BUTTONS_RU if language == "ru" else BUTTONS_EN

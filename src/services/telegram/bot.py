@@ -20,6 +20,7 @@ from src.services.telegram.handlers.habits import (
     habits_command,
     handle_habits_confirm,
     handle_habits_date_callback,
+    handle_habits_existing_choice,
 )
 from src.services.telegram.handlers.dream import dream_command, handle_dream_confirm
 from src.services.telegram.handlers.thought import thought_command, handle_thought_confirm
@@ -88,6 +89,9 @@ class TelegramBotService:
         self.app.add_handler(CommandHandler("help", help_command))
         self.app.add_handler(
             CallbackQueryHandler(handle_habits_date_callback, pattern="^habits_date:|^habits_cancel$")
+        )
+        self.app.add_handler(
+            CallbackQueryHandler(handle_habits_existing_choice, pattern="^habits_existing:")
         )
         self.app.add_handler(
             CallbackQueryHandler(handle_habits_confirm, pattern="^habits_confirm:")
