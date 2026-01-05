@@ -134,6 +134,46 @@ def _format_field_type(cfg: HabitFieldConfig, lang: str) -> str:
     return str(type_value or "string")
 
 
+def _format_field_type_label(cfg: HabitFieldConfig, lang: str) -> str:
+    type_value = cfg.type[0] if isinstance(cfg.type, list) and cfg.type else cfg.type
+    if type_value == "integer":
+        return "целое число" if lang == "ru" else "integer"
+    if type_value == "number":
+        return "число" if lang == "ru" else "number"
+    if type_value == "boolean":
+        return "да/нет" if lang == "ru" else "yes/no"
+    if type_value == "string":
+        return "текст" if lang == "ru" else "text"
+    return str(type_value or "string")
+
+
+def _format_limit_value(value, lang: str) -> str:
+    if value is None:
+        return _messages_for_lang(lang)["empty_value"]
+    return str(value)
+
+
+def _format_field_details(
+    field_name: str,
+    cfg: HabitFieldConfig,
+    lang: str,
+    fields: dict[str, HabitFieldConfig],
+) -> str:
+    messages = _messages_for_lang(lang)
+    display_name = escape_markdown(_display_field_name(field_name, lang, fields))
+    description = escape_markdown(cfg.description or messages["empty_value"])
+    type_label = escape_markdown(_format_field_type_label(cfg, lang))
+    minimum = escape_markdown(_format_limit_value(cfg.minimum, lang))
+    maximum = escape_markdown(_format_limit_value(cfg.maximum, lang))
+    return messages["habit_edit_details"].format(
+        name=display_name,
+        description=description,
+        type=type_label,
+        minimum=minimum,
+        maximum=maximum,
+    )
+
+
 def _format_custom_fields(profile, lang: str) -> str:
     fields = profile.habit_schema.fields if profile and profile.habit_schema else {}
     custom = [name for name in fields.keys() if name not in PROTECTED_HABIT_FIELDS]
@@ -338,9 +378,12 @@ async def handle_habit_field_callback(update: Update, context: ContextTypes.DEFA
                 "habit_edit_field": field_name,
             }
             await session_repo.save(session)
+        cfg = profile.habit_schema.fields[field_name]
+        details = _format_field_details(field_name, cfg, lang, profile.habit_schema.fields)
         display_name = _display_field_name(field_name, lang, profile.habit_schema.fields)
+        prompt = _messages_for_lang(lang)["habit_edit_attr_prompt"].format(name=display_name)
         await query.edit_message_text(
-            _messages_for_lang(lang)["habit_edit_attr_prompt"].format(name=display_name),
+            f"{details}\n\n{prompt}",
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=build_habit_edit_attr_keyboard(
                 lang,
@@ -765,10 +808,12 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
             }
             if session_repo:
                 await session_repo.save(session)
+            cfg = profile.habit_schema.fields[name]
+            details = _format_field_details(name, cfg, lang, profile.habit_schema.fields)
+            display_name = _display_field_name(name, lang, profile.habit_schema.fields)
+            prompt = _messages_for_lang(lang)["habit_edit_attr_prompt"].format(name=display_name)
             await update.message.reply_text(
-                _messages_for_lang(lang)["habit_edit_attr_prompt"].format(
-                    name=_display_field_name(name, lang, profile.habit_schema.fields)
-                ),
+                f"{details}\n\n{prompt}",
                 parse_mode=ParseMode.MARKDOWN,
                 reply_markup=build_habit_edit_attr_keyboard(
                     lang,
@@ -779,10 +824,17 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
 
         if stage == "attr":
             name = field_name or ""
+            cfg = profile.habit_schema.fields.get(name) if name else None
+            details = (
+                _format_field_details(name, cfg, lang, profile.habit_schema.fields)
+                if cfg
+                else ""
+            )
+            prompt = _messages_for_lang(lang)["habit_edit_attr_prompt"].format(
+                name=_display_field_name(name, lang, profile.habit_schema.fields)
+            )
             await update.message.reply_text(
-                _messages_for_lang(lang)["habit_edit_attr_prompt"].format(
-                    name=_display_field_name(name, lang, profile.habit_schema.fields)
-                ),
+                f"{details}\n\n{prompt}" if details else prompt,
                 parse_mode=ParseMode.MARKDOWN,
                 reply_markup=build_habit_edit_attr_keyboard(
                     lang,

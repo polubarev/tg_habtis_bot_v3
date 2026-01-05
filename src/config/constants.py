@@ -333,6 +333,14 @@ MESSAGES_RU = {
         "Выбери поле для редактирования или напиши его название. Пример: вода."
     ),
     "habit_edit_not_found": "Не нашёл такое поле. Проверь название и попробуй ещё раз.",
+    "habit_edit_details": (
+        "Текущие значения поля:\n"
+        "• Название: *{name}*\n"
+        "• Описание: {description}\n"
+        "• Тип: {type}\n"
+        "• Минимум: {minimum}\n"
+        "• Максимум: {maximum}"
+    ),
     "habit_edit_attr_prompt": "Что изменить в поле *{name}*?",
     "habit_edit_name_prompt": "Введи новое название для поля *{name}*.",
     "habit_edit_name_invalid": "Название не подошло. Нужны буквы/цифры без пробелов. Пример: вода.",
@@ -573,6 +581,14 @@ MESSAGES_EN = {
     "habit_remove_error": "I couldn't find that field. Check the name and try again. Example: water.",
     "habit_edit_prompt": "Choose a field to edit or send its name. Example: water.",
     "habit_edit_not_found": "I couldn't find that field. Check the name and try again.",
+    "habit_edit_details": (
+        "Current field details:\n"
+        "• Name: *{name}*\n"
+        "• Description: {description}\n"
+        "• Type: {type}\n"
+        "• Min: {minimum}\n"
+        "• Max: {maximum}"
+    ),
     "habit_edit_attr_prompt": "What do you want to edit in *{name}*?",
     "habit_edit_name_prompt": "Send a new name for *{name}*.",
     "habit_edit_name_invalid": "That name doesn't work. Use letters/numbers only, no spaces. Example: water.",
