@@ -189,6 +189,7 @@ MESSAGES_RU = {
     "week_analysis_not_enough": "Недостаточно данных за последние 7 завершённых дней. Есть {count} дней.",
     "confirm_generic": "Проверь и подтверди:\n```json\n{preview}\n```",
     "error_occurred": "⚠ Произошла ошибка. Попробуй ещё раз.",
+    "session_expired": "Сессия истекла — перезапусти /start или повтори команду.",
     "sheet_not_configured": "⚠ Сначала подключи Google Sheet.",
     "sheet_detected": "🔎 Похоже, это ссылка на Google Sheet. Давай настроим её.",
     "ask_sheet": (
@@ -210,6 +211,7 @@ MESSAGES_RU = {
     ),
     "voice_transcription_error": "⚠ Не удалось распознать голос. Отправь текст.",
     "sheet_saved": "✅ Гугл-таблица сохранена.",
+    "sheet_url_invalid": "Это не похоже на ссылку или ID таблицы.",
     "sheet_base_url_notice": "Использую базовую ссылку: {url}",
     "config_cancelled": "Настройка отменена.",
     "language_prompt": "Выбери язык интерфейса.",
@@ -223,7 +225,7 @@ MESSAGES_RU = {
     "reflect_intro": "Ответь на вопросы одним сообщением (текст или голос). Список вопросов:\n{questions}\n\nОтправь один ответ — я разберу его и заполню ответы.",
     "reflect_done": "✅ Ответы сохранены.",
     "reflect_seeded": "Добавил вопросы по умолчанию.",
-    "llm_disabled": "Без сводки: модель не настроена.",
+    "llm_disabled": "LLM отключена — использую сырые ответы, где возможно.",
     "voice_disabled": "Голос пока недоступен (нет ключа для STT). Отправь текст.",
     "voice_transcribed": "Расшифровка голоса: {text}",
     "help": (
@@ -466,6 +468,7 @@ MESSAGES_EN = {
     "week_analysis_not_enough": "Not enough data for the last 7 completed days. Only {count} days found.",
     "confirm_generic": "Review and confirm:\n```json\n{preview}\n```",
     "error_occurred": "⚠ An error occurred. Please try again.",
+    "session_expired": "Session expired — please restart with /start or retry the command.",
     "sheet_not_configured": "⚠ Please configure Google Sheet first.",
     "sheet_detected": "🔎 Looks like a Google Sheet link. Let’s set it up.",
     "ask_sheet": (
@@ -481,6 +484,7 @@ MESSAGES_EN = {
     "external_response_error": "⚠ The service returned an invalid response. Please try again.",
     "voice_transcription_error": "⚠ Couldn't transcribe the audio. Please send text.",
     "sheet_saved": "✅ Google Sheet saved.",
+    "sheet_url_invalid": "That doesn’t look like a Sheet link or ID.",
     "sheet_base_url_notice": "Using base link: {url}",
     "config_cancelled": "Setup cancelled.",
     "language_prompt": "Choose your language.",
@@ -494,7 +498,7 @@ MESSAGES_EN = {
     "reflect_intro": "Answer all questions in one message (text or voice). Questions:\n{questions}\n\nSend a single reply — I'll parse it into answers.",
     "reflect_done": "✅ Answers saved.",
     "reflect_seeded": "Added default questions.",
-    "llm_disabled": "Summary disabled: LLM not configured.",
+    "llm_disabled": "LLM disabled — using raw answers where possible.",
     "voice_disabled": "Voice not available (no STT key). Please send text.",
     "voice_transcribed": "Voice transcription: {text}",
     "help": (

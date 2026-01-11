@@ -156,6 +156,11 @@ async def handle_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return False
     if not looks_like_sheet_input(sheet_text):
         return False
+    looks_like_sheet_url = bool(re.search(r"spreadsheets/d/[A-Za-z0-9-_]+", sheet_text))
+    looks_like_sheet_id = bool(re.fullmatch(r"[A-Za-z0-9-_]+", sheet_text))
+    if not (looks_like_sheet_url or looks_like_sheet_id):
+        await update.message.reply_text(_messages_for_lang(lang)["sheet_url_invalid"])
+        return True
 
     sheet_id = _extract_sheet_id(sheet_text)
     has_extra_params = _has_extra_sheet_params(sheet_text)

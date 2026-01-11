@@ -14,6 +14,7 @@ from src.services.telegram.keyboards import build_confirmation_keyboard
 from src.services.telegram.utils import (
     get_session_repo,
     get_sheets_client,
+    get_session_expired_message,
     get_user_repo,
     increment_usage_stat,
     resolve_language,
@@ -111,7 +112,7 @@ async def handle_dream_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
     if session is None or session.state != ConversationState.DREAM_AWAITING_CONFIRMATION or not session.pending_entry:
         await query.answer()
         lang = resolve_language(await resolve_user_profile(update, context))
-        await query.edit_message_text(_messages_for_lang(lang)["error_occurred"])
+        await query.edit_message_text(get_session_expired_message(lang))
         return
 
     decision = data.split(":", 1)[1]
