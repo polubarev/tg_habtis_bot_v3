@@ -191,6 +191,7 @@ MESSAGES_RU = {
     "error_occurred": "⚠ Произошла ошибка. Попробуй ещё раз.",
     "session_expired": "Сессия истекла — перезапусти /start или повтори команду.",
     "sheet_not_configured": "⚠ Сначала подключи Google Sheet.",
+    "sheet_detected": "🔎 Похоже, это ссылка на Google Sheet. Давай настроим её.",
     "ask_sheet": (
         "Отправь ссылку или ID Google Sheets, куда писать данные.\n"
         "Требуемый доступ: \"Общий доступ → Ограничен\" и дать редактора боту."
@@ -469,6 +470,7 @@ MESSAGES_EN = {
     "error_occurred": "⚠ An error occurred. Please try again.",
     "session_expired": "Session expired — please restart with /start or retry the command.",
     "sheet_not_configured": "⚠ Please configure Google Sheet first.",
+    "sheet_detected": "🔎 Looks like a Google Sheet link. Let’s set it up.",
     "ask_sheet": (
         "Send a Google Sheet link or ID to store your data.\n"
         "Required sharing: \"General access → Restricted\" and grant the bot Editor access."

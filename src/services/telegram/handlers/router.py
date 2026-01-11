@@ -12,6 +12,7 @@ from src.services.telegram.handlers.config import (
     reset_command,
     reminder_command,
     handle_reminder_text,
+    looks_like_sheet_input,
 )
 from src.services.telegram.handlers.habits_config import handle_habits_config_text, habits_config_command
 from src.services.telegram.handlers.questions import handle_questions_text, questions_command
@@ -136,6 +137,19 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
     if matched("feedback"):
         await feedback_command(update, context)
         return
+
+    if looks_like_sheet_input(text):
+        session_repo = get_session_repo(context)
+        session = await session_repo.get(update.effective_user.id) if session_repo and update.effective_user else None
+        should_prompt = session is None or session.state != ConversationState.CONFIG_AWAITING_SHEET_URL
+        if session_repo and update.effective_user:
+            session = session or SessionData(user_id=update.effective_user.id)
+            session.state = ConversationState.CONFIG_AWAITING_SHEET_URL
+            await session_repo.save(session)
+        if should_prompt and update.message:
+            await update.message.reply_text(msgs["sheet_detected"])
+        if await handle_config_text(update, context):
+            return
 
     handled = False
     # Order matters: config first, then active flows.
