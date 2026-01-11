@@ -17,6 +17,7 @@ from src.services.telegram.utils import (
     get_llm_client,
     get_session_repo,
     get_sheets_client,
+    get_session_expired_message,
     get_user_repo,
     increment_usage_stat,
     resolve_language,
@@ -178,7 +179,7 @@ async def handle_reflect_confirm(update: Update, context: ContextTypes.DEFAULT_T
     if session is None or session.state != ConversationState.REFLECT_AWAITING_CONFIRMATION or not session.pending_entry:
         await query.answer()
         lang = resolve_language(await resolve_user_profile(update, context))
-        await query.edit_message_text(_messages_for_lang(lang)["error_occurred"])
+        await query.edit_message_text(get_session_expired_message(lang))
         return
 
     decision = data.split(":", 1)[1]

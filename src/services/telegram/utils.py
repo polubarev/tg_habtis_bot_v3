@@ -7,6 +7,7 @@ from typing import Optional
 from telegram import Message, Update
 from telegram.ext import ContextTypes
 
+from src.config.constants import MESSAGES_EN, MESSAGES_RU
 from src.models.user import UserProfile
 from src.services.telegram.deps import DependencyProvider
 
@@ -35,6 +36,11 @@ def resolve_language(profile: Optional[UserProfile]) -> str:
     if profile and profile.language:
         return profile.language
     return "en"
+
+
+def get_session_expired_message(lang: str) -> str:
+    messages = MESSAGES_RU if lang == "ru" else MESSAGES_EN
+    return messages["session_expired"]
 
 
 def _get_deps(context: ContextTypes.DEFAULT_TYPE) -> DependencyProvider | None:

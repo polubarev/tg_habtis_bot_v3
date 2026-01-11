@@ -22,6 +22,7 @@ from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, She
 from src.models.enums import InputType
 from src.services.llm.extractors.habit_extractor import HabitExtractor
 from src.services.telegram.utils import (
+    get_session_expired_message,
     get_llm_client,
     get_session_repo,
     get_sheets_client,
@@ -682,7 +683,7 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
     if session is None or not session.pending_entry:
         _safe_answer(query)
         lang = resolve_language(await resolve_user_profile(update, context))
-        await query.edit_message_text(_messages_for_lang(lang)["error_occurred"])
+        await query.edit_message_text(get_session_expired_message(lang))
         return
 
     decision = data.split(":", 1)[1]

@@ -189,6 +189,7 @@ MESSAGES_RU = {
     "week_analysis_not_enough": "Недостаточно данных за последние 7 завершённых дней. Есть {count} дней.",
     "confirm_generic": "Проверь и подтверди:\n```json\n{preview}\n```",
     "error_occurred": "⚠ Произошла ошибка. Попробуй ещё раз.",
+    "session_expired": "Сессия истекла — перезапусти /start или повтори команду.",
     "sheet_not_configured": "⚠ Сначала подключи Google Sheet.",
     "ask_sheet": (
         "Отправь ссылку или ID Google Sheets, куда писать данные.\n"
@@ -465,6 +466,7 @@ MESSAGES_EN = {
     "week_analysis_not_enough": "Not enough data for the last 7 completed days. Only {count} days found.",
     "confirm_generic": "Review and confirm:\n```json\n{preview}\n```",
     "error_occurred": "⚠ An error occurred. Please try again.",
+    "session_expired": "Session expired — please restart with /start or retry the command.",
     "sheet_not_configured": "⚠ Please configure Google Sheet first.",
     "ask_sheet": (
         "Send a Google Sheet link or ID to store your data.\n"
