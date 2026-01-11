@@ -50,7 +50,7 @@ async def _get_lang(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
 
 
 def _extract_sheet_id(text: str) -> str:
-    match = re.search(r"/spreadsheets/d/([a-zA-Z0-9-_]+)", text)
+    match = re.search(r"spreadsheets/d/([A-Za-z0-9-_]{10,})", text)
     if match:
         return match.group(1)
     return text.strip()
@@ -60,7 +60,7 @@ def looks_like_sheet_input(text: str) -> bool:
     stripped = text.strip()
     if not stripped:
         return False
-    if re.search(r"spreadsheets/d/[A-Za-z0-9-_]+", stripped):
+    if re.search(r"spreadsheets/d/[A-Za-z0-9-_]{10,}", stripped):
         return True
     return bool(re.fullmatch(r"[A-Za-z0-9-_]{10,}", stripped))
 
@@ -68,7 +68,7 @@ def looks_like_sheet_input(text: str) -> bool:
 def _has_extra_sheet_params(text: str) -> bool:
     """Detect if link contains query/fragment/extra path after the sheet id."""
 
-    match = re.search(r"/spreadsheets/d/[a-zA-Z0-9-_]+(.*)$", text)
+    match = re.search(r"spreadsheets/d/[A-Za-z0-9-_]{10,}(.*)$", text)
     if not match:
         return False
     tail = match.group(1)
@@ -155,10 +155,6 @@ async def handle_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if session is None or session.state != ConversationState.CONFIG_AWAITING_SHEET_URL:
         return False
     if not looks_like_sheet_input(sheet_text):
-        return False
-    looks_like_sheet_url = bool(re.search(r"spreadsheets/d/[A-Za-z0-9-_]+", sheet_text))
-    looks_like_sheet_id = bool(re.fullmatch(r"[A-Za-z0-9-_]+", sheet_text))
-    if not (looks_like_sheet_url or looks_like_sheet_id):
         await update.message.reply_text(_messages_for_lang(lang)["sheet_url_invalid"])
         return True
 
