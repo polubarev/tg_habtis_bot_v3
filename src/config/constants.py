@@ -222,7 +222,7 @@ MESSAGES_RU = {
     "reflect_intro": "Ответь на вопросы одним сообщением (текст или голос). Список вопросов:\n{questions}\n\nОтправь один ответ — я разберу его и заполню ответы.",
     "reflect_done": "✅ Ответы сохранены.",
     "reflect_seeded": "Добавил вопросы по умолчанию.",
-    "llm_disabled": "Без сводки: модель не настроена.",
+    "llm_disabled": "LLM отключена — использую сырые ответы, где возможно.",
     "voice_disabled": "Голос пока недоступен (нет ключа для STT). Отправь текст.",
     "voice_transcribed": "Расшифровка голоса: {text}",
     "help": (
@@ -492,7 +492,7 @@ MESSAGES_EN = {
     "reflect_intro": "Answer all questions in one message (text or voice). Questions:\n{questions}\n\nSend a single reply — I'll parse it into answers.",
     "reflect_done": "✅ Answers saved.",
     "reflect_seeded": "Added default questions.",
-    "llm_disabled": "Summary disabled: LLM not configured.",
+    "llm_disabled": "LLM disabled — using raw answers where possible.",
     "voice_disabled": "Voice not available (no STT key). Please send text.",
     "voice_transcribed": "Voice transcription: {text}",
     "help": (
