@@ -72,3 +72,6 @@ Thumbs.db
 
 # Service account keys
 src/secrets/*.json
+
+# Local gcloud auth/config used for CLI sessions
+.gcloud/
