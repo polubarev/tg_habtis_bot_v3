@@ -5,6 +5,16 @@ Early scaffold based on the provided project/technical description. The goal is 
 Telegram bot (FastAPI webhook on Cloud Run) that captures diary and habits, extracts
 structured data with an LLM, and writes everything to user-managed Google Sheets.
 
+## Capabilities
+- Diary + habits logging with LLM extraction into Google Sheets.
+- Dream, thought, and reflection logging (reflection answers are parsed from a single reply).
+- Weekly analysis: LLM summary over the last 7 completed days (habits, dreams, thoughts, reflections).
+- Voice messages: optional Whisper-based transcription for voice input.
+- Configurable habit fields and reflection questions.
+- Multi-language interface (RU/EN) with per-user settings.
+- User feedback capture.
+- Timezone and daily reminder scheduling (Cloud Tasks).
+
 ## Getting started
 1. Create and activate a Python 3.11+ virtualenv.
 2. Install dependencies: `pip install -e '.[dev]'` or `pip install -r requirements.txt` once added.
@@ -36,12 +46,17 @@ structured data with an LLM, and writes everything to user-managed Google Sheets
 - `/reflect_config` — manage reflection questions
 - `/help` — help text + keyboard
 
+## Menu actions (main/config keyboard)
+- Week analysis — weekly LLM summary from the last 7 days
+- Language — switch interface language
+- Feedback — send feedback to maintainers
+- Timezone — set timezone used for reminders and weekly analysis
+- Reminders — configure daily reminder time (or disable)
+- Reset — wipe stored user profile/session data
+
 ## Next steps
-- Implement real Firestore/Sessions repositories and Sheet validators.
-- Flesh out Telegram conversation flows for /habits, /dream, /thought, /reflect with confirmation steps.
-- Add LLM prompt templates and schema-driven extraction using LangChain + OpenRouter.
-- Wire STT provider (Whisper) and media download pipeline with proper auth and storage.
 - Add tests (unit + integration) per the technical description.
+- Expand validation and error handling around Sheets/LLM integrations.
 
 # TODOs
 - update habit feature
