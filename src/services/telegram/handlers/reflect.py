@@ -106,7 +106,10 @@ async def handle_reflect_text(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text(_messages_for_lang(lang)["error_occurred"])
         return True
     answers = {}
-    if llm_client:
+    llm_available = llm_client is not None and getattr(llm_client, "_model", None) is not None
+    if not llm_available:
+        await update.message.reply_text(_messages_for_lang(lang)["llm_disabled"])
+    if llm_available:
         progress_message = None
         try:
             extractor = ReflectionExtractor(llm_client)

@@ -583,6 +583,7 @@ async def handle_habits_text(
         combined_text = f"{existing_raw}\n\n[Update]\n{raw_text}"
 
     llm_client = _get_llm_client(context)
+    llm_available = llm_client is not None and getattr(llm_client, "_model", None) is not None
     extraction: Dict[str, Any] = {}
     profile = await _get_user_repo(context).get_by_telegram_id(update.effective_user.id) if _get_user_repo(context) else None
     lang = resolve_language(profile)
@@ -595,7 +596,9 @@ async def handle_habits_text(
     # If schema matches the baked-in default, treat it as empty until user customizes.
     # keep schema_fields as-is; diary is now part of default schema
     field_order = [f for f in schema_fields if f not in BASE_HABIT_FIELDS]
-    if llm_client:
+    if not llm_available and update.message:
+        await update.message.reply_text(_messages_for_lang(lang)["llm_disabled"])
+    if llm_available:
         progress_message = None
         try:
             if update.message:
@@ -622,8 +625,7 @@ async def handle_habits_text(
         finally:
             await safe_delete_message(progress_message)
     else:
-        if update.message:
-            await update.message.reply_text(_messages_for_lang(lang)["llm_disabled"])
+        extraction = {}
 
     diary_text = None
     if include_diary:
