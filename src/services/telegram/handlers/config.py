@@ -56,6 +56,15 @@ def _extract_sheet_id(text: str) -> str:
     return text.strip()
 
 
+def looks_like_sheet_input(text: str) -> bool:
+    stripped = text.strip()
+    if not stripped:
+        return False
+    if re.search(r"spreadsheets/d/[A-Za-z0-9-_]+", stripped):
+        return True
+    return bool(re.fullmatch(r"[A-Za-z0-9-_]{10,}", stripped))
+
+
 def _has_extra_sheet_params(text: str) -> bool:
     """Detect if link contains query/fragment/extra path after the sheet id."""
 
@@ -145,8 +154,7 @@ async def handle_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
     # Only handle sheet URL when in the correct config state
     if session is None or session.state != ConversationState.CONFIG_AWAITING_SHEET_URL:
         return False
-    looks_like_sheet = bool(re.search(r"spreadsheets/d/[A-Za-z0-9-_]+", sheet_text))
-    if not looks_like_sheet and "/" not in sheet_text:
+    if not looks_like_sheet_input(sheet_text):
         return False
 
     sheet_id = _extract_sheet_id(sheet_text)

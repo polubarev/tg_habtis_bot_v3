@@ -190,6 +190,7 @@ MESSAGES_RU = {
     "confirm_generic": "Проверь и подтверди:\n```json\n{preview}\n```",
     "error_occurred": "⚠ Произошла ошибка. Попробуй ещё раз.",
     "sheet_not_configured": "⚠ Сначала подключи Google Sheet.",
+    "sheet_detected": "🔎 Похоже, это ссылка на Google Sheet. Давай настроим её.",
     "ask_sheet": (
         "Отправь ссылку или ID Google Sheets, куда писать данные.\n"
         "Требуемый доступ: \"Общий доступ → Ограничен\" и дать редактора боту."
@@ -466,6 +467,7 @@ MESSAGES_EN = {
     "confirm_generic": "Review and confirm:\n```json\n{preview}\n```",
     "error_occurred": "⚠ An error occurred. Please try again.",
     "sheet_not_configured": "⚠ Please configure Google Sheet first.",
+    "sheet_detected": "🔎 Looks like a Google Sheet link. Let’s set it up.",
     "ask_sheet": (
         "Send a Google Sheet link or ID to store your data.\n"
         "Required sharing: \"General access → Restricted\" and grant the bot Editor access."
