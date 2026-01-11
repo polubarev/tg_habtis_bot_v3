@@ -1,10 +1,11 @@
 # Project Context
 
 ## Purpose
-Habits & Diary Telegram Bot that captures daily diaries, habits, dreams, thoughts, and reflection answers (text or voice), extracts structured data with an LLM, and writes everything to a user-configured Google Sheet; optimized for Russian but multilingual, designed for Cloud Run webhook deployments with low idle cost.
+Habits & Diary Telegram Bot that captures daily diaries, habits, dreams, thoughts, and reflection answers (text or voice), extracts structured data with an LLM, and writes everything to a user-configured Google Sheet. It also provides weekly analysis over the last 7 completed days and timezone-aware daily reminders (via Cloud Tasks); optimized for Russian but multilingual, designed for Cloud Run webhook deployments with low idle cost.
 
 ## Tech Stack
 - Python 3.11, FastAPI webhook (`/telegram/webhook`, `/health`), uvicorn for local dev.
+- Cloud Tasks for daily reminder scheduling and a protected reminder dispatch endpoint (`/reminders/dispatch`).
 - `python-telegram-bot` 20.x in webhook mode for command routing and keyboards.
 - LangChain + OpenRouter (default `anthropic/claude-3-5-sonnet`) for structured extraction; Pydantic v2 schemas drive outputs.
 - OpenAI Whisper API (`whisper-1`) for speech-to-text; optional if key absent.
@@ -39,15 +40,18 @@ Habits & Diary Telegram Bot that captures daily diaries, habits, dreams, thought
 
 ## Domain Context
 - Commands: `/start` onboarding, `/config` to link Google Sheet, `/habits` diary + habit extraction, `/dream`, `/thought`, `/reflect` (custom questions), `/habits_config` and `/reflect_config` for field/question management, `/help`.
+- Menu actions: Week analysis (last 7 completed days), language switch (RU/EN), feedback capture, timezone, daily reminders, and full reset.
 - Per-user habit schema (JSON-like) drives LLM extraction; default schema keeps `raw_record` + optional `diary`, with user-editable fields. Reflection questions are configurable with stable IDs.
 - Data goes to user-managed Google Sheets tabs: Habits (timestamp/date/raw_record/diary + habit fields), Dreams, Thoughts, Reflections. Users must share the sheet with the service account.
 - Voice is transcribed to `raw_record` (or `record`), preserved verbatim; bot shows a JSON preview for confirmation before writing.
 - Primary audience Russian speakers; messages/buttons localized (RU/EN); natural-language date parsing supports RU/EN keywords.
+- Feedback messages are stored in Firestore (collection name configurable) when available; otherwise the bot acknowledges but may not persist.
 
 ## Important Constraints
 - Preserve `raw_record` as ground truth; `diary` is optional/hallucination-prone and can be omitted when LLM unavailable.
 - Whisper/LLM/Firestore are optional; flows must degrade gracefully to text-only/in-memory operation with clear user messaging.
 - Validate Telegram webhook requests with a shared secret; rate limiting defaults to 30 req/min per user.
+- Protect reminder dispatch with a shared secret; avoid scheduling when Cloud Tasks is not configured.
 - Never commit service account JSON; require users to share their Sheet with the service account email.
 - Cloud Run, Secret Manager, and Firestore usage should be controlled by env vars; prefer idempotent sheet/tab creation and minimal permissions.
 
