@@ -48,6 +48,10 @@ def _bool_label(value: bool, lang: str) -> str:
     return "yes" if value else "no"
 
 
+def _default_marker(lang: str) -> str:
+    return "(по умолчанию)" if lang == "ru" else "(default)"
+
+
 def _normalize_field_types(field_type: str | list[str] | None) -> set[str]:
     if not field_type:
         return set()
@@ -162,10 +166,28 @@ def _coerce_entry_for_sheet(entry_data: Dict[str, Any], habit_schema: HabitSchem
     return coerced
 
 
+def _apply_defaults(entry_data: Dict[str, Any], habit_schema: HabitSchema | None) -> list[str]:
+    if not habit_schema or not habit_schema.fields:
+        return []
+    defaulted: list[str] = []
+    for field_name, config in habit_schema.fields.items():
+        if field_name not in entry_data:
+            continue
+        if entry_data.get(field_name) is not None:
+            continue
+        default_value = config.default if hasattr(config, "default") else config.get("default")
+        if default_value is None:
+            continue
+        entry_data[field_name] = default_value
+        defaulted.append(field_name)
+    return defaulted
+
+
 def _format_habit_preview(entry_data: Dict[str, Any], habit_schema: HabitSchema | None, lang: str) -> str:
-    exclude = {"input_type", "field_order", "timestamp", "raw_record"}
+    exclude = {"input_type", "field_order", "timestamp", "raw_record", "defaulted_fields"}
     field_order = entry_data.get("field_order") or []
     keys: list[str] = []
+    defaulted_fields = set(entry_data.get("defaulted_fields") or [])
     include_diary = habit_schema.include_diary if habit_schema else True
     for key in ("date",):
         if key in entry_data and key not in exclude:
@@ -198,6 +220,8 @@ def _format_habit_preview(entry_data: Dict[str, Any], habit_schema: HabitSchema 
         else:
             formatted_value = _format_habit_value(value, lang, field_type)
         formatted_value = formatted_value if formatted_value else "—"
+        if key in defaulted_fields:
+            formatted_value = f"{formatted_value} {_default_marker(lang)}"
         formatted_value = html.escape(formatted_value)
         if key == "date":
             date_line = f"<b>{label}</b>: {formatted_value}"
@@ -617,6 +641,9 @@ async def handle_habits_text(
     for k, v in extraction.items():
         if k not in {"timestamp", "date", "raw_record", "diary", "input_type"}:
             entry_data[k] = v
+    defaulted_fields = _apply_defaults(entry_data, habit_schema)
+    if defaulted_fields:
+        entry_data["defaulted_fields"] = defaulted_fields
     session.pending_entry = entry_data
     session.state = ConversationState.HABITS_AWAITING_CONFIRMATION
     if session_repo:
@@ -693,7 +720,7 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
                 extra_fields={
                     k: v
                     for k, v in coerced_entry.items()
-                    if k not in base_fields | {"input_type", "field_order"}
+                    if k not in base_fields | {"input_type", "field_order", "defaulted_fields"}
                     and v is not None
                 },
                 input_type=InputType(coerced_entry.get("input_type") or InputType.TEXT),

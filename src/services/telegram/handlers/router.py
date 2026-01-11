@@ -21,6 +21,7 @@ from src.services.telegram.handlers.reflect import handle_reflect_text, reflect_
 from src.services.telegram.handlers.thought import handle_thought_text, thought_command
 from src.services.telegram.handlers.help import help_command
 from src.services.telegram.handlers.feedback import feedback_command, handle_feedback_text
+from src.services.telegram.handlers.week_analysis import week_analysis_command
 from src.services.telegram.keyboards import build_main_menu_keyboard, build_config_keyboard
 from src.services.transcription.whisper import WhisperClient
 from src.models.session import ConversationState, SessionData
@@ -92,6 +93,9 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
         return
     if matched("reflect"):
         await reflect_command(update, context)
+        return
+    if matched("week_analysis"):
+        await week_analysis_command(update, context)
         return
     if matched("help"):
         await help_command(update, context)

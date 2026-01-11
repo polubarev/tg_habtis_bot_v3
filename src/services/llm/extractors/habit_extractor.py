@@ -110,6 +110,9 @@ class HabitExtractor:
             name: cfg.model_dump() if hasattr(cfg, "model_dump") else cfg
             for name, cfg in (schema_for_llm.fields or {}).items()
         }
+        for cfg in fields_for_prompt.values():
+            if isinstance(cfg, dict):
+                cfg.pop("default", None)
         structured_model = self._build_model(schema_for_llm)
         preview = (raw_text or "")[:500]
         logger.info(

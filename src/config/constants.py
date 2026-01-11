@@ -49,6 +49,7 @@ BUTTONS_RU = {
     "dream": "😴 Сон",
     "thought": "💭 Мысль",
     "reflect": "🤔 Рефлексия",
+    "week_analysis": "📊 Анализ недели",
     "config": "⚙️ Настройки",
     "help": "ℹ️ Помощь",
     "cancel": "❌ Отмена",
@@ -68,6 +69,7 @@ BUTTONS_EN = {
     "dream": "😴 Dream",
     "thought": "💭 Thought",
     "reflect": "🤔 Reflection",
+    "week_analysis": "📊 Week Analysis",
     "config": "⚙️ Config",
     "help": "ℹ️ Help",
     "cancel": "❌ Cancel",
@@ -106,6 +108,7 @@ INLINE_BUTTONS_RU = {
     "habit_edit_type": "Тип",
     "habit_edit_min": "Минимум",
     "habit_edit_max": "Максимум",
+    "habit_edit_default": "По умолчанию",
     "question_add": "➕ Добавить",
     "question_remove": "➖ Удалить",
     "question_reset": "↩️ Сбросить",
@@ -138,6 +141,7 @@ INLINE_BUTTONS_EN = {
     "habit_edit_type": "Type",
     "habit_edit_min": "Min",
     "habit_edit_max": "Max",
+    "habit_edit_default": "Default",
     "question_add": "➕ Add",
     "question_remove": "➖ Remove",
     "question_reset": "↩️ Reset",
@@ -181,6 +185,8 @@ MESSAGES_RU = {
     "saved_success": "✅ Сохранено!",
     "cancelled": "✖ Отменено.",
     "habits_update_prompt": "✏️ Отправь правки или новый текст. Я пересоберу черновик с учётом предыдущего сообщения.",
+    "week_analysis_title": "📊 Анализ недели",
+    "week_analysis_not_enough": "Недостаточно данных за последние 7 завершённых дней. Есть {count} дней.",
     "confirm_generic": "Проверь и подтверди:\n```json\n{preview}\n```",
     "error_occurred": "⚠ Произошла ошибка. Попробуй ещё раз.",
     "sheet_not_configured": "⚠ Сначала подключи Google Sheet.",
@@ -339,7 +345,8 @@ MESSAGES_RU = {
         "• Описание: {description}\n"
         "• Тип: {type}\n"
         "• Минимум: {minimum}\n"
-        "• Максимум: {maximum}"
+        "• Максимум: {maximum}\n"
+        "• По умолчанию: {default}"
     ),
     "habit_edit_attr_prompt": "Что изменить в поле *{name}*?",
     "habit_edit_name_prompt": "Введи новое название для поля *{name}*.",
@@ -357,6 +364,19 @@ MESSAGES_RU = {
     "habit_edit_min_error": "Не похоже на число. Введи число или '-' чтобы очистить.",
     "habit_edit_max_error": "Не похоже на число. Введи число или '-' чтобы очистить.",
     "habit_edit_max_less_than_min": "Максимум не может быть меньше минимума ({min}).",
+    "habit_add_default_prompt_int": "Введи значение по умолчанию (целое число) или '-' чтобы пропустить.",
+    "habit_add_default_prompt_float": "Введи значение по умолчанию (число) или '-' чтобы пропустить.",
+    "habit_add_default_prompt_bool": "Введи значение по умолчанию (да/нет) или '-' чтобы пропустить.",
+    "habit_add_default_prompt_string": "Введи значение по умолчанию или '-' чтобы пропустить.",
+    "habit_edit_default_prompt_int": "Введи новое значение по умолчанию (целое число) или '-' чтобы очистить.",
+    "habit_edit_default_prompt_float": "Введи новое значение по умолчанию (число) или '-' чтобы очистить.",
+    "habit_edit_default_prompt_bool": "Введи новое значение по умолчанию (да/нет) или '-' чтобы очистить.",
+    "habit_edit_default_prompt_string": "Введи новое значение по умолчанию или '-' чтобы очистить.",
+    "habit_default_error_number": "Не похоже на число. Введи число или '-' чтобы пропустить.",
+    "habit_default_error_bool": "Не похоже на да/нет. Введи да/нет или '-' чтобы пропустить.",
+    "habit_default_error_range_min": "Значение должно быть не меньше {min}.",
+    "habit_default_error_range_max": "Значение должно быть не больше {max}.",
+    "habit_default_error_range_between": "Значение должно быть от {min} до {max}.",
     "habit_updated": "✅ Поле обновлено: {name}",
     "habit_added": "Поле добавлено: {name}",
     "habit_removed": "Поле удалено: {name}",
@@ -441,6 +461,8 @@ MESSAGES_EN = {
     "saved_success": "✅ Saved!",
     "cancelled": "✖ Cancelled.",
     "habits_update_prompt": "✏️ Send corrections or a new message. I’ll rebuild the draft using the previous text as context.",
+    "week_analysis_title": "📊 Week Analysis",
+    "week_analysis_not_enough": "Not enough data for the last 7 completed days. Only {count} days found.",
     "confirm_generic": "Review and confirm:\n```json\n{preview}\n```",
     "error_occurred": "⚠ An error occurred. Please try again.",
     "sheet_not_configured": "⚠ Please configure Google Sheet first.",
@@ -587,7 +609,8 @@ MESSAGES_EN = {
         "• Description: {description}\n"
         "• Type: {type}\n"
         "• Min: {minimum}\n"
-        "• Max: {maximum}"
+        "• Max: {maximum}\n"
+        "• Default: {default}"
     ),
     "habit_edit_attr_prompt": "What do you want to edit in *{name}*?",
     "habit_edit_name_prompt": "Send a new name for *{name}*.",
@@ -605,6 +628,19 @@ MESSAGES_EN = {
     "habit_edit_min_error": "That doesn't look like a number. Send a number or '-' to clear.",
     "habit_edit_max_error": "That doesn't look like a number. Send a number or '-' to clear.",
     "habit_edit_max_less_than_min": "Max can't be smaller than min ({min}).",
+    "habit_add_default_prompt_int": "Send a default value (whole number) or '-' to skip.",
+    "habit_add_default_prompt_float": "Send a default value (number) or '-' to skip.",
+    "habit_add_default_prompt_bool": "Send a default value (yes/no) or '-' to skip.",
+    "habit_add_default_prompt_string": "Send a default value or '-' to skip.",
+    "habit_edit_default_prompt_int": "Send a new default value (whole number) or '-' to clear.",
+    "habit_edit_default_prompt_float": "Send a new default value (number) or '-' to clear.",
+    "habit_edit_default_prompt_bool": "Send a new default value (yes/no) or '-' to clear.",
+    "habit_edit_default_prompt_string": "Send a new default value or '-' to clear.",
+    "habit_default_error_number": "That doesn't look like a number. Send a number or '-' to skip.",
+    "habit_default_error_bool": "That doesn't look like yes/no. Send yes/no or '-' to skip.",
+    "habit_default_error_range_min": "Value must be at least {min}.",
+    "habit_default_error_range_max": "Value must be at most {max}.",
+    "habit_default_error_range_between": "Value must be between {min} and {max}.",
     "habit_updated": "✅ Field updated: {name}",
     "habit_added": "Field added: {name}",
     "habit_removed": "Field removed: {name}",

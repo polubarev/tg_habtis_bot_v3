@@ -89,5 +89,37 @@ class ISheetsClient(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def get_habit_entries_for_dates(
+        self,
+        sheet_id: str,
+        dates: list[date],
+    ) -> list[dict[str, Any]]:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_dream_entries_for_dates(
+        self,
+        sheet_id: str,
+        dates: list[date],
+    ) -> list[dict[str, Any]]:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_thought_entries_for_dates(
+        self,
+        sheet_id: str,
+        dates: list[date],
+    ) -> list[dict[str, Any]]:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_reflection_entries_for_dates(
+        self,
+        sheet_id: str,
+        dates: list[date],
+    ) -> list[dict[str, Any]]:
+        raise NotImplementedError
+
+    @abstractmethod
     async def ensure_tabs(self, sheet_id: str) -> None:
         raise NotImplementedError

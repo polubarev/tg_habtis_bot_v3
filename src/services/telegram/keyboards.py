@@ -48,14 +48,15 @@ def build_existing_habits_keyboard(language: str = "en") -> InlineKeyboardMarkup
 
 
 def build_main_menu_keyboard(language: str = "en") -> ReplyKeyboardMarkup:
-    """Main menu 2x2 grid + Config + Help + Cancel."""
+    """Main menu 2x2 grid + Week Analysis + Config + Help + Cancel."""
     btns = BUTTONS_RU if language == "ru" else BUTTONS_EN
     
     keyboard = [
         [btns["habits"], btns["dream"]],
         [btns["thought"], btns["reflect"]],
-        [btns["config"], btns["help"]],
-        [btns["cancel"]]
+        [btns["week_analysis"], btns["config"]],
+        [btns["help"]],
+        [btns["cancel"]],
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=True)
 
@@ -158,7 +159,7 @@ def build_habit_edit_attr_keyboard(
     """Inline keyboard for selecting which habit field attribute to edit."""
 
     btns = INLINE_BUTTONS_RU if language == "ru" else INLINE_BUTTONS_EN
-    allowed_attrs = allowed or {"name", "description", "type", "min", "max"}
+    allowed_attrs = allowed or {"name", "description", "type", "min", "max", "default"}
     attr_buttons = {
         "name": InlineKeyboardButton(btns["habit_edit_name"], callback_data="habit_edit_attr:name"),
         "description": InlineKeyboardButton(
@@ -167,12 +168,15 @@ def build_habit_edit_attr_keyboard(
         "type": InlineKeyboardButton(btns["habit_edit_type"], callback_data="habit_edit_attr:type"),
         "min": InlineKeyboardButton(btns["habit_edit_min"], callback_data="habit_edit_attr:min"),
         "max": InlineKeyboardButton(btns["habit_edit_max"], callback_data="habit_edit_attr:max"),
+        "default": InlineKeyboardButton(
+            btns["habit_edit_default"], callback_data="habit_edit_attr:default"
+        ),
     }
     buttons = []
     row = [attr_buttons[key] for key in ("name", "description") if key in allowed_attrs]
     if row:
         buttons.append(row)
-    row = [attr_buttons[key] for key in ("type", "min", "max") if key in allowed_attrs]
+    row = [attr_buttons[key] for key in ("type", "min", "max", "default") if key in allowed_attrs]
     if row:
         buttons.append(row)
     buttons.append([InlineKeyboardButton(btns["habit_cancel"], callback_data="habit_cfg:cancel")])

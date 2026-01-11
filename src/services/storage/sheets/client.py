@@ -307,6 +307,112 @@ class SheetsClient(ISheetsClient):
     ) -> HabitRowLookup | None:
         return await asyncio.to_thread(self._find_latest_habit_entry_sync, sheet_id, entry_date)
 
+    def _get_entries_for_dates_sync(
+        self,
+        sheet_id: str,
+        dates: list[date],
+        tab_name: str,
+        date_column_candidates: tuple[str, ...],
+        allow_multiple: bool = False,
+    ) -> list[dict[str, Any]]:
+        try:
+            if not dates:
+                return []
+            self._ensure_tabs_sync(sheet_id)
+            ss = self._open(sheet_id)
+            ws = ss.worksheet(tab_name)
+            values = ws.get_all_values()
+            if not values or len(values) < 2:
+                return []
+            header = values[0]
+            normalized = [("raw_record" if col == "raw_diary" else col) for col in header]
+            date_idx = None
+            for candidate in date_column_candidates:
+                if candidate in normalized:
+                    date_idx = normalized.index(candidate)
+                    break
+            if date_idx is None:
+                return []
+            target_dates = set(dates)
+            entries_by_date: dict[date, dict[str, Any]] = {}
+            entries: list[dict[str, Any]] = []
+            for row in values[1:]:
+                if date_idx >= len(row):
+                    continue
+                parsed = self._parse_sheet_date(row[date_idx] if row else None)
+                if parsed is None or parsed not in target_dates:
+                    continue
+                entry: dict[str, Any] = {}
+                for idx, column in enumerate(normalized):
+                    entry[column] = row[idx] if idx < len(row) else ""
+                entry["date"] = parsed.isoformat()
+                if allow_multiple:
+                    entries.append(entry)
+                else:
+                    entries_by_date[parsed] = entry
+            if allow_multiple:
+                return entries
+            return [entries_by_date[d] for d in dates if d in entries_by_date]
+        except Exception as exc:
+            self._raise_mapped_error(exc)
+            raise
+
+    async def get_habit_entries_for_dates(
+        self,
+        sheet_id: str,
+        dates: list[date],
+    ) -> list[dict[str, Any]]:
+        return await asyncio.to_thread(
+            self._get_entries_for_dates_sync,
+            sheet_id,
+            dates,
+            "Habits",
+            ("date",),
+            False,
+        )
+
+    async def get_dream_entries_for_dates(
+        self,
+        sheet_id: str,
+        dates: list[date],
+    ) -> list[dict[str, Any]]:
+        return await asyncio.to_thread(
+            self._get_entries_for_dates_sync,
+            sheet_id,
+            dates,
+            "Dreams",
+            ("timestamp", "date"),
+            True,
+        )
+
+    async def get_thought_entries_for_dates(
+        self,
+        sheet_id: str,
+        dates: list[date],
+    ) -> list[dict[str, Any]]:
+        return await asyncio.to_thread(
+            self._get_entries_for_dates_sync,
+            sheet_id,
+            dates,
+            "Thoughts",
+            ("timestamp", "date"),
+            True,
+        )
+
+    async def get_reflection_entries_for_dates(
+        self,
+        sheet_id: str,
+        dates: list[date],
+    ) -> list[dict[str, Any]]:
+        return await asyncio.to_thread(
+            self._get_entries_for_dates_sync,
+            sheet_id,
+            dates,
+            "Reflections",
+            ("timestamp", "date"),
+            True,
+        )
+
     def _update_habit_entry_sync(
         self,
         sheet_id: str,

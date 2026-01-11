@@ -147,10 +147,156 @@ def _format_field_type_label(cfg: HabitFieldConfig, lang: str) -> str:
     return str(type_value or "string")
 
 
+def _bool_label(value: bool, lang: str) -> str:
+    if lang == "ru":
+        return "да" if value else "нет"
+    return "yes" if value else "no"
+
+
+def _base_field_type(type_value) -> str:
+    if isinstance(type_value, list):
+        for item in type_value:
+            if item and item != "null":
+                return item
+        return type_value[0] if type_value else "string"
+    return type_value or "string"
+
+
+def _parse_bool_value(value) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "yes", "1", "да"}:
+            return True
+        if normalized in {"false", "no", "0", "нет"}:
+            return False
+    return None
+
+
+def _format_default_value(value, cfg: HabitFieldConfig, lang: str) -> str:
+    if value is None:
+        return _messages_for_lang(lang)["empty_value"]
+    base_type = _base_field_type(cfg.type)
+    if base_type == "boolean":
+        parsed = _parse_bool_value(value)
+        if parsed is not None:
+            return _bool_label(parsed, lang)
+    return str(value)
+
+
 def _format_limit_value(value, lang: str) -> str:
     if value is None:
         return _messages_for_lang(lang)["empty_value"]
     return str(value)
+
+
+def _default_prompt(lang: str, type_value, mode: str) -> str:
+    base_type = _base_field_type(type_value)
+    key_map = {
+        "integer": f"habit_{mode}_default_prompt_int",
+        "number": f"habit_{mode}_default_prompt_float",
+        "boolean": f"habit_{mode}_default_prompt_bool",
+        "string": f"habit_{mode}_default_prompt_string",
+    }
+    return _messages_for_lang(lang)[key_map.get(base_type, key_map["string"])]
+
+
+def _range_error_for_default(value, cfg: HabitFieldConfig) -> tuple[str | None, dict | None]:
+    if value is None:
+        return None, None
+    minimum = cfg.minimum
+    maximum = cfg.maximum
+    if minimum is not None and maximum is not None and (value < minimum or value > maximum):
+        return "habit_default_error_range_between", {"min": minimum, "max": maximum}
+    if minimum is not None and value < minimum:
+        return "habit_default_error_range_min", {"min": minimum}
+    if maximum is not None and value > maximum:
+        return "habit_default_error_range_max", {"max": maximum}
+    return None, None
+
+
+def _parse_default_text(raw: str, cfg: HabitFieldConfig) -> tuple[object | None, str | None, dict | None]:
+    raw_value = raw.strip()
+    if raw_value in {"", "-"}:
+        return None, None, None
+    base_type = _base_field_type(cfg.type)
+    if base_type == "string":
+        return raw_value, None, None
+    if base_type == "boolean":
+        parsed = _parse_bool_value(raw_value)
+        if parsed is None:
+            return None, "habit_default_error_bool", None
+        return parsed, None, None
+    if base_type == "integer":
+        try:
+            parsed = int(raw_value)
+        except ValueError:
+            return None, "habit_default_error_number", None
+        error_key, error_params = _range_error_for_default(parsed, cfg)
+        if error_key:
+            return None, error_key, error_params
+        return parsed, None, None
+    if base_type == "number":
+        try:
+            parsed = float(raw_value)
+        except ValueError:
+            return None, "habit_default_error_number", None
+        error_key, error_params = _range_error_for_default(parsed, cfg)
+        if error_key:
+            return None, error_key, error_params
+        return parsed, None, None
+    return raw_value, None, None
+
+
+def _normalize_default_value(value, cfg: HabitFieldConfig) -> tuple[object | None, str | None, dict | None]:
+    if value is None:
+        return None, None, None
+    base_type = _base_field_type(cfg.type)
+    if base_type == "string":
+        return str(value), None, None
+    if base_type == "boolean":
+        parsed = _parse_bool_value(value)
+        if parsed is None:
+            return None, "habit_default_error_bool", None
+        return parsed, None, None
+    if base_type == "integer":
+        if isinstance(value, bool):
+            return None, "habit_default_error_number", None
+        if isinstance(value, int):
+            parsed = value
+        elif isinstance(value, float) and value.is_integer():
+            parsed = int(value)
+        elif isinstance(value, str):
+            try:
+                parsed = int(value)
+            except ValueError:
+                return None, "habit_default_error_number", None
+        else:
+            return None, "habit_default_error_number", None
+        error_key, error_params = _range_error_for_default(parsed, cfg)
+        if error_key:
+            return None, error_key, error_params
+        return parsed, None, None
+    if base_type == "number":
+        if isinstance(value, bool):
+            return None, "habit_default_error_number", None
+        if isinstance(value, (int, float)):
+            parsed = float(value)
+        elif isinstance(value, str):
+            try:
+                parsed = float(value)
+            except ValueError:
+                return None, "habit_default_error_number", None
+        else:
+            return None, "habit_default_error_number", None
+        error_key, error_params = _range_error_for_default(parsed, cfg)
+        if error_key:
+            return None, error_key, error_params
+        return parsed, None, None
+    return str(value), None, None
 
 
 def _format_field_details(
@@ -165,12 +311,14 @@ def _format_field_details(
     type_label = escape_markdown(_format_field_type_label(cfg, lang))
     minimum = escape_markdown(_format_limit_value(cfg.minimum, lang))
     maximum = escape_markdown(_format_limit_value(cfg.maximum, lang))
+    default_value = escape_markdown(_format_default_value(cfg.default, cfg, lang))
     return messages["habit_edit_details"].format(
         name=display_name,
         description=description,
         type=type_label,
         minimum=minimum,
         maximum=maximum,
+        default=default_value,
     )
 
 
@@ -482,6 +630,12 @@ async def handle_habit_edit_attr_callback(update: Update, context: ContextTypes.
             parse_mode=ParseMode.MARKDOWN,
         )
         return
+    if attr == "default":
+        await query.edit_message_text(
+            _default_prompt(lang, cfg.type, mode="edit"),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
 
 
 async def handle_habit_type_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -525,26 +679,13 @@ async def handle_habit_type_callback(update: Update, context: ContextTypes.DEFAU
             await query.edit_message_text(_min_prompt(lang, type_value), parse_mode=ParseMode.MARKDOWN)
             return
 
-        if profile and user_repo:
-            profile.habit_schema.fields[field_name] = HabitFieldConfig(
-                type=type_value,
-                description=new_field.get("description", field_name),
-                required=True,
-            )
-            await user_repo.update(profile)
-        session.state = ConversationState.IDLE
-        session.temp_data = {}
+        session.temp_data = {"habit_action": "add", "habit_add_stage": "default", "habit_new_field": new_field}
         if session_repo:
             await session_repo.save(session)
-        try:
-            await query.edit_message_text(
-                _messages_for_lang(lang)["habit_added"].format(
-                    name=_display_field_name(field_name, lang, profile.habit_schema.fields if profile else None)
-                ),
-                reply_markup=_keyboard(lang),
-            )
-        except Exception:
-            pass
+        await query.edit_message_text(
+            _default_prompt(lang, type_value, mode="add"),
+            parse_mode=ParseMode.MARKDOWN,
+        )
         return
 
     if temp.get("habit_action") != "edit" or temp.get("habit_edit_attr") != "type":
@@ -559,6 +700,9 @@ async def handle_habit_type_callback(update: Update, context: ContextTypes.DEFAU
         if type_value not in {"integer", "number"}:
             cfg.minimum = None
             cfg.maximum = None
+        if cfg.default is not None:
+            normalized, error_key, _ = _normalize_default_value(cfg.default, cfg)
+            cfg.default = None if error_key else normalized
         profile.habit_schema.fields[field_name] = cfg
         await user_repo.update(profile)
     session.state = ConversationState.IDLE
@@ -659,13 +803,18 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
         else:
             minimum = None
             maximum = None
-        cfg = HabitFieldConfig(
+        temp_cfg = HabitFieldConfig(
             type=type_value,
             description=str(data.get("description") or name),
             minimum=minimum,
             maximum=maximum,
             required=bool(data.get("required", True)),
         )
+        parsed_default, error_key, _ = _normalize_default_value(data.get("default"), temp_cfg)
+        if error_key:
+            return None
+        temp_cfg.default = parsed_default
+        cfg = temp_cfg
         return name, cfg
 
     def _try_parse_json(raw: str):
@@ -915,6 +1064,23 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                 if type_value not in {"integer", "number"}:
                     cfg.minimum = None
                     cfg.maximum = None
+                if cfg.default is not None:
+                    normalized, error_key, _ = _normalize_default_value(cfg.default, cfg)
+                    cfg.default = None if error_key else normalized
+                profile.habit_schema.fields[field_name] = cfg
+                await user_repo.update(profile)
+                await _finish_and_reset(field_name)
+                return True
+
+            if attr == "default":
+                parsed, error_key, error_params = _parse_default_text(raw, cfg)
+                if error_key:
+                    msg = _messages_for_lang(lang)[error_key]
+                    if error_params:
+                        msg = msg.format(**error_params)
+                    await update.message.reply_text(msg)
+                    return True
+                cfg.default = parsed
                 profile.habit_schema.fields[field_name] = cfg
                 await user_repo.update(profile)
                 await _finish_and_reset(field_name)
@@ -947,6 +1113,9 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                         )
                         return True
                     cfg.maximum = value
+                if cfg.default is not None:
+                    normalized, error_key, _ = _normalize_default_value(cfg.default, cfg)
+                    cfg.default = None if error_key else normalized
                 profile.habit_schema.fields[field_name] = cfg
                 await user_repo.update(profile)
                 await _finish_and_reset(field_name)
@@ -1043,20 +1212,13 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                     await session_repo.save(session)
                 await update.message.reply_text(_min_prompt(lang, type_value), parse_mode=ParseMode.MARKDOWN)
                 return True
-            # finalize for non-int
-            profile.habit_schema.fields[new_field["name"]] = HabitFieldConfig(
-                type=type_value,
-                description=new_field.get("description", new_field["name"]),
-                required=True,
-            )
-            await user_repo.update(profile)
+            session.temp_data = {"habit_action": "add", "habit_add_stage": "default", "habit_new_field": new_field}
+            if session_repo:
+                await session_repo.save(session)
             await update.message.reply_text(
-                _messages_for_lang(lang)["habit_added"].format(
-                    name=_display_field_name(new_field["name"], lang, profile.habit_schema.fields)
-                ),
-                reply_markup=_keyboard(lang),
+                _default_prompt(lang, type_value, mode="add"),
+                parse_mode=ParseMode.MARKDOWN,
             )
-            await _finish_and_reset()
             return True
 
         # Stage 4: min for integers
@@ -1094,13 +1256,34 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                     _messages_for_lang(lang)["habit_add_max_less_than_min"].format(min=min_value)
                 )
                 return True
-            profile.habit_schema.fields[new_field["name"]] = HabitFieldConfig(
-                type=new_field.get("type", "integer"),
-                description=new_field.get("description", new_field["name"]),
-                minimum=min_value,
-                maximum=max_value,
+            new_field["maximum"] = max_value
+            session.temp_data = {"habit_action": "add", "habit_add_stage": "default", "habit_new_field": new_field}
+            if session_repo:
+                await session_repo.save(session)
+            await update.message.reply_text(
+                _default_prompt(lang, new_field.get("type"), mode="add"),
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            return True
+
+        # Stage 6: default value
+        if stage == "default":
+            cfg = HabitFieldConfig(
+                type=new_field.get("type", "string"),
+                description=new_field.get("description", new_field.get("name", "")),
+                minimum=new_field.get("minimum"),
+                maximum=new_field.get("maximum"),
                 required=True,
             )
+            parsed, error_key, error_params = _parse_default_text(text, cfg)
+            if error_key:
+                msg = _messages_for_lang(lang)[error_key]
+                if error_params:
+                    msg = msg.format(**error_params)
+                await update.message.reply_text(msg)
+                return True
+            cfg.default = parsed
+            profile.habit_schema.fields[new_field["name"]] = cfg
             await user_repo.update(profile)
             await update.message.reply_text(
                 _messages_for_lang(lang)["habit_added"].format(
