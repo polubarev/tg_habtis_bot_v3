@@ -439,6 +439,10 @@ async def handle_habits_date_callback(update: Update, context: ContextTypes.DEFA
     if session is None:
         session = SessionData(user_id=update.effective_user.id)
 
+    # Starting/continuing a date selection should reset any previous draft data.
+    session.temp_data = {}
+    session.pending_entry = None
+
     label = data.split(":", 1)[1]
     if label == "custom":
         session.state = ConversationState.HABITS_AWAITING_DATE
@@ -778,6 +782,8 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
                 chat_id=update.effective_chat.id,
                 text=_messages_for_lang(lang)["saved_success"]
             )
+            if profile and user_repo:
+                profile.last_habits_logged_for_date = entry.date.isoformat()
             await increment_usage_stat(profile, user_repo, "habits")
         else:
             await query.edit_message_text(_messages_for_lang(lang)["sheet_not_configured"])

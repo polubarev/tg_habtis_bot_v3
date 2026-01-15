@@ -27,6 +27,7 @@ from src.services.telegram.handlers.thought import thought_command, handle_thoug
 from src.services.telegram.handlers.reflect import reflect_command, handle_reflect_confirm
 from src.services.telegram.handlers.help import help_command
 from src.services.telegram.handlers.config import config_command, handle_reset_confirm
+from src.services.telegram.handlers.config import handle_reminders_menu_callback, handle_smart_nudges_callback
 from src.services.telegram.handlers.language import handle_language_select
 from src.services.telegram.handlers.router import route_text, route_voice
 from src.services.telegram.handlers.habits_config import (
@@ -116,6 +117,12 @@ class TelegramBotService:
         )
         self.app.add_handler(
             CallbackQueryHandler(handle_reset_confirm, pattern="^reset_confirm:")
+        )
+        self.app.add_handler(
+            CallbackQueryHandler(handle_reminders_menu_callback, pattern="^reminders_menu:")
+        )
+        self.app.add_handler(
+            CallbackQueryHandler(handle_smart_nudges_callback, pattern="^smart_nudges:")
         )
         self.app.add_handler(
             CallbackQueryHandler(handle_dream_confirm, pattern="^dream_confirm:")

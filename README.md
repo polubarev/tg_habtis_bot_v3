@@ -13,7 +13,7 @@ structured data with an LLM, and writes everything to user-managed Google Sheets
 - Configurable habit fields and reflection questions.
 - Multi-language interface (RU/EN) with per-user settings.
 - User feedback capture.
-- Timezone and daily reminder scheduling (Cloud Tasks).
+- Timezone and reminder scheduling (Cloud Tasks): daily reminder + smart nudges (conditional).
 
 ## Getting started
 1. Create and activate a Python 3.11+ virtualenv.
@@ -51,7 +51,7 @@ structured data with an LLM, and writes everything to user-managed Google Sheets
 - Language — switch interface language
 - Feedback — send feedback to maintainers
 - Timezone — set timezone used for reminders and weekly analysis
-- Reminders — configure daily reminder time (or disable)
+- Reminders — configure daily reminder and smart nudges (or disable)
 - Reset — wipe stored user profile/session data
 
 ## Next steps

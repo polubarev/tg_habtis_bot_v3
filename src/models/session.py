@@ -26,6 +26,8 @@ class ConversationState(str, Enum):
     CONFIG_TIMEZONE = "config_timezone"
     CONFIG_LANGUAGE = "config_language"
     CONFIG_REMINDER_TIME = "config_reminder_time"
+    CONFIG_SMART_NUDGES_TIMES = "config_smart_nudges_times"
+    CONFIG_SMART_NUDGES_ROLLOVER = "config_smart_nudges_rollover"
     CONFIG_FEEDBACK = "config_feedback"
     ONBOARDING_WELCOME = "onboarding_welcome"
     ONBOARDING_LANGUAGE = "onboarding_language"

@@ -416,6 +416,51 @@ MESSAGES_RU = {
     "reminder_invalid_time": "Не понял время. Используй формат HH:MM, например 21:00.",
     "reminder_schedule_error": "⚠️ Не удалось запланировать напоминание. Попробуй ещё раз позже.",
     "reminder_message": "⏰ Напоминание: заполни дневник и привычки.",
+    "reminders_on": "вкл",
+    "reminders_off": "выкл",
+    "reminders_overview": (
+        "🔔 Напоминания\n\n"
+        "Ежедневное напоминание: {daily_time}\n"
+        "Умные напоминания: {smart_status}\n"
+        "Время: {smart_times}\n"
+        "Смена дня (rollover): {rollover}\n"
+    ),
+    "reminders_daily_btn": "Ежедневное",
+    "reminders_smart_btn": "Умные",
+    "reminders_disable_all_btn": "Отключить всё",
+    "reminders_back_btn": "Назад",
+    "reminders_disabled_all": "🔕 Все напоминания отключены.",
+    "smart_nudges_overview": (
+        "🤖 Умные напоминания\n\n"
+        "Статус: {status}\n"
+        "Время: {times}\n"
+        "Смена дня (rollover): {rollover}\n\n"
+        "До rollover я напоминаю за вчера, после rollover — за сегодня."
+    ),
+    "smart_nudges_enable_btn": "Включить",
+    "smart_nudges_disable_btn": "Выключить",
+    "smart_nudges_edit_times_btn": "Время",
+    "smart_nudges_edit_rollover_btn": "Rollover",
+    "smart_nudges_times_prompt": (
+        "Отправь список времени в формате HH:MM через пробел или запятую.\n"
+        "Пример: 09:00, 14:00, 20:00\n"
+        "Отмена: /cancel"
+    ),
+    "smart_nudges_rollover_prompt": (
+        "Отправь время rollover в формате HH:MM (по умолчанию {default}).\n"
+        "До rollover я напоминаю за вчера, после rollover — за сегодня.\n"
+        "Отмена: /cancel"
+    ),
+    "smart_nudges_enabled": "✅ Умные напоминания включены.",
+    "smart_nudges_disabled": "🔕 Умные напоминания отключены.",
+    "smart_nudges_saved": "✅ Настройки умных напоминаний сохранены.",
+    "smart_nudges_invalid_time": "Не понял время. Используй формат HH:MM, например 09:00 14:00 20:00.",
+    "smart_nudges_invalid_rollover": "Не понял rollover-время. Используй формат HH:MM, например 12:00.",
+    "smart_nudges_schedule_error": "⚠️ Не удалось запланировать умные напоминания. Попробуй ещё раз позже.",
+    "smart_nudge_missing_today": "⏰ Сегодня ещё нет записи привычек. Нажми «Записать» ниже.",
+    "smart_nudge_missing_yesterday": "⏰ Вчера ещё нет записи привычек. Нажми «Записать» ниже.",
+    "smart_nudge_log_now": "📝 Записать",
+    "smart_nudge_disable": "🔕 Отключить",
     "config_menu": "⚙️ Настройки",
     "feedback_prompt": "Напиши, что можно улучшить или что не работает. Я сохраню отзыв.",
     "feedback_saved": "✅ Спасибо! Отзыв сохранён.",
@@ -683,6 +728,51 @@ MESSAGES_EN = {
     "reminder_invalid_time": "Couldn't parse time. Use HH:MM, e.g., 21:00.",
     "reminder_schedule_error": "⚠️ Couldn't schedule the reminder. Please try again later.",
     "reminder_message": "⏰ Reminder: log your day and habits.",
+    "reminders_on": "on",
+    "reminders_off": "off",
+    "reminders_overview": (
+        "🔔 Reminders\n\n"
+        "Daily reminder: {daily_time}\n"
+        "Smart nudges: {smart_status}\n"
+        "Times: {smart_times}\n"
+        "Rollover: {rollover}\n"
+    ),
+    "reminders_daily_btn": "Daily",
+    "reminders_smart_btn": "Smart nudges",
+    "reminders_disable_all_btn": "Disable all",
+    "reminders_back_btn": "Back",
+    "reminders_disabled_all": "🔕 All reminders disabled.",
+    "smart_nudges_overview": (
+        "🤖 Smart nudges\n\n"
+        "Status: {status}\n"
+        "Times: {times}\n"
+        "Rollover: {rollover}\n\n"
+        "Before rollover I remind for yesterday; after rollover for today."
+    ),
+    "smart_nudges_enable_btn": "Enable",
+    "smart_nudges_disable_btn": "Disable",
+    "smart_nudges_edit_times_btn": "Times",
+    "smart_nudges_edit_rollover_btn": "Rollover",
+    "smart_nudges_times_prompt": (
+        "Send times as HH:MM separated by spaces or commas.\n"
+        "Example: 09:00, 14:00, 20:00\n"
+        "Cancel: /cancel"
+    ),
+    "smart_nudges_rollover_prompt": (
+        "Send rollover time as HH:MM (default {default}).\n"
+        "Before rollover I remind for yesterday; after rollover for today.\n"
+        "Cancel: /cancel"
+    ),
+    "smart_nudges_enabled": "✅ Smart nudges enabled.",
+    "smart_nudges_disabled": "🔕 Smart nudges disabled.",
+    "smart_nudges_saved": "✅ Smart nudges settings saved.",
+    "smart_nudges_invalid_time": "Couldn't parse time(s). Use HH:MM, e.g. 09:00 14:00 20:00.",
+    "smart_nudges_invalid_rollover": "Couldn't parse rollover time. Use HH:MM, e.g. 12:00.",
+    "smart_nudges_schedule_error": "⚠️ Couldn't schedule smart nudges. Please try again later.",
+    "smart_nudge_missing_today": "⏰ No habits logged for today yet. Tap “Log now” below.",
+    "smart_nudge_missing_yesterday": "⏰ No habits logged for yesterday yet. Tap “Log now” below.",
+    "smart_nudge_log_now": "📝 Log now",
+    "smart_nudge_disable": "🔕 Disable",
     "config_menu": "⚙️ Settings",
     "feedback_prompt": "Share what could be improved or what doesn’t work. I’ll save your feedback.",
     "feedback_saved": "✅ Thanks! Your feedback was saved.",

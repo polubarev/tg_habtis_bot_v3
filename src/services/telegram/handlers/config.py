@@ -1,16 +1,17 @@
 import asyncio
 import re
 
-from telegram import Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
-from src.services.telegram.keyboards import build_main_menu_keyboard, build_confirmation_keyboard
+from src.services.telegram.keyboards import build_config_keyboard, build_main_menu_keyboard, build_confirmation_keyboard
 from src.services.reminders import (
     ReminderScheduleError,
     delete_reminder_task,
     format_time_value,
     parse_time_text,
     schedule_reminder_task,
+    schedule_smart_nudges_task,
 )
 
 from src.config.constants import DEFAULT_HABIT_SCHEMA, MESSAGES_EN, MESSAGES_RU
@@ -34,6 +35,8 @@ def _messages_for_lang(lang: str):
 
 _OP_TIMEOUT = get_settings().operation_timeout_seconds
 _REMINDER_DISABLE_WORDS = {"off", "disable", "disabled", "выкл", "отключить", "выключить"}
+_SMART_NUDGES_DEFAULT_TIMES = ["09:00", "14:00", "20:00"]
+_SMART_NUDGES_DEFAULT_ROLLOVER = "12:00"
 
 
 def _get_repos(context: ContextTypes.DEFAULT_TYPE):
@@ -266,6 +269,19 @@ async def handle_timezone_text(update: Update, context: ContextTypes.DEFAULT_TYP
                         )
                     except ReminderScheduleError:
                         schedule_error = True
+            if profile.smart_nudges_enabled and profile.smart_nudges_times:
+                try:
+                    profile.smart_nudges_task_name = schedule_smart_nudges_task(
+                        settings=get_settings(),
+                        user_id=update.effective_user.id,
+                        timezone_name=profile.timezone,
+                        times=profile.smart_nudges_times,
+                        rollover_time=profile.smart_nudges_rollover_time,
+                        last_habits_logged_for_date=profile.last_habits_logged_for_date,
+                        previous_task_name=profile.smart_nudges_task_name,
+                    )
+                except ReminderScheduleError:
+                    schedule_error = True
             await user_repo.update(profile)
 
     if session_repo:
@@ -287,21 +303,263 @@ async def handle_timezone_text(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 async def reminder_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Prompt user to set daily reminder time."""
+    """Show reminders menu (daily reminders + smart nudges)."""
 
     if not update.effective_user or not update.message:
         return
     session_repo, user_repo, _ = _get_repos(context)
     profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
     lang = resolve_language(profile)
-    current_time = profile.reminder_time if profile and profile.reminder_enabled else None
-    time_label = current_time or _messages_for_lang(lang)["empty_value"]
-    await update.message.reply_text(
-        _messages_for_lang(lang)["reminder_prompt"].format(time=time_label)
+
+    msgs = _messages_for_lang(lang)
+    daily_label = profile.reminder_time if profile and profile.reminder_enabled and profile.reminder_time else msgs["reminders_off"]
+    smart_status = msgs["reminders_on"] if profile and profile.smart_nudges_enabled else msgs["reminders_off"]
+    smart_times = ", ".join(profile.smart_nudges_times) if profile and profile.smart_nudges_times else msgs["empty_value"]
+    rollover = profile.smart_nudges_rollover_time if profile else _SMART_NUDGES_DEFAULT_ROLLOVER
+    text = msgs["reminders_overview"].format(
+        daily_time=daily_label,
+        smart_status=smart_status,
+        smart_times=smart_times,
+        rollover=rollover,
     )
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(msgs["reminders_daily_btn"], callback_data="reminders_menu:daily"),
+                InlineKeyboardButton(msgs["reminders_smart_btn"], callback_data="reminders_menu:smart"),
+            ],
+            [InlineKeyboardButton(msgs["reminders_disable_all_btn"], callback_data="reminders_menu:disable_all")],
+            [InlineKeyboardButton(msgs["reminders_back_btn"], callback_data="reminders_menu:back")],
+        ]
+    )
+    await update.message.reply_text(text, reply_markup=keyboard)
     if session_repo:
         session = await session_repo.get(update.effective_user.id) or SessionData(user_id=update.effective_user.id)
-        session.state = ConversationState.CONFIG_REMINDER_TIME
+        session.state = ConversationState.IDLE
+        await session_repo.save(session)
+
+
+async def handle_reminders_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle inline reminders menu callbacks."""
+
+    query = update.callback_query
+    if not query or not query.data or not update.effective_user:
+        return
+    if not query.data.startswith("reminders_menu:"):
+        return
+    await query.answer()
+    action = query.data.split(":", 1)[1]
+    session_repo, user_repo, _ = _get_repos(context)
+    profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
+    lang = resolve_language(profile)
+    msgs = _messages_for_lang(lang)
+
+    if action == "back":
+        if query.message:
+            await query.message.reply_text(
+                msgs["config_menu"],
+                reply_markup=build_config_keyboard(lang),
+            )
+        return
+
+    if action == "daily":
+        current_time = profile.reminder_time if profile and profile.reminder_enabled else None
+        time_label = current_time or msgs["empty_value"]
+        if query.message:
+            await query.message.reply_text(msgs["reminder_prompt"].format(time=time_label))
+        if session_repo:
+            session = await session_repo.get(update.effective_user.id) or SessionData(user_id=update.effective_user.id)
+            session.state = ConversationState.CONFIG_REMINDER_TIME
+            await session_repo.save(session)
+        return
+
+    if action == "smart":
+        await _show_smart_nudges_menu(update, context)
+        return
+
+    if action == "disable_all":
+        if not profile or not user_repo:
+            return
+        delete_reminder_task(get_settings(), profile.reminder_task_name)
+        delete_reminder_task(get_settings(), profile.smart_nudges_task_name)
+        profile.reminder_enabled = False
+        profile.reminder_time = None
+        profile.reminder_task_name = None
+        profile.smart_nudges_enabled = False
+        profile.smart_nudges_task_name = None
+        await user_repo.update(profile)
+        if query.message:
+            await query.message.reply_text(msgs["reminders_disabled_all"], reply_markup=build_main_menu_keyboard(lang))
+        return
+
+
+async def _show_smart_nudges_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if not query or not update.effective_user:
+        return
+    session_repo, user_repo, _ = _get_repos(context)
+    profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
+    lang = resolve_language(profile)
+    msgs = _messages_for_lang(lang)
+
+    enabled = bool(profile and profile.smart_nudges_enabled)
+    times = ", ".join(profile.smart_nudges_times) if profile and profile.smart_nudges_times else msgs["empty_value"]
+    rollover = profile.smart_nudges_rollover_time if profile else _SMART_NUDGES_DEFAULT_ROLLOVER
+
+    text = msgs["smart_nudges_overview"].format(
+        status=(msgs["reminders_on"] if enabled else msgs["reminders_off"]),
+        times=times,
+        rollover=rollover,
+    )
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    msgs["smart_nudges_disable_btn"] if enabled else msgs["smart_nudges_enable_btn"],
+                    callback_data="smart_nudges:disable" if enabled else "smart_nudges:enable",
+                )
+            ],
+            [
+                InlineKeyboardButton(msgs["smart_nudges_edit_times_btn"], callback_data="smart_nudges:edit_times"),
+                InlineKeyboardButton(msgs["smart_nudges_edit_rollover_btn"], callback_data="smart_nudges:edit_rollover"),
+            ],
+            [InlineKeyboardButton(msgs["reminders_back_btn"], callback_data="smart_nudges:back")],
+        ]
+    )
+    if query.message:
+        try:
+            await query.edit_message_text(text, reply_markup=keyboard)
+        except Exception:
+            await query.message.reply_text(text, reply_markup=keyboard)
+
+    if session_repo:
+        session = await session_repo.get(update.effective_user.id) or SessionData(user_id=update.effective_user.id)
+        session.state = ConversationState.IDLE
+        await session_repo.save(session)
+
+
+async def handle_smart_nudges_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle smart nudges inline callbacks (including disable button from nudges)."""
+
+    query = update.callback_query
+    if not query or not query.data or not update.effective_user:
+        return
+    if not query.data.startswith("smart_nudges:"):
+        return
+    await query.answer()
+    action = query.data.split(":", 1)[1]
+
+    session_repo, user_repo, _ = _get_repos(context)
+    profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
+    if profile is None and user_repo:
+        profile = UserProfile(
+            telegram_user_id=update.effective_user.id,
+            telegram_username=update.effective_user.username,
+            habit_schema=DEFAULT_HABIT_SCHEMA.model_copy(deep=True),
+        )
+    lang = resolve_language(profile)
+    msgs = _messages_for_lang(lang)
+
+    if action == "back":
+        await _show_reminders_menu(update, context)
+        return
+
+    if not profile or not user_repo:
+        return
+
+    if action == "disable":
+        delete_reminder_task(get_settings(), profile.smart_nudges_task_name)
+        profile.smart_nudges_enabled = False
+        profile.smart_nudges_task_name = None
+        await user_repo.update(profile)
+        if query.message:
+            await query.message.reply_text(msgs["smart_nudges_disabled"], reply_markup=build_main_menu_keyboard(lang))
+        return
+
+    if action == "enable":
+        if not profile.smart_nudges_times:
+            profile.smart_nudges_times = list(_SMART_NUDGES_DEFAULT_TIMES)
+        if not profile.smart_nudges_rollover_time:
+            profile.smart_nudges_rollover_time = _SMART_NUDGES_DEFAULT_ROLLOVER
+        try:
+            profile.smart_nudges_task_name = schedule_smart_nudges_task(
+                settings=get_settings(),
+                user_id=update.effective_user.id,
+                timezone_name=profile.timezone,
+                times=profile.smart_nudges_times,
+                rollover_time=profile.smart_nudges_rollover_time,
+                last_habits_logged_for_date=profile.last_habits_logged_for_date,
+                previous_task_name=profile.smart_nudges_task_name,
+            )
+            profile.smart_nudges_enabled = True
+            await user_repo.update(profile)
+        except ReminderScheduleError:
+            await user_repo.update(profile)
+            if query.message:
+                await query.message.reply_text(msgs["smart_nudges_schedule_error"])
+            return
+        if query.message:
+            await query.message.reply_text(msgs["smart_nudges_enabled"], reply_markup=build_main_menu_keyboard(lang))
+        return
+
+    if action == "edit_times":
+        if query.message:
+            await query.message.reply_text(msgs["smart_nudges_times_prompt"])
+        if session_repo:
+            session = await session_repo.get(update.effective_user.id) or SessionData(user_id=update.effective_user.id)
+            session.state = ConversationState.CONFIG_SMART_NUDGES_TIMES
+            await session_repo.save(session)
+        return
+
+    if action == "edit_rollover":
+        if query.message:
+            await query.message.reply_text(msgs["smart_nudges_rollover_prompt"].format(default=_SMART_NUDGES_DEFAULT_ROLLOVER))
+        if session_repo:
+            session = await session_repo.get(update.effective_user.id) or SessionData(user_id=update.effective_user.id)
+            session.state = ConversationState.CONFIG_SMART_NUDGES_ROLLOVER
+            await session_repo.save(session)
+        return
+
+
+async def _show_reminders_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Re-render reminders menu after callback navigation."""
+
+    query = update.callback_query
+    if not query or not update.effective_user:
+        return
+    session_repo, user_repo, _ = _get_repos(context)
+    profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
+    lang = resolve_language(profile)
+    msgs = _messages_for_lang(lang)
+    daily_label = profile.reminder_time if profile and profile.reminder_enabled and profile.reminder_time else msgs["reminders_off"]
+    smart_status = msgs["reminders_on"] if profile and profile.smart_nudges_enabled else msgs["reminders_off"]
+    smart_times = ", ".join(profile.smart_nudges_times) if profile and profile.smart_nudges_times else msgs["empty_value"]
+    rollover = profile.smart_nudges_rollover_time if profile else _SMART_NUDGES_DEFAULT_ROLLOVER
+    text = msgs["reminders_overview"].format(
+        daily_time=daily_label,
+        smart_status=smart_status,
+        smart_times=smart_times,
+        rollover=rollover,
+    )
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(msgs["reminders_daily_btn"], callback_data="reminders_menu:daily"),
+                InlineKeyboardButton(msgs["reminders_smart_btn"], callback_data="reminders_menu:smart"),
+            ],
+            [InlineKeyboardButton(msgs["reminders_disable_all_btn"], callback_data="reminders_menu:disable_all")],
+            [InlineKeyboardButton(msgs["reminders_back_btn"], callback_data="reminders_menu:back")],
+        ]
+    )
+    try:
+        await query.edit_message_text(text, reply_markup=keyboard)
+    except Exception:
+        if query.message:
+            await query.message.reply_text(text, reply_markup=keyboard)
+
+    if session_repo:
+        session = await session_repo.get(update.effective_user.id) or SessionData(user_id=update.effective_user.id)
+        session.state = ConversationState.IDLE
         await session_repo.save(session)
 
 
@@ -392,6 +650,136 @@ async def handle_reminder_text(update: Update, context: ContextTypes.DEFAULT_TYP
         _messages_for_lang(lang)["reminder_saved"].format(time=formatted),
         reply_markup=build_main_menu_keyboard(lang),
     )
+    return True
+
+
+async def handle_smart_nudges_times_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Handle smart nudges times list input."""
+
+    if not update.effective_user or not update.message:
+        return False
+    lang = await _get_lang(update, context)
+    text = (update.message.text or "").strip()
+    session_repo, user_repo, _ = _get_repos(context)
+    session = await session_repo.get(update.effective_user.id) if session_repo else None
+    if session is None or session.state != ConversationState.CONFIG_SMART_NUDGES_TIMES:
+        return False
+
+    if text.lower() in {"/cancel", "cancel", "отмена"}:
+        session.state = ConversationState.IDLE
+        if session_repo:
+            await session_repo.save(session)
+        await update.message.reply_text(_messages_for_lang(lang)["cancelled_config"], reply_markup=build_main_menu_keyboard(lang))
+        return True
+
+    if not user_repo:
+        await update.message.reply_text(_messages_for_lang(lang)["smart_nudges_schedule_error"])
+        return True
+
+    profile = await user_repo.get_by_telegram_id(update.effective_user.id)
+    if profile is None:
+        profile = UserProfile(
+            telegram_user_id=update.effective_user.id,
+            telegram_username=update.effective_user.username,
+            habit_schema=DEFAULT_HABIT_SCHEMA.model_copy(deep=True),
+        )
+
+    parts = [p.strip() for p in text.replace(",", " ").split() if p.strip()]
+    parsed_times = []
+    for part in parts:
+        parsed = parse_time_text(part)
+        if not parsed:
+            await update.message.reply_text(_messages_for_lang(lang)["smart_nudges_invalid_time"])
+            return True
+        parsed_times.append(format_time_value(parsed))
+    parsed_times = sorted(set(parsed_times))
+    if not parsed_times:
+        await update.message.reply_text(_messages_for_lang(lang)["smart_nudges_invalid_time"])
+        return True
+
+    profile.smart_nudges_times = parsed_times
+    try:
+        if profile.smart_nudges_enabled:
+            profile.smart_nudges_task_name = schedule_smart_nudges_task(
+                settings=get_settings(),
+                user_id=update.effective_user.id,
+                timezone_name=profile.timezone,
+                times=profile.smart_nudges_times,
+                rollover_time=profile.smart_nudges_rollover_time or _SMART_NUDGES_DEFAULT_ROLLOVER,
+                last_habits_logged_for_date=profile.last_habits_logged_for_date,
+                previous_task_name=profile.smart_nudges_task_name,
+            )
+        await user_repo.update(profile)
+    except ReminderScheduleError:
+        await user_repo.update(profile)
+        await update.message.reply_text(_messages_for_lang(lang)["smart_nudges_schedule_error"])
+        return True
+
+    session.state = ConversationState.IDLE
+    if session_repo:
+        await session_repo.save(session)
+    await update.message.reply_text(_messages_for_lang(lang)["smart_nudges_saved"], reply_markup=build_main_menu_keyboard(lang))
+    return True
+
+
+async def handle_smart_nudges_rollover_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Handle smart nudges rollover time input."""
+
+    if not update.effective_user or not update.message:
+        return False
+    lang = await _get_lang(update, context)
+    text = (update.message.text or "").strip()
+    session_repo, user_repo, _ = _get_repos(context)
+    session = await session_repo.get(update.effective_user.id) if session_repo else None
+    if session is None or session.state != ConversationState.CONFIG_SMART_NUDGES_ROLLOVER:
+        return False
+
+    if text.lower() in {"/cancel", "cancel", "отмена"}:
+        session.state = ConversationState.IDLE
+        if session_repo:
+            await session_repo.save(session)
+        await update.message.reply_text(_messages_for_lang(lang)["cancelled_config"], reply_markup=build_main_menu_keyboard(lang))
+        return True
+
+    parsed = parse_time_text(text)
+    if not parsed:
+        await update.message.reply_text(_messages_for_lang(lang)["smart_nudges_invalid_rollover"])
+        return True
+
+    if not user_repo:
+        await update.message.reply_text(_messages_for_lang(lang)["smart_nudges_schedule_error"])
+        return True
+
+    profile = await user_repo.get_by_telegram_id(update.effective_user.id)
+    if profile is None:
+        profile = UserProfile(
+            telegram_user_id=update.effective_user.id,
+            telegram_username=update.effective_user.username,
+            habit_schema=DEFAULT_HABIT_SCHEMA.model_copy(deep=True),
+        )
+
+    profile.smart_nudges_rollover_time = format_time_value(parsed)
+    try:
+        if profile.smart_nudges_enabled and profile.smart_nudges_times:
+            profile.smart_nudges_task_name = schedule_smart_nudges_task(
+                settings=get_settings(),
+                user_id=update.effective_user.id,
+                timezone_name=profile.timezone,
+                times=profile.smart_nudges_times,
+                rollover_time=profile.smart_nudges_rollover_time,
+                last_habits_logged_for_date=profile.last_habits_logged_for_date,
+                previous_task_name=profile.smart_nudges_task_name,
+            )
+        await user_repo.update(profile)
+    except ReminderScheduleError:
+        await user_repo.update(profile)
+        await update.message.reply_text(_messages_for_lang(lang)["smart_nudges_schedule_error"])
+        return True
+
+    session.state = ConversationState.IDLE
+    if session_repo:
+        await session_repo.save(session)
+    await update.message.reply_text(_messages_for_lang(lang)["smart_nudges_saved"], reply_markup=build_main_menu_keyboard(lang))
     return True
 
 

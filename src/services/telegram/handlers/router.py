@@ -12,6 +12,8 @@ from src.services.telegram.handlers.config import (
     reset_command,
     reminder_command,
     handle_reminder_text,
+    handle_smart_nudges_rollover_text,
+    handle_smart_nudges_times_text,
     looks_like_sheet_input,
 )
 from src.services.telegram.handlers.habits_config import handle_habits_config_text, habits_config_command
@@ -156,6 +158,8 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
     for handler in (
         handle_timezone_text,
         handle_reminder_text,
+        handle_smart_nudges_times_text,
+        handle_smart_nudges_rollover_text,
         handle_config_text,
         handle_feedback_text,
         handle_habits_config_text,
