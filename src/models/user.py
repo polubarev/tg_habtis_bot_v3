@@ -42,6 +42,13 @@ class UserProfile(BaseModel):
     reminder_time: Optional[str] = None
     reminder_enabled: bool = False
     reminder_task_name: Optional[str] = None
+
+    smart_nudges_enabled: bool = False
+    smart_nudges_times: list[str] = Field(default_factory=list)
+    smart_nudges_rollover_time: str = "12:00"
+    smart_nudges_task_name: Optional[str] = None
+    last_habits_logged_for_date: Optional[str] = None
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     onboarding_completed: bool = False

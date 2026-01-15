@@ -97,8 +97,33 @@ def schedule_reminder_task(
     timezone_name: str,
     previous_task_name: str | None = None,
 ) -> str:
+    try:
+        tz = ZoneInfo(timezone_name)
+    except Exception as exc:
+        raise ReminderScheduleError("Invalid timezone") from exc
+    next_run = compute_next_run(reminder_time, tz).astimezone(timezone.utc)
+    payload = {"user_id": user_id}
+    return schedule_reminders_task_at(
+        settings=settings,
+        schedule_time_utc=next_run,
+        payload=payload,
+        previous_task_name=previous_task_name,
+    )
+
+
+def schedule_reminders_task_at(
+    *,
+    settings: Settings,
+    schedule_time_utc: datetime,
+    payload: dict,
+    previous_task_name: str | None = None,
+) -> str:
+    """Schedule a reminders dispatch task at an explicit UTC datetime."""
+
     if tasks_v2 is None or timestamp_pb2 is None:
         raise ReminderScheduleError("google-cloud-tasks not available")
+    if schedule_time_utc.tzinfo is None:
+        raise ReminderScheduleError("schedule_time_utc must be timezone-aware")
     dispatch_base = settings.get_reminders_dispatch_url() or settings.get_telegram_webhook_url()
     if not dispatch_base:
         raise ReminderScheduleError("Dispatch URL not configured")
@@ -111,18 +136,13 @@ def schedule_reminder_task(
     location = settings.gcp_region
     dispatch_url = build_dispatch_url(dispatch_base)
 
-    try:
-        tz = ZoneInfo(timezone_name)
-    except Exception as exc:
-        raise ReminderScheduleError("Invalid timezone") from exc
-    next_run = compute_next_run(reminder_time, tz).astimezone(timezone.utc)
     schedule_timestamp = timestamp_pb2.Timestamp()
-    schedule_timestamp.FromDatetime(next_run)
+    schedule_timestamp.FromDatetime(schedule_time_utc.astimezone(timezone.utc))
 
     client = tasks_v2.CloudTasksClient()
     parent = client.queue_path(settings.gcp_project_id, location, queue_name)
 
-    payload = json.dumps({"user_id": user_id}).encode("utf-8")
+    body = json.dumps(payload).encode("utf-8")
     task = {
         "schedule_time": schedule_timestamp,
         "http_request": {
@@ -132,7 +152,7 @@ def schedule_reminder_task(
                 "Content-Type": "application/json",
                 _SECRET_HEADER: settings.reminders_dispatch_secret,
             },
-            "body": payload,
+            "body": body,
         },
     }
 
