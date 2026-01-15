@@ -40,7 +40,7 @@ Habits & Diary Telegram Bot that captures daily diaries, habits, dreams, thought
 
 ## Domain Context
 - Commands: `/start` onboarding, `/config` to link Google Sheet, `/habits` diary + habit extraction, `/dream`, `/thought`, `/reflect` (custom questions), `/habits_config` and `/reflect_config` for field/question management, `/help`.
-- Menu actions: Week analysis (last 7 completed days), language switch (RU/EN), feedback capture, timezone, daily reminders, and full reset.
+- Menu actions: Week analysis (last 7 completed days), language switch (RU/EN), feedback capture, timezone, daily reminders + smart nudges, and full reset.
 - Per-user habit schema (JSON-like) drives LLM extraction; default schema keeps `raw_record` + optional `diary`, with user-editable fields. Reflection questions are configurable with stable IDs.
 - Data goes to user-managed Google Sheets tabs: Habits (timestamp/date/raw_record/diary + habit fields), Dreams, Thoughts, Reflections. Users must share the sheet with the service account.
 - Voice is transcribed to `raw_record` (or `record`), preserved verbatim; bot shows a JSON preview for confirmation before writing.
