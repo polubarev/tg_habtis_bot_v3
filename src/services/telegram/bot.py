@@ -35,6 +35,7 @@ from src.services.telegram.handlers.habits_config import (
     handle_habits_config_callback,
     handle_habit_edit_attr_callback,
     handle_habit_field_callback,
+    handle_habit_list_mode_callback,
     handle_habit_type_callback,
 )
 from src.services.telegram.handlers.questions import (
@@ -108,6 +109,9 @@ class TelegramBotService:
         )
         self.app.add_handler(
             CallbackQueryHandler(handle_habit_type_callback, pattern="^habit_type:")
+        )
+        self.app.add_handler(
+            CallbackQueryHandler(handle_habit_list_mode_callback, pattern="^habit_list_mode:")
         )
         self.app.add_handler(
             CallbackQueryHandler(handle_questions_callback, pattern="^q_cfg:")

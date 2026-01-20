@@ -103,12 +103,17 @@ INLINE_BUTTONS_RU = {
     "habit_type_int": "int",
     "habit_type_float": "float",
     "habit_type_bool": "bool",
+    "habit_type_list": "list",
     "habit_edit_name": "Название",
     "habit_edit_description": "Описание",
     "habit_edit_type": "Тип",
+    "habit_edit_mode": "Режим",
+    "habit_edit_options": "Варианты",
     "habit_edit_min": "Минимум",
     "habit_edit_max": "Максимум",
     "habit_edit_default": "По умолчанию",
+    "habit_list_single": "Один",
+    "habit_list_multiple": "Несколько",
     "question_add": "➕ Добавить",
     "question_remove": "➖ Удалить",
     "question_reset": "↩️ Сбросить",
@@ -136,12 +141,17 @@ INLINE_BUTTONS_EN = {
     "habit_type_int": "int",
     "habit_type_float": "float",
     "habit_type_bool": "bool",
+    "habit_type_list": "list",
     "habit_edit_name": "Name",
     "habit_edit_description": "Description",
     "habit_edit_type": "Type",
+    "habit_edit_mode": "Mode",
+    "habit_edit_options": "Options",
     "habit_edit_min": "Min",
     "habit_edit_max": "Max",
     "habit_edit_default": "Default",
+    "habit_list_single": "Single",
+    "habit_list_multiple": "Multiple",
     "question_add": "➕ Add",
     "question_remove": "➖ Remove",
     "question_reset": "↩️ Reset",
@@ -275,10 +285,24 @@ MESSAGES_RU = {
         "• string — текст (например, настроение)\n"
         "• int — целое число (например, 3)\n"
         "• float — число с точкой (например, 2.5)\n"
-        "• bool — да/нет (например, выпил витамины)\n\n"
+        "• bool — да/нет (например, выпил витамины)\n"
+        "• list — выбор из списка (например, место работы)\n\n"
         "Нажми кнопку ниже."
     ),
-    "habit_add_type_error": "Не понял тип. Нажми кнопку или напиши: string, int, float или bool. Пример: int.",
+    "habit_add_type_error": (
+        "Не понял тип. Нажми кнопку или напиши: string, int, float, bool или list. Пример: int."
+    ),
+    "habit_add_list_mode_prompt": (
+        "⭐️ *Шаг 4: Режим списка*\n"
+        "Выбери режим: один вариант или несколько."
+    ),
+    "habit_add_list_options_prompt": (
+        "⭐️ *Шаг 5: Варианты*\n"
+        "Отправь варианты через запятую. Пример: дом, офис, отпуск."
+    ),
+    "habit_add_list_options_error": (
+        "Нужно минимум два варианта через запятую. Пример: дом, офис."
+    ),
     "habit_add_min_prompt_int": (
         "⭐️ *Шаг 4: Минимум (необязательно)*\n"
         "Введи минимальное целое число, например 0. Или '-' чтобы пропустить."
@@ -347,6 +371,8 @@ MESSAGES_RU = {
         "• Название: *{name}*\n"
         "• Описание: {description}\n"
         "• Тип: {type}\n"
+        "• Режим списка: {list_mode}\n"
+        "• Варианты: {options}\n"
         "• Минимум: {minimum}\n"
         "• Максимум: {maximum}\n"
         "• По умолчанию: {default}"
@@ -359,6 +385,14 @@ MESSAGES_RU = {
     "habit_edit_description_prompt": "Введи новое описание для поля *{name}*.",
     "habit_edit_description_error": "Нужно короткое описание. Пример: «Стаканы воды».",
     "habit_edit_type_prompt": "Выбери новый тип для поля *{name}*.",
+    "habit_edit_list_mode_prompt": "Выбери режим списка для поля *{name}*.",
+    "habit_edit_list_options_prompt": (
+        "Введи новые варианты списка для поля *{name}* через запятую."
+    ),
+    "habit_edit_list_options_error": (
+        "Нужно минимум два варианта через запятую. Пример: дом, офис."
+    ),
+    "habit_edit_list_only": "Режим и варианты доступны только для типа list.",
     "habit_edit_min_not_numeric": "Минимум и максимум доступны только для числовых типов. Сначала измени тип.",
     "habit_edit_min_prompt_int": "Введи новый минимум (целое число) или '-' чтобы очистить.",
     "habit_edit_min_prompt_float": "Введи новый минимум (число) или '-' чтобы очистить.",
@@ -371,12 +405,30 @@ MESSAGES_RU = {
     "habit_add_default_prompt_float": "Введи значение по умолчанию (число) или '-' чтобы пропустить.",
     "habit_add_default_prompt_bool": "Введи значение по умолчанию (да/нет) или '-' чтобы пропустить.",
     "habit_add_default_prompt_string": "Введи значение по умолчанию или '-' чтобы пропустить.",
+    "habit_add_default_prompt_list_single": (
+        "Выбери значение по умолчанию из списка: {options}. Или '-' чтобы пропустить."
+    ),
+    "habit_add_default_prompt_list_multiple": (
+        "Выбери значения по умолчанию из списка: {options}. "
+        "Можно несколько через запятую. Или '-' чтобы пропустить."
+    ),
     "habit_edit_default_prompt_int": "Введи новое значение по умолчанию (целое число) или '-' чтобы очистить.",
     "habit_edit_default_prompt_float": "Введи новое значение по умолчанию (число) или '-' чтобы очистить.",
     "habit_edit_default_prompt_bool": "Введи новое значение по умолчанию (да/нет) или '-' чтобы очистить.",
     "habit_edit_default_prompt_string": "Введи новое значение по умолчанию или '-' чтобы очистить.",
+    "habit_edit_default_prompt_list_single": (
+        "Выбери новое значение по умолчанию из списка: {options}. Или '-' чтобы очистить."
+    ),
+    "habit_edit_default_prompt_list_multiple": (
+        "Выбери новые значения по умолчанию из списка: {options}. "
+        "Можно несколько через запятую. Или '-' чтобы очистить."
+    ),
+    "habit_list_mode_single": "один",
+    "habit_list_mode_multiple": "несколько",
     "habit_default_error_number": "Не похоже на число. Введи число или '-' чтобы пропустить.",
     "habit_default_error_bool": "Не похоже на да/нет. Введи да/нет или '-' чтобы пропустить.",
+    "habit_default_error_list": "Значение должно быть одним из вариантов: {options}.",
+    "habit_default_error_list_multiple": "Значения должны быть из списка: {options}.",
     "habit_default_error_range_min": "Значение должно быть не меньше {min}.",
     "habit_default_error_range_max": "Значение должно быть не больше {max}.",
     "habit_default_error_range_between": "Значение должно быть от {min} до {max}.",
@@ -593,10 +645,24 @@ MESSAGES_EN = {
         "• string — text (e.g., mood)\n"
         "• int — whole number (e.g., 3)\n"
         "• float — decimal (e.g., 2.5)\n"
-        "• bool — yes/no (e.g., took vitamins)\n\n"
+        "• bool — yes/no (e.g., took vitamins)\n"
+        "• list — choose from a list (e.g., work place)\n\n"
         "Tap a button below."
     ),
-    "habit_add_type_error": "I didn't understand the type. Use a button or send: string, int, float, or bool. Example: int.",
+    "habit_add_type_error": (
+        "I didn't understand the type. Use a button or send: string, int, float, bool, or list. Example: int."
+    ),
+    "habit_add_list_mode_prompt": (
+        "⭐️ *Step 4: List mode*\n"
+        "Choose single value or multiple values."
+    ),
+    "habit_add_list_options_prompt": (
+        "⭐️ *Step 5: Options*\n"
+        "Send options separated by commas. Example: home, office, holiday."
+    ),
+    "habit_add_list_options_error": (
+        "Please send at least two options separated by commas. Example: home, office."
+    ),
     "habit_add_min_prompt_int": (
         "⭐️ *Step 4: Minimum (optional)*\n"
         "Send the smallest whole number, e.g., 0. Or '-' to skip."
@@ -659,6 +725,8 @@ MESSAGES_EN = {
         "• Name: *{name}*\n"
         "• Description: {description}\n"
         "• Type: {type}\n"
+        "• List mode: {list_mode}\n"
+        "• Options: {options}\n"
         "• Min: {minimum}\n"
         "• Max: {maximum}\n"
         "• Default: {default}"
@@ -671,6 +739,14 @@ MESSAGES_EN = {
     "habit_edit_description_prompt": "Send a new description for *{name}*.",
     "habit_edit_description_error": "Please send a short description. Example: \"Glasses of water\".",
     "habit_edit_type_prompt": "Choose a new type for *{name}*.",
+    "habit_edit_list_mode_prompt": "Choose list mode for *{name}*.",
+    "habit_edit_list_options_prompt": (
+        "Send new options for *{name}* separated by commas."
+    ),
+    "habit_edit_list_options_error": (
+        "Please send at least two options separated by commas. Example: home, office."
+    ),
+    "habit_edit_list_only": "Mode/options are only available for list type.",
     "habit_edit_min_not_numeric": "Min/max only work for numeric types. Change the type first.",
     "habit_edit_min_prompt_int": "Send a new minimum (whole number) or '-' to clear.",
     "habit_edit_min_prompt_float": "Send a new minimum (number) or '-' to clear.",
@@ -683,12 +759,30 @@ MESSAGES_EN = {
     "habit_add_default_prompt_float": "Send a default value (number) or '-' to skip.",
     "habit_add_default_prompt_bool": "Send a default value (yes/no) or '-' to skip.",
     "habit_add_default_prompt_string": "Send a default value or '-' to skip.",
+    "habit_add_default_prompt_list_single": (
+        "Choose a default value from: {options}. Or '-' to skip."
+    ),
+    "habit_add_default_prompt_list_multiple": (
+        "Choose default values from: {options}. You can send multiple separated by commas. "
+        "Or '-' to skip."
+    ),
     "habit_edit_default_prompt_int": "Send a new default value (whole number) or '-' to clear.",
     "habit_edit_default_prompt_float": "Send a new default value (number) or '-' to clear.",
     "habit_edit_default_prompt_bool": "Send a new default value (yes/no) or '-' to clear.",
     "habit_edit_default_prompt_string": "Send a new default value or '-' to clear.",
+    "habit_edit_default_prompt_list_single": (
+        "Choose a new default value from: {options}. Or '-' to clear."
+    ),
+    "habit_edit_default_prompt_list_multiple": (
+        "Choose new default values from: {options}. You can send multiple separated by commas. "
+        "Or '-' to clear."
+    ),
+    "habit_list_mode_single": "single",
+    "habit_list_mode_multiple": "multiple",
     "habit_default_error_number": "That doesn't look like a number. Send a number or '-' to skip.",
     "habit_default_error_bool": "That doesn't look like yes/no. Send yes/no or '-' to skip.",
+    "habit_default_error_list": "Value must be one of: {options}.",
+    "habit_default_error_list_multiple": "Values must be from: {options}.",
     "habit_default_error_range_min": "Value must be at least {min}.",
     "habit_default_error_range_max": "Value must be at most {max}.",
     "habit_default_error_range_between": "Value must be between {min} and {max}.",

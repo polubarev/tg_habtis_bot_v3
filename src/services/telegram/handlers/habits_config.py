@@ -17,6 +17,7 @@ from src.models.session import ConversationState
 from src.services.telegram.keyboards import (
     build_habit_edit_attr_keyboard,
     build_habit_fields_keyboard,
+    build_habit_list_mode_keyboard,
     build_habit_type_keyboard,
     build_main_menu_keyboard,
 )
@@ -131,6 +132,12 @@ def _format_field_type(cfg: HabitFieldConfig, lang: str) -> str:
         return "да/нет" if lang == "ru" else "yes/no"
     if type_value == "string":
         return "текст" if lang == "ru" else "text"
+    if type_value == "list":
+        label = "список" if lang == "ru" else "list"
+        options = _format_list_options(cfg.options, lang)
+        if options != _messages_for_lang(lang)["empty_value"]:
+            return f"{label} ({options})"
+        return label
     return str(type_value or "string")
 
 
@@ -144,7 +151,20 @@ def _format_field_type_label(cfg: HabitFieldConfig, lang: str) -> str:
         return "да/нет" if lang == "ru" else "yes/no"
     if type_value == "string":
         return "текст" if lang == "ru" else "text"
+    if type_value == "list":
+        return "список" if lang == "ru" else "list"
     return str(type_value or "string")
+
+
+def _format_list_options(options: list[str] | None, lang: str) -> str:
+    if not options:
+        return _messages_for_lang(lang)["empty_value"]
+    return ", ".join(options)
+
+
+def _list_mode_label(allow_multiple: bool, lang: str) -> str:
+    key = "habit_list_mode_multiple" if allow_multiple else "habit_list_mode_single"
+    return _messages_for_lang(lang).get(key, _messages_for_lang(lang)["empty_value"])
 
 
 def _bool_label(value: bool, lang: str) -> str:
@@ -184,6 +204,10 @@ def _format_default_value(value, cfg: HabitFieldConfig, lang: str) -> str:
         parsed = _parse_bool_value(value)
         if parsed is not None:
             return _bool_label(parsed, lang)
+    if base_type == "list":
+        if isinstance(value, (list, tuple)):
+            return ", ".join(str(item) for item in value)
+        return str(value)
     return str(value)
 
 
@@ -193,8 +217,16 @@ def _format_limit_value(value, lang: str) -> str:
     return str(value)
 
 
-def _default_prompt(lang: str, type_value, mode: str) -> str:
-    base_type = _base_field_type(type_value)
+def _default_prompt(lang: str, cfg: HabitFieldConfig | None, mode: str) -> str:
+    base_type = _base_field_type(cfg.type) if cfg else "string"
+    if base_type == "list" and cfg:
+        options = _format_list_options(cfg.options, lang)
+        key = (
+            f"habit_{mode}_default_prompt_list_multiple"
+            if cfg.allow_multiple
+            else f"habit_{mode}_default_prompt_list_single"
+        )
+        return _messages_for_lang(lang)[key].format(options=options)
     key_map = {
         "integer": f"habit_{mode}_default_prompt_int",
         "number": f"habit_{mode}_default_prompt_float",
@@ -218,11 +250,74 @@ def _range_error_for_default(value, cfg: HabitFieldConfig) -> tuple[str | None, 
     return None, None
 
 
+def _options_error_params(options: list[str] | None) -> dict:
+    return {"options": ", ".join(options or [])}
+
+
+def _normalize_list_options(raw: str) -> list[str]:
+    if not raw:
+        return []
+    parts = [item.strip() for item in raw.split(",")]
+    options: list[str] = []
+    seen = set()
+    for item in parts:
+        if not item:
+            continue
+        key = item.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        options.append(item)
+    return options
+
+
+def _normalize_list_items(items: list[str], options: list[str]) -> list[str] | None:
+    if not options:
+        return None
+    option_map = {opt.casefold(): opt for opt in options}
+    selected = set()
+    for item in items:
+        if not item:
+            continue
+        key = item.casefold()
+        if key not in option_map:
+            return None
+        selected.add(key)
+    if not selected:
+        return []
+    return [opt for opt in options if opt.casefold() in selected]
+
+
+def _parse_list_mode_text(raw: str) -> bool | None:
+    normalized = raw.strip().lower()
+    if normalized in {"single", "one", "single value", "один", "одиночный", "1"}:
+        return False
+    if normalized in {"multiple", "multi", "many", "несколько", "множественный", "multi value", "2"}:
+        return True
+    return None
+
+
 def _parse_default_text(raw: str, cfg: HabitFieldConfig) -> tuple[object | None, str | None, dict | None]:
     raw_value = raw.strip()
     if raw_value in {"", "-"}:
         return None, None, None
     base_type = _base_field_type(cfg.type)
+    if base_type == "list":
+        options = cfg.options or []
+        if not options:
+            return None, "habit_default_error_list", _options_error_params(options)
+        if cfg.allow_multiple:
+            items = [item.strip() for item in raw_value.split(",") if item.strip()]
+            if not items:
+                return None, None, None
+            normalized = _normalize_list_items(items, options)
+            if normalized is None:
+                return None, "habit_default_error_list_multiple", _options_error_params(options)
+            return normalized, None, None
+        normalized = _normalize_list_items([raw_value], options)
+        if not normalized:
+            return None, "habit_default_error_list", _options_error_params(options)
+        return normalized[0], None, None
     if base_type == "string":
         return raw_value, None, None
     if base_type == "boolean":
@@ -255,6 +350,34 @@ def _normalize_default_value(value, cfg: HabitFieldConfig) -> tuple[object | Non
     if value is None:
         return None, None, None
     base_type = _base_field_type(cfg.type)
+    if base_type == "list":
+        options = cfg.options or []
+        if not options:
+            return None, "habit_default_error_list", _options_error_params(options)
+        if cfg.allow_multiple:
+            if isinstance(value, (list, tuple)):
+                items = [str(item).strip() for item in value if str(item).strip()]
+            elif isinstance(value, str):
+                items = [item.strip() for item in value.split(",") if item.strip()]
+            else:
+                return None, "habit_default_error_list_multiple", _options_error_params(options)
+            normalized = _normalize_list_items(items, options)
+            if normalized is None:
+                return None, "habit_default_error_list_multiple", _options_error_params(options)
+            return normalized, None, None
+        if isinstance(value, (list, tuple)):
+            items = [str(item).strip() for item in value if str(item).strip()]
+            if len(items) != 1:
+                return None, "habit_default_error_list", _options_error_params(options)
+            raw_value = items[0]
+        else:
+            raw_value = str(value).strip()
+        if not raw_value:
+            return None, None, None
+        normalized = _normalize_list_items([raw_value], options)
+        if not normalized:
+            return None, "habit_default_error_list", _options_error_params(options)
+        return normalized[0], None, None
     if base_type == "string":
         return str(value), None, None
     if base_type == "boolean":
@@ -309,6 +432,15 @@ def _format_field_details(
     display_name = escape_markdown(_display_field_name(field_name, lang, fields))
     description = escape_markdown(cfg.description or messages["empty_value"])
     type_label = escape_markdown(_format_field_type_label(cfg, lang))
+    base_type = _base_field_type(cfg.type)
+    list_mode_value = (
+        _list_mode_label(cfg.allow_multiple, lang) if base_type == "list" else messages["empty_value"]
+    )
+    options_value = (
+        _format_list_options(cfg.options, lang) if base_type == "list" else messages["empty_value"]
+    )
+    list_mode = escape_markdown(list_mode_value)
+    options = escape_markdown(options_value)
     minimum = escape_markdown(_format_limit_value(cfg.minimum, lang))
     maximum = escape_markdown(_format_limit_value(cfg.maximum, lang))
     default_value = escape_markdown(_format_default_value(cfg.default, cfg, lang))
@@ -316,10 +448,26 @@ def _format_field_details(
         name=display_name,
         description=description,
         type=type_label,
+        list_mode=list_mode,
+        options=options,
         minimum=minimum,
         maximum=maximum,
         default=default_value,
     )
+
+
+def _allowed_edit_attrs(cfg: HabitFieldConfig | None, is_diary: bool = False) -> set[str]:
+    if is_diary:
+        return {"description"}
+    if cfg is None:
+        return {"name", "description", "type", "default"}
+    base_type = _base_field_type(cfg.type)
+    allowed = {"name", "description", "type", "default"}
+    if base_type in {"integer", "number"}:
+        allowed.update({"min", "max"})
+    if base_type == "list":
+        allowed.update({"mode", "options"})
+    return allowed
 
 
 def _format_custom_fields(profile, lang: str) -> str:
@@ -535,7 +683,7 @@ async def handle_habit_field_callback(update: Update, context: ContextTypes.DEFA
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=build_habit_edit_attr_keyboard(
                 lang,
-                allowed={"description"} if field_name == "diary" else None,
+                allowed=_allowed_edit_attrs(cfg, is_diary=field_name == "diary"),
             ),
         )
         return
@@ -573,23 +721,37 @@ async def handle_habit_edit_attr_callback(update: Update, context: ContextTypes.
         await query.edit_message_text(
             _messages_for_lang(lang)["habit_edit_attr_prompt"].format(name=display_name),
             parse_mode=ParseMode.MARKDOWN,
-            reply_markup=build_habit_edit_attr_keyboard(lang, allowed={"description"}),
+            reply_markup=build_habit_edit_attr_keyboard(
+                lang,
+                allowed=_allowed_edit_attrs(cfg, is_diary=True),
+            ),
         )
         return
 
     cfg = profile.habit_schema.fields[field_name]
+    base_type = _base_field_type(cfg.type)
+    if attr in {"mode", "options"} and base_type != "list":
+        await query.edit_message_text(
+            _messages_for_lang(lang)["habit_edit_list_only"],
+            reply_markup=build_habit_edit_attr_keyboard(
+                lang,
+                allowed=_allowed_edit_attrs(cfg),
+            ),
+        )
+        return
     if attr in {"min", "max"} and _base_numeric_type(cfg.type) not in {"integer", "number"}:
         await query.edit_message_text(
             _messages_for_lang(lang)["habit_edit_min_not_numeric"],
             reply_markup=build_habit_edit_attr_keyboard(
-                lang, allowed={"description"} if field_name == "diary" else None
+                lang,
+                allowed=_allowed_edit_attrs(cfg, is_diary=field_name == "diary"),
             ),
         )
         return
 
     session.temp_data = {
         "habit_action": "edit",
-        "habit_edit_stage": "value",
+        "habit_edit_stage": "list_mode" if attr == "mode" else "value",
         "habit_edit_field": field_name,
         "habit_edit_attr": attr,
     }
@@ -618,6 +780,21 @@ async def handle_habit_edit_attr_callback(update: Update, context: ContextTypes.
             reply_markup=build_habit_type_keyboard(lang),
         )
         return
+    if attr == "mode":
+        display_name = _display_field_name(field_name, lang, profile.habit_schema.fields)
+        await query.edit_message_text(
+            _messages_for_lang(lang)["habit_edit_list_mode_prompt"].format(name=display_name),
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=build_habit_list_mode_keyboard(lang),
+        )
+        return
+    if attr == "options":
+        display_name = _display_field_name(field_name, lang, profile.habit_schema.fields)
+        await query.edit_message_text(
+            _messages_for_lang(lang)["habit_edit_list_options_prompt"].format(name=display_name),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
     if attr == "min":
         await query.edit_message_text(
             _edit_min_prompt(lang, cfg.type),
@@ -632,7 +809,7 @@ async def handle_habit_edit_attr_callback(update: Update, context: ContextTypes.
         return
     if attr == "default":
         await query.edit_message_text(
-            _default_prompt(lang, cfg.type, mode="edit"),
+            _default_prompt(lang, cfg, mode="edit"),
             parse_mode=ParseMode.MARKDOWN,
         )
         return
@@ -654,6 +831,7 @@ async def handle_habit_type_callback(update: Update, context: ContextTypes.DEFAU
         "int": "integer",
         "float": "number",
         "bool": "boolean",
+        "list": "list",
     }
     type_value = type_map.get(type_key)
     if not type_value:
@@ -672,6 +850,20 @@ async def handle_habit_type_callback(update: Update, context: ContextTypes.DEFAU
         if not field_name:
             return
         new_field["type"] = type_value
+        if type_value == "list":
+            session.temp_data = {
+                "habit_action": "add",
+                "habit_add_stage": "list_mode",
+                "habit_new_field": new_field,
+            }
+            if session_repo:
+                await session_repo.save(session)
+            await query.edit_message_text(
+                _messages_for_lang(lang)["habit_add_list_mode_prompt"],
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=build_habit_list_mode_keyboard(lang),
+            )
+            return
         if type_value in {"integer", "number"}:
             session.temp_data = {"habit_action": "add", "habit_add_stage": "min", "habit_new_field": new_field}
             if session_repo:
@@ -683,7 +875,7 @@ async def handle_habit_type_callback(update: Update, context: ContextTypes.DEFAU
         if session_repo:
             await session_repo.save(session)
         await query.edit_message_text(
-            _default_prompt(lang, type_value, mode="add"),
+            _default_prompt(lang, HabitFieldConfig(type=type_value, description=""), mode="add"),
             parse_mode=ParseMode.MARKDOWN,
         )
         return
@@ -696,7 +888,26 @@ async def handle_habit_type_callback(update: Update, context: ContextTypes.DEFAU
         return
     if profile and user_repo and field_name in profile.habit_schema.fields:
         cfg = profile.habit_schema.fields[field_name]
+        if type_value == "list":
+            session.temp_data = {
+                "habit_action": "edit",
+                "habit_edit_stage": "list_mode",
+                "habit_edit_field": field_name,
+                "habit_edit_attr": "type",
+            }
+            if session_repo:
+                await session_repo.save(session)
+            await query.edit_message_text(
+                _messages_for_lang(lang)["habit_edit_list_mode_prompt"].format(
+                    name=_display_field_name(field_name, lang, profile.habit_schema.fields)
+                ),
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=build_habit_list_mode_keyboard(lang),
+            )
+            return
         cfg.type = type_value
+        cfg.options = None
+        cfg.allow_multiple = False
         if type_value not in {"integer", "number"}:
             cfg.minimum = None
             cfg.maximum = None
@@ -718,6 +929,91 @@ async def handle_habit_type_callback(update: Update, context: ContextTypes.DEFAU
         )
     except Exception:
         pass
+
+
+async def handle_habit_list_mode_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle list mode selection for list fields."""
+
+    if not update.callback_query or not update.effective_user:
+        return
+    query = update.callback_query
+    data = query.data or ""
+    if not data.startswith("habit_list_mode:"):
+        return
+
+    mode_key = data.split(":", 1)[1]
+    if mode_key not in {"single", "multiple"}:
+        return
+    allow_multiple = mode_key == "multiple"
+
+    session_repo, user_repo = _get_repos(context)
+    session = await session_repo.get(update.effective_user.id) if session_repo else None
+    profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
+    lang = resolve_language(profile)
+    if session is None or session.state != ConversationState.CONFIG_EDITING_HABITS:
+        return
+    temp = session.temp_data or {}
+
+    if temp.get("habit_action") == "add" and temp.get("habit_add_stage") == "list_mode":
+        new_field = temp.get("habit_new_field") or {}
+        new_field["allow_multiple"] = allow_multiple
+        session.temp_data = {
+            "habit_action": "add",
+            "habit_add_stage": "list_options",
+            "habit_new_field": new_field,
+        }
+        if session_repo:
+            await session_repo.save(session)
+        await query.edit_message_text(
+            _messages_for_lang(lang)["habit_add_list_options_prompt"],
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    if temp.get("habit_action") != "edit" or temp.get("habit_edit_stage") != "list_mode":
+        return
+
+    field_name = temp.get("habit_edit_field")
+    edit_attr = temp.get("habit_edit_attr")
+    if not field_name or not profile or field_name not in profile.habit_schema.fields:
+        return
+
+    if edit_attr == "mode":
+        cfg = profile.habit_schema.fields[field_name]
+        cfg.allow_multiple = allow_multiple
+        if cfg.default is not None:
+            normalized, error_key, _ = _normalize_default_value(cfg.default, cfg)
+            cfg.default = None if error_key else normalized
+        profile.habit_schema.fields[field_name] = cfg
+        if user_repo:
+            await user_repo.update(profile)
+        session.state = ConversationState.IDLE
+        session.temp_data = {}
+        if session_repo:
+            await session_repo.save(session)
+        await query.edit_message_text(
+            _messages_for_lang(lang)["habit_updated"].format(
+                name=_display_field_name(field_name, lang, profile.habit_schema.fields)
+            ),
+            reply_markup=_keyboard(lang),
+        )
+        return
+
+    session.temp_data = {
+        "habit_action": "edit",
+        "habit_edit_stage": "list_options",
+        "habit_edit_field": field_name,
+        "habit_edit_attr": edit_attr or "type",
+        "habit_edit_pending_mode": allow_multiple,
+    }
+    if session_repo:
+        await session_repo.save(session)
+    await query.edit_message_text(
+        _messages_for_lang(lang)["habit_edit_list_options_prompt"].format(
+            name=_display_field_name(field_name, lang, profile.habit_schema.fields)
+        ),
+        parse_mode=ParseMode.MARKDOWN,
+    )
 
 
 async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
@@ -747,6 +1043,8 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                 return "number"
             if t_str in {"bool", "boolean"}:
                 return "boolean"
+            if t_str in {"list"}:
+                return "list"
             if t_str in {"string", "text", ""}:
                 return "string"
             if t_str == "null":
@@ -780,6 +1078,8 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
 
         minimum = data.get("minimum")
         maximum = data.get("maximum")
+        options = None
+        allow_multiple = bool(data.get("allow_multiple", False))
         if base_type in {"integer", "number"}:
             try:
                 minimum = (
@@ -803,11 +1103,23 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
         else:
             minimum = None
             maximum = None
+        if base_type == "list":
+            raw_options = data.get("options")
+            if isinstance(raw_options, str):
+                options = _normalize_list_options(raw_options)
+            elif isinstance(raw_options, list):
+                options = _normalize_list_options(", ".join(str(item) for item in raw_options))
+            else:
+                return None
+            if len(options) < 2:
+                return None
         temp_cfg = HabitFieldConfig(
             type=type_value,
             description=str(data.get("description") or name),
             minimum=minimum,
             maximum=maximum,
+            options=options,
+            allow_multiple=allow_multiple,
             required=bool(data.get("required", True)),
         )
         parsed_default, error_key, _ = _normalize_default_value(data.get("default"), temp_cfg)
@@ -966,7 +1278,7 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                 parse_mode=ParseMode.MARKDOWN,
                 reply_markup=build_habit_edit_attr_keyboard(
                     lang,
-                    allowed={"description"} if name == "diary" else None,
+                    allowed=_allowed_edit_attrs(cfg, is_diary=name == "diary"),
                 ),
             )
             return True
@@ -987,9 +1299,77 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                 parse_mode=ParseMode.MARKDOWN,
                 reply_markup=build_habit_edit_attr_keyboard(
                     lang,
-                    allowed={"description"} if name == "diary" else None,
+                    allowed=_allowed_edit_attrs(cfg, is_diary=name == "diary"),
                 ),
             )
+            return True
+
+        if stage == "list_mode":
+            if not field_name or field_name not in profile.habit_schema.fields:
+                await update.message.reply_text(
+                    _messages_for_lang(lang)["habit_edit_not_found"],
+                    reply_markup=_keyboard(lang),
+                )
+                return True
+            allow_multiple = _parse_list_mode_text(text)
+            if allow_multiple is None:
+                await update.message.reply_text(
+                    _messages_for_lang(lang)["habit_edit_list_mode_prompt"].format(
+                        name=_display_field_name(field_name, lang, profile.habit_schema.fields)
+                    ),
+                    parse_mode=ParseMode.MARKDOWN,
+                    reply_markup=build_habit_list_mode_keyboard(lang),
+                )
+                return True
+            if temp.get("habit_edit_attr") == "mode":
+                cfg = profile.habit_schema.fields[field_name]
+                cfg.allow_multiple = allow_multiple
+                profile.habit_schema.fields[field_name] = cfg
+                await user_repo.update(profile)
+                await _finish_and_reset(field_name)
+                return True
+            session.temp_data = {
+                "habit_action": "edit",
+                "habit_edit_stage": "list_options",
+                "habit_edit_field": field_name,
+                "habit_edit_attr": temp.get("habit_edit_attr") or "type",
+                "habit_edit_pending_mode": allow_multiple,
+            }
+            if session_repo:
+                await session_repo.save(session)
+            await update.message.reply_text(
+                _messages_for_lang(lang)["habit_edit_list_options_prompt"].format(
+                    name=_display_field_name(field_name, lang, profile.habit_schema.fields)
+                ),
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            return True
+
+        if stage == "list_options":
+            if not field_name or field_name not in profile.habit_schema.fields:
+                await update.message.reply_text(
+                    _messages_for_lang(lang)["habit_edit_not_found"],
+                    reply_markup=_keyboard(lang),
+                )
+                return True
+            raw_options = _normalize_list_options(text)
+            if len(raw_options) < 2:
+                await update.message.reply_text(
+                    _messages_for_lang(lang)["habit_edit_list_options_error"]
+                )
+                return True
+            cfg = profile.habit_schema.fields[field_name]
+            cfg.type = "list"
+            cfg.options = raw_options
+            cfg.allow_multiple = bool(temp.get("habit_edit_pending_mode", cfg.allow_multiple))
+            cfg.minimum = None
+            cfg.maximum = None
+            if cfg.default is not None:
+                normalized, error_key, _ = _normalize_default_value(cfg.default, cfg)
+                cfg.default = None if error_key else normalized
+            profile.habit_schema.fields[field_name] = cfg
+            await user_repo.update(profile)
+            await _finish_and_reset(field_name)
             return True
 
         if stage == "value":
@@ -1013,6 +1393,16 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                     ),
                     parse_mode=ParseMode.MARKDOWN,
                     reply_markup=build_habit_edit_attr_keyboard(lang, allowed={"description"}),
+                )
+                return True
+
+            if attr in {"mode", "options"} and _base_field_type(cfg.type) != "list":
+                await update.message.reply_text(
+                    _messages_for_lang(lang)["habit_edit_list_only"],
+                    reply_markup=build_habit_edit_attr_keyboard(
+                        lang,
+                        allowed=_allowed_edit_attrs(cfg, is_diary=field_name == "diary"),
+                    ),
                 )
                 return True
 
@@ -1052,6 +1442,8 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                     type_value = "number"
                 elif type_hint in {"bool", "boolean"}:
                     type_value = "boolean"
+                elif type_hint in {"list"}:
+                    type_value = "list"
                 elif type_hint in {"string", "text", ""}:
                     type_value = "string"
                 if not type_value:
@@ -1060,7 +1452,26 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                         reply_markup=build_habit_type_keyboard(lang),
                     )
                     return True
+                if type_value == "list":
+                    session.temp_data = {
+                        "habit_action": "edit",
+                        "habit_edit_stage": "list_mode",
+                        "habit_edit_field": field_name,
+                        "habit_edit_attr": "type",
+                    }
+                    if session_repo:
+                        await session_repo.save(session)
+                    await update.message.reply_text(
+                        _messages_for_lang(lang)["habit_edit_list_mode_prompt"].format(
+                            name=_display_field_name(field_name, lang, profile.habit_schema.fields)
+                        ),
+                        parse_mode=ParseMode.MARKDOWN,
+                        reply_markup=build_habit_list_mode_keyboard(lang),
+                    )
+                    return True
                 cfg.type = type_value
+                cfg.options = None
+                cfg.allow_multiple = False
                 if type_value not in {"integer", "number"}:
                     cfg.minimum = None
                     cfg.maximum = None
@@ -1081,6 +1492,42 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                     await update.message.reply_text(msg)
                     return True
                 cfg.default = parsed
+                profile.habit_schema.fields[field_name] = cfg
+                await user_repo.update(profile)
+                await _finish_and_reset(field_name)
+                return True
+
+            if attr == "mode":
+                allow_multiple = _parse_list_mode_text(raw)
+                if allow_multiple is None:
+                    await update.message.reply_text(
+                        _messages_for_lang(lang)["habit_edit_list_mode_prompt"].format(
+                            name=_display_field_name(field_name, lang, profile.habit_schema.fields)
+                        ),
+                        parse_mode=ParseMode.MARKDOWN,
+                        reply_markup=build_habit_list_mode_keyboard(lang),
+                    )
+                    return True
+                cfg.allow_multiple = allow_multiple
+                if cfg.default is not None:
+                    normalized, error_key, _ = _normalize_default_value(cfg.default, cfg)
+                    cfg.default = None if error_key else normalized
+                profile.habit_schema.fields[field_name] = cfg
+                await user_repo.update(profile)
+                await _finish_and_reset(field_name)
+                return True
+
+            if attr == "options":
+                options = _normalize_list_options(raw)
+                if len(options) < 2:
+                    await update.message.reply_text(
+                        _messages_for_lang(lang)["habit_edit_list_options_error"]
+                    )
+                    return True
+                cfg.options = options
+                if cfg.default is not None:
+                    normalized, error_key, _ = _normalize_default_value(cfg.default, cfg)
+                    cfg.default = None if error_key else normalized
                 profile.habit_schema.fields[field_name] = cfg
                 await user_repo.update(profile)
                 await _finish_and_reset(field_name)
@@ -1197,6 +1644,8 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                 type_value = "number"
             elif type_hint in {"bool", "boolean"}:
                 type_value = "boolean"
+            elif type_hint in {"list"}:
+                type_value = "list"
             elif type_hint in {"string", "text", ""}:
                 type_value = "string"
             if not type_value:
@@ -1206,6 +1655,20 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                 )
                 return True
             new_field["type"] = type_value
+            if type_value == "list":
+                session.temp_data = {
+                    "habit_action": "add",
+                    "habit_add_stage": "list_mode",
+                    "habit_new_field": new_field,
+                }
+                if session_repo:
+                    await session_repo.save(session)
+                await update.message.reply_text(
+                    _messages_for_lang(lang)["habit_add_list_mode_prompt"],
+                    parse_mode=ParseMode.MARKDOWN,
+                    reply_markup=build_habit_list_mode_keyboard(lang),
+                )
+                return True
             if type_value in {"integer", "number"}:
                 session.temp_data = {"habit_action": "add", "habit_add_stage": "min", "habit_new_field": new_field}
                 if session_repo:
@@ -1216,7 +1679,53 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
             if session_repo:
                 await session_repo.save(session)
             await update.message.reply_text(
-                _default_prompt(lang, type_value, mode="add"),
+                _default_prompt(lang, HabitFieldConfig(type=type_value, description=""), mode="add"),
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            return True
+
+        if stage == "list_mode":
+            allow_multiple = _parse_list_mode_text(text)
+            if allow_multiple is None:
+                await update.message.reply_text(
+                    _messages_for_lang(lang)["habit_add_list_mode_prompt"],
+                    parse_mode=ParseMode.MARKDOWN,
+                    reply_markup=build_habit_list_mode_keyboard(lang),
+                )
+                return True
+            new_field["allow_multiple"] = allow_multiple
+            session.temp_data = {
+                "habit_action": "add",
+                "habit_add_stage": "list_options",
+                "habit_new_field": new_field,
+            }
+            if session_repo:
+                await session_repo.save(session)
+            await update.message.reply_text(
+                _messages_for_lang(lang)["habit_add_list_options_prompt"],
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            return True
+
+        if stage == "list_options":
+            options = _normalize_list_options(text)
+            if len(options) < 2:
+                await update.message.reply_text(
+                    _messages_for_lang(lang)["habit_add_list_options_error"]
+                )
+                return True
+            new_field["options"] = options
+            session.temp_data = {"habit_action": "add", "habit_add_stage": "default", "habit_new_field": new_field}
+            if session_repo:
+                await session_repo.save(session)
+            cfg = HabitFieldConfig(
+                type=new_field.get("type", "list"),
+                description=new_field.get("description", new_field.get("name", "")),
+                options=new_field.get("options"),
+                allow_multiple=bool(new_field.get("allow_multiple")),
+            )
+            await update.message.reply_text(
+                _default_prompt(lang, cfg, mode="add"),
                 parse_mode=ParseMode.MARKDOWN,
             )
             return True
@@ -1261,7 +1770,14 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
             if session_repo:
                 await session_repo.save(session)
             await update.message.reply_text(
-                _default_prompt(lang, new_field.get("type"), mode="add"),
+                _default_prompt(
+                    lang,
+                    HabitFieldConfig(
+                        type=new_field.get("type", "string"),
+                        description=new_field.get("description", new_field.get("name", "")),
+                    ),
+                    mode="add",
+                ),
                 parse_mode=ParseMode.MARKDOWN,
             )
             return True
@@ -1273,6 +1789,8 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                 description=new_field.get("description", new_field.get("name", "")),
                 minimum=new_field.get("minimum"),
                 maximum=new_field.get("maximum"),
+                options=new_field.get("options"),
+                allow_multiple=bool(new_field.get("allow_multiple", False)),
                 required=True,
             )
             parsed, error_key, error_params = _parse_default_text(text, cfg)

@@ -12,6 +12,8 @@ class HabitFieldConfig(BaseModel):
     minimum: Optional[int] = None
     maximum: Optional[int] = None
     default: Optional[object] = None
+    options: Optional[list[str]] = None
+    allow_multiple: bool = False
     required: bool = True
 
 

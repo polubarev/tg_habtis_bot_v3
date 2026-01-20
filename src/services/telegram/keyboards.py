@@ -102,6 +102,22 @@ def build_habit_type_keyboard(language: str = "en") -> InlineKeyboardMarkup:
             InlineKeyboardButton(btns["habit_type_float"], callback_data="habit_type:float"),
             InlineKeyboardButton(btns["habit_type_bool"], callback_data="habit_type:bool"),
         ],
+        [
+            InlineKeyboardButton(btns["habit_type_list"], callback_data="habit_type:list"),
+        ],
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+
+def build_habit_list_mode_keyboard(language: str = "en") -> InlineKeyboardMarkup:
+    """Inline keyboard for selecting list field mode."""
+
+    btns = INLINE_BUTTONS_RU if language == "ru" else INLINE_BUTTONS_EN
+    buttons = [
+        [
+            InlineKeyboardButton(btns["habit_list_single"], callback_data="habit_list_mode:single"),
+            InlineKeyboardButton(btns["habit_list_multiple"], callback_data="habit_list_mode:multiple"),
+        ],
     ]
     return InlineKeyboardMarkup(buttons)
 
@@ -159,13 +175,15 @@ def build_habit_edit_attr_keyboard(
     """Inline keyboard for selecting which habit field attribute to edit."""
 
     btns = INLINE_BUTTONS_RU if language == "ru" else INLINE_BUTTONS_EN
-    allowed_attrs = allowed or {"name", "description", "type", "min", "max", "default"}
+    allowed_attrs = allowed or {"name", "description", "type", "mode", "options", "min", "max", "default"}
     attr_buttons = {
         "name": InlineKeyboardButton(btns["habit_edit_name"], callback_data="habit_edit_attr:name"),
         "description": InlineKeyboardButton(
             btns["habit_edit_description"], callback_data="habit_edit_attr:description"
         ),
         "type": InlineKeyboardButton(btns["habit_edit_type"], callback_data="habit_edit_attr:type"),
+        "mode": InlineKeyboardButton(btns["habit_edit_mode"], callback_data="habit_edit_attr:mode"),
+        "options": InlineKeyboardButton(btns["habit_edit_options"], callback_data="habit_edit_attr:options"),
         "min": InlineKeyboardButton(btns["habit_edit_min"], callback_data="habit_edit_attr:min"),
         "max": InlineKeyboardButton(btns["habit_edit_max"], callback_data="habit_edit_attr:max"),
         "default": InlineKeyboardButton(
@@ -176,7 +194,10 @@ def build_habit_edit_attr_keyboard(
     row = [attr_buttons[key] for key in ("name", "description") if key in allowed_attrs]
     if row:
         buttons.append(row)
-    row = [attr_buttons[key] for key in ("type", "min", "max", "default") if key in allowed_attrs]
+    row = [attr_buttons[key] for key in ("type", "mode", "options") if key in allowed_attrs]
+    if row:
+        buttons.append(row)
+    row = [attr_buttons[key] for key in ("min", "max", "default") if key in allowed_attrs]
     if row:
         buttons.append(row)
     buttons.append([InlineKeyboardButton(btns["habit_cancel"], callback_data="habit_cfg:cancel")])

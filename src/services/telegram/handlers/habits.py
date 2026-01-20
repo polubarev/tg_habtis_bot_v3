@@ -53,6 +53,15 @@ def _default_marker(lang: str) -> str:
     return "(по умолчанию)" if lang == "ru" else "(default)"
 
 
+def _base_field_type(field_type: str | list[str] | None) -> str:
+    if isinstance(field_type, list):
+        for item in field_type:
+            if item and item != "null":
+                return str(item)
+        return str(field_type[0]) if field_type else "string"
+    return str(field_type or "string")
+
+
 def _normalize_field_types(field_type: str | list[str] | None) -> set[str]:
     if not field_type:
         return set()
@@ -161,9 +170,17 @@ def _coerce_entry_for_sheet(entry_data: Dict[str, Any], habit_schema: HabitSchem
         if field_name not in coerced:
             continue
         field_type = config.type if hasattr(config, "type") else config.get("type")
+        base_type = _base_field_type(field_type)
         types = _normalize_field_types(field_type)
         if "bool" in types or "boolean" in types:
             coerced[field_name] = _coerce_bool_value(coerced[field_name])
+        if base_type == "list":
+            value = coerced[field_name]
+            if isinstance(value, (list, tuple)):
+                if getattr(config, "allow_multiple", False):
+                    coerced[field_name] = ", ".join(str(item) for item in value)
+                else:
+                    coerced[field_name] = str(value[0]) if value else None
     return coerced
 
 
@@ -242,17 +259,82 @@ def _format_habit_preview(entry_data: Dict[str, Any], habit_schema: HabitSchema 
 
 def _format_habit_field_lines(field_config: Any, lang: str) -> list[str]:
     description = None
+    field_type = None
+    options = None
+    allow_multiple = False
     if hasattr(field_config, "description"):
         description = field_config.description
+        field_type = field_config.type
+        options = getattr(field_config, "options", None)
+        allow_multiple = bool(getattr(field_config, "allow_multiple", False))
     elif isinstance(field_config, dict):
         description = field_config.get("description")
+        field_type = field_config.get("type")
+        options = field_config.get("options")
+        allow_multiple = bool(field_config.get("allow_multiple", False))
 
     lines = []
     if description:
         desc_label = "Описание" if lang == "ru" else "Description"
         compact = _compact_text(str(description))
         lines.append(f"  {desc_label}: {html.escape(compact)}")
+    base_type = _base_field_type(field_type)
+    if base_type == "list":
+        options_value = ", ".join(str(item) for item in options or []) or "—"
+        options_label = "Варианты" if lang == "ru" else "Options"
+        mode_label = "Режим" if lang == "ru" else "Mode"
+        mode_value = _messages_for_lang(lang).get(
+            "habit_list_mode_multiple" if allow_multiple else "habit_list_mode_single",
+            "—",
+        )
+        lines.append(f"  {options_label}: {html.escape(options_value)}")
+        lines.append(f"  {mode_label}: {html.escape(mode_value)}")
     return lines
+
+
+def _normalize_list_value(value: Any, options: list[str], allow_multiple: bool) -> Any:
+    if not options:
+        return None
+    option_map = {opt.casefold(): opt for opt in options}
+    if allow_multiple:
+        items: list[str] = []
+        if isinstance(value, (list, tuple)):
+            items = [str(item).strip() for item in value if str(item).strip()]
+        elif isinstance(value, str):
+            if "," in value:
+                items = [item.strip() for item in value.split(",") if item.strip()]
+            elif value.strip():
+                items = [value.strip()]
+        if not items:
+            return None
+        selected = {item.casefold() for item in items}
+        normalized = [opt for opt in options if opt.casefold() in selected]
+        return normalized or None
+    if isinstance(value, (list, tuple)):
+        raw = next((str(item).strip() for item in value if str(item).strip()), "")
+    else:
+        raw = str(value).strip() if value is not None else ""
+    if not raw:
+        return None
+    return option_map.get(raw.casefold())
+
+
+def _normalize_list_fields(entry_data: Dict[str, Any], habit_schema: HabitSchema | None) -> None:
+    if not habit_schema or not habit_schema.fields:
+        return
+    for field_name, config in habit_schema.fields.items():
+        field_type = config.type if hasattr(config, "type") else config.get("type")
+        if _base_field_type(field_type) != "list":
+            continue
+        if field_name not in entry_data:
+            continue
+        options = getattr(config, "options", None) or []
+        allow_multiple = bool(getattr(config, "allow_multiple", False))
+        entry_data[field_name] = _normalize_list_value(
+            entry_data.get(field_name),
+            options,
+            allow_multiple,
+        )
 
 
 def _expected_habit_fields(profile, lang: str) -> list[str]:
@@ -648,6 +730,7 @@ async def handle_habits_text(
     for k, v in extraction.items():
         if k not in {"timestamp", "date", "raw_record", "diary", "input_type"}:
             entry_data[k] = v
+    _normalize_list_fields(entry_data, habit_schema)
     defaulted_fields = _apply_defaults(entry_data, habit_schema)
     if defaulted_fields:
         entry_data["defaulted_fields"] = defaulted_fields

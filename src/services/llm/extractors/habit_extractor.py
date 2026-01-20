@@ -1,6 +1,6 @@
 
 import asyncio
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Literal
 import json
 
 import httpx
@@ -31,10 +31,14 @@ class HabitExtractor:
             return str
         
         # Handle both dict and HabitFieldConfig objects
-        if hasattr(field_config, 'type'):
+        if hasattr(field_config, "type"):
             field_type = field_config.type
+            options = getattr(field_config, "options", None)
+            allow_multiple = bool(getattr(field_config, "allow_multiple", False))
         else:
             field_type = field_config.get("type", "string")
+            options = field_config.get("options")
+            allow_multiple = bool(field_config.get("allow_multiple", False))
         
         # Normalize type string (handle list of types)
         if isinstance(field_type, list) and field_type:
@@ -51,6 +55,12 @@ class HabitExtractor:
             return float
         elif ft in {"boolean", "bool"}:
             return bool
+        elif ft in {"list"}:
+            cleaned = [str(opt) for opt in (options or []) if str(opt).strip()]
+            if cleaned:
+                literal = Literal[tuple(cleaned)]
+                return list[literal] if allow_multiple else literal
+            return list[str] if allow_multiple else str
         else:
             return str  # Default fallback
 
