@@ -37,10 +37,37 @@ from src.services.telegram.utils import (
 
 BASE_HABIT_FIELDS = set(HABITS_SHEET_COLUMNS)
 _OP_TIMEOUT = get_settings().operation_timeout_seconds
+_HABIT_EXTRACTION_MAX_ATTEMPTS = 2
 
 
 def _messages_for_lang(lang: str) -> Dict[str, str]:
     return MESSAGES_RU if lang == "ru" else MESSAGES_EN
+
+
+async def _extract_habit_with_retry(
+    extractor: HabitExtractor,
+    raw_text: str,
+    language: str,
+    schema: HabitSchema | None,
+) -> tuple[Dict[str, Any], str | None]:
+    error_key: str | None = None
+    for attempt in range(_HABIT_EXTRACTION_MAX_ATTEMPTS):
+        try:
+            payload = await asyncio.wait_for(
+                extractor.extract(raw_text, language=language, schema=schema),
+                timeout=_OP_TIMEOUT,
+            )
+            return payload, None
+        except (asyncio.TimeoutError, ExternalTimeoutError):
+            error_key = "external_timeout_error"
+        except ExternalResponseError:
+            error_key = "external_response_error"
+        except Exception:
+            return {}, None
+
+        if attempt + 1 >= _HABIT_EXTRACTION_MAX_ATTEMPTS:
+            break
+    return {}, error_key
 
 
 def _bool_label(value: bool, lang: str) -> str:
@@ -687,30 +714,24 @@ async def handle_habits_text(
         await update.message.reply_text(_messages_for_lang(lang)["llm_disabled"])
     if llm_available:
         progress_message = None
+        extraction_error_key = None
         try:
             if update.message:
                 progress_message = await update.message.reply_text(_messages_for_lang(lang)["processing"])
             extractor = HabitExtractor(llm_client)
-            extraction = await asyncio.wait_for(
-                extractor.extract(combined_text, language=lang, schema=habit_schema or None),
-                timeout=_OP_TIMEOUT,
+            extraction, extraction_error_key = await _extract_habit_with_retry(
+                extractor=extractor,
+                raw_text=combined_text,
+                language=lang,
+                schema=habit_schema or None,
             )
-        except asyncio.TimeoutError:
-            if update.message:
-                await update.message.reply_text(_messages_for_lang(lang)["external_timeout_error"])
-            extraction = {}
-        except ExternalTimeoutError:
-            if update.message:
-                await update.message.reply_text(_messages_for_lang(lang)["external_timeout_error"])
-            extraction = {}
-        except ExternalResponseError:
-            if update.message:
-                await update.message.reply_text(_messages_for_lang(lang)["external_response_error"])
-            extraction = {}
         except Exception:
             extraction = {}
+            extraction_error_key = None
         finally:
             await safe_delete_message(progress_message)
+        if extraction_error_key and update.message:
+            await update.message.reply_text(_messages_for_lang(lang)[extraction_error_key])
     else:
         extraction = {}
 
