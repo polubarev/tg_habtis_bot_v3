@@ -50,6 +50,7 @@ BUTTONS_RU = {
     "thought": "💭 Мысль",
     "reflect": "🤔 Рефлексия",
     "week_analysis": "📊 Анализ недели",
+    "on_this_day": "🕰 В этот день",
     "config": "⚙️ Настройки",
     "help": "ℹ️ Помощь",
     "cancel": "❌ Отмена",
@@ -70,6 +71,7 @@ BUTTONS_EN = {
     "thought": "💭 Thought",
     "reflect": "🤔 Reflection",
     "week_analysis": "📊 Week Analysis",
+    "on_this_day": "🕰 On this day",
     "config": "⚙️ Config",
     "help": "ℹ️ Help",
     "cancel": "❌ Cancel",
@@ -476,9 +478,11 @@ MESSAGES_RU = {
         "Умные напоминания: {smart_status}\n"
         "Время: {smart_times}\n"
         "Смена дня (rollover): {rollover}\n"
+        "В этот день (год назад): {on_this_day_time}\n"
     ),
     "reminders_daily_btn": "Ежедневное",
     "reminders_smart_btn": "Умные",
+    "reminders_on_this_day_btn": "🕰 В этот день",
     "reminders_disable_all_btn": "Отключить всё",
     "reminders_back_btn": "Назад",
     "reminders_disabled_all": "🔕 Все напоминания отключены.",
@@ -513,6 +517,16 @@ MESSAGES_RU = {
     "smart_nudge_missing_yesterday": "⏰ Вчера ещё нет записи привычек. Нажми «Записать» ниже.",
     "smart_nudge_log_now": "📝 Записать",
     "smart_nudge_disable": "🔕 Отключить",
+    "on_this_day_prompt": (
+        "🕰 В этот день — напоминания о записях годовой давности.\n"
+        "Текущее время: {time}\n"
+        "Отправь время в формате HH:MM (например, 09:00).\n"
+        "Чтобы отключить, отправь off или выкл."
+    ),
+    "on_this_day_saved": "✅ Напоминания «В этот день» включены на {time}.",
+    "on_this_day_disabled": "🔕 Напоминания «В этот день» отключены.",
+    "on_this_day_schedule_error": "⚠️ Не удалось запланировать напоминания «В этот день». Попробуй ещё раз позже.",
+    "on_this_day_empty": "🕰 Пока нечего вспоминать — в этот день записей ещё нет.",
     "config_menu": "⚙️ Настройки",
     "feedback_prompt": "Напиши, что можно улучшить или что не работает. Я сохраню отзыв.",
     "feedback_saved": "✅ Спасибо! Отзыв сохранён.",
@@ -830,9 +844,11 @@ MESSAGES_EN = {
         "Smart nudges: {smart_status}\n"
         "Times: {smart_times}\n"
         "Rollover: {rollover}\n"
+        "On this day (year ago): {on_this_day_time}\n"
     ),
     "reminders_daily_btn": "Daily",
     "reminders_smart_btn": "Smart nudges",
+    "reminders_on_this_day_btn": "🕰 On this day",
     "reminders_disable_all_btn": "Disable all",
     "reminders_back_btn": "Back",
     "reminders_disabled_all": "🔕 All reminders disabled.",
@@ -867,6 +883,16 @@ MESSAGES_EN = {
     "smart_nudge_missing_yesterday": "⏰ No habits logged for yesterday yet. Tap “Log now” below.",
     "smart_nudge_log_now": "📝 Log now",
     "smart_nudge_disable": "🔕 Disable",
+    "on_this_day_prompt": (
+        "🕰 On this day — pushes memories from a year (or more) ago.\n"
+        "Current time: {time}\n"
+        "Send time as HH:MM (e.g., 09:00).\n"
+        "To disable, send off or disable."
+    ),
+    "on_this_day_saved": "✅ On this day push set for {time}.",
+    "on_this_day_disabled": "🔕 On this day push disabled.",
+    "on_this_day_schedule_error": "⚠️ Couldn’t schedule the On this day push. Please try again later.",
+    "on_this_day_empty": "🕰 Nothing to remember yet — no entries for this day in past years.",
     "config_menu": "⚙️ Settings",
     "feedback_prompt": "Share what could be improved or what doesn’t work. I’ll save your feedback.",
     "feedback_saved": "✅ Thanks! Your feedback was saved.",

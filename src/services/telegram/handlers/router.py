@@ -12,6 +12,7 @@ from src.services.telegram.handlers.config import (
     reset_command,
     reminder_command,
     handle_reminder_text,
+    handle_on_this_day_text,
     handle_smart_nudges_rollover_text,
     handle_smart_nudges_times_text,
     looks_like_sheet_input,
@@ -25,6 +26,7 @@ from src.services.telegram.handlers.thought import handle_thought_text, thought_
 from src.services.telegram.handlers.help import help_command
 from src.services.telegram.handlers.feedback import feedback_command, handle_feedback_text
 from src.services.telegram.handlers.week_analysis import week_analysis_command
+from src.services.telegram.handlers.on_this_day import on_this_day_command
 from src.services.telegram.keyboards import build_main_menu_keyboard, build_config_keyboard
 from src.services.transcription.whisper import WhisperClient
 from src.models.session import ConversationState, SessionData
@@ -100,6 +102,9 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
     if matched("week_analysis"):
         await week_analysis_command(update, context)
         return
+    if matched("on_this_day"):
+        await on_this_day_command(update, context)
+        return
     if matched("help"):
         await help_command(update, context)
         return
@@ -158,6 +163,7 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
     for handler in (
         handle_timezone_text,
         handle_reminder_text,
+        handle_on_this_day_text,
         handle_smart_nudges_times_text,
         handle_smart_nudges_rollover_text,
         handle_config_text,

@@ -49,6 +49,10 @@ class UserProfile(BaseModel):
     smart_nudges_task_name: Optional[str] = None
     last_habits_logged_for_date: Optional[str] = None
 
+    on_this_day_enabled: bool = False
+    on_this_day_time: Optional[str] = None
+    on_this_day_task_name: Optional[str] = None
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     onboarding_completed: bool = False

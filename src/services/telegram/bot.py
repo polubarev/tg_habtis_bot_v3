@@ -26,6 +26,7 @@ from src.services.telegram.handlers.dream import dream_command, handle_dream_con
 from src.services.telegram.handlers.thought import thought_command, handle_thought_confirm
 from src.services.telegram.handlers.reflect import reflect_command, handle_reflect_confirm
 from src.services.telegram.handlers.help import help_command
+from src.services.telegram.handlers.on_this_day import on_this_day_command
 from src.services.telegram.handlers.config import config_command, handle_reset_confirm
 from src.services.telegram.handlers.config import handle_reminders_menu_callback, handle_smart_nudges_callback
 from src.services.telegram.handlers.language import handle_language_select
@@ -88,6 +89,7 @@ class TelegramBotService:
         self.app.add_handler(CommandHandler("config", config_command))
         self.app.add_handler(CommandHandler("habits_config", habits_config_command))
         self.app.add_handler(CommandHandler("reflect_config", questions_command))
+        self.app.add_handler(CommandHandler("on_this_day", on_this_day_command))
         self.app.add_handler(CommandHandler("help", help_command))
         self.app.add_handler(
             CallbackQueryHandler(handle_habits_date_callback, pattern="^habits_date:|^habits_cancel$")

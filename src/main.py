@@ -1,23 +1,35 @@
+import asyncio
+
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from telegram import Bot
-from telegram.error import TelegramError
+from telegram.constants import ParseMode
+from telegram.error import BadRequest, TelegramError
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from src.config.settings import Settings, get_settings
 from src.config.constants import MESSAGES_EN, MESSAGES_RU
 from src.core.dependencies import UserRepoDep, SettingsDep, verify_reminder_dispatch, verify_telegram_webhook
+from src.core.exceptions import ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.core.logging import setup_logging
 from functools import lru_cache
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from src.services.on_this_day import (
+    assemble_payloads,
+    compute_on_this_day_dates,
+    format_on_this_day_message,
+    should_autopush_skip_for_new_user,
+)
+from src.services.storage.sheets.client import SheetsClient
 from src.services.telegram.bot import TelegramBotService
 from src.services.telegram.utils import resolve_language
 from src.services.reminders import (
     ReminderScheduleError,
     compute_due_date,
     parse_time_text,
+    schedule_on_this_day_task,
     schedule_reminder_task,
     schedule_smart_nudges_task,
 )
@@ -77,6 +89,80 @@ async def reminders_dispatch(
 
     lang = resolve_language(profile)
     now_local = datetime.now(ZoneInfo(profile.timezone))
+
+    if kind == "on_this_day":
+        if not profile.on_this_day_enabled or not profile.on_this_day_time:
+            return JSONResponse({"ok": True, "skipped": "disabled"})
+
+        reminder_time = parse_time_text(profile.on_this_day_time)
+        if not reminder_time:
+            return JSONResponse({"ok": True, "skipped": "invalid_time"})
+
+        msgs = MESSAGES_RU if lang == "ru" else MESSAGES_EN
+        today_local = now_local.date()
+
+        sent = False
+        if should_autopush_skip_for_new_user(today_local, profile.created_at):
+            pass  # Less than a year of history — skip send, just reschedule.
+        elif not profile.sheet_id:
+            pass  # No sheet connected — skip send.
+        else:
+            target_dates = compute_on_this_day_dates(today_local, profile.created_at)
+            if target_dates:
+                sheets_client = SheetsClient(settings.google_credentials_path)
+                try:
+                    habits_entries, dreams_entries, thoughts_entries, reflection_entries = await asyncio.wait_for(
+                        asyncio.gather(
+                            sheets_client.get_habit_entries_for_dates(profile.sheet_id, target_dates),
+                            sheets_client.get_dream_entries_for_dates(profile.sheet_id, target_dates),
+                            sheets_client.get_thought_entries_for_dates(profile.sheet_id, target_dates),
+                            sheets_client.get_reflection_entries_for_dates(profile.sheet_id, target_dates),
+                        ),
+                        timeout=settings.operation_timeout_seconds,
+                    )
+                except (SheetAccessError, SheetWriteError, ExternalTimeoutError, asyncio.TimeoutError):
+                    habits_entries = dreams_entries = thoughts_entries = reflection_entries = []
+                payloads = assemble_payloads(
+                    target_dates,
+                    habits_entries,
+                    dreams_entries,
+                    thoughts_entries,
+                    reflection_entries,
+                )
+                if payloads:
+                    text = format_on_this_day_message(today_local, payloads, lang)
+                    try:
+                        bot = Bot(token=bot_token)
+                        try:
+                            await bot.send_message(chat_id=user_id, text=text, parse_mode=ParseMode.MARKDOWN)
+                        except BadRequest:
+                            try:
+                                await bot.send_message(
+                                    chat_id=user_id,
+                                    text=text.replace("_", "\\_"),
+                                    parse_mode=ParseMode.MARKDOWN,
+                                )
+                            except BadRequest:
+                                await bot.send_message(chat_id=user_id, text=text)
+                        sent = True
+                    except TelegramError as exc:
+                        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+
+        try:
+            profile.on_this_day_task_name = schedule_on_this_day_task(
+                settings,
+                user_id,
+                reminder_time,
+                profile.timezone,
+                profile.on_this_day_task_name,
+            )
+        except ReminderScheduleError:
+            profile.on_this_day_task_name = None
+            await user_repo.update(profile)
+            return JSONResponse({"ok": True, "schedule": "failed", "sent": sent})
+
+        await user_repo.update(profile)
+        return JSONResponse({"ok": True, "sent": sent})
 
     if kind == "smart_nudge":
         if not profile.smart_nudges_enabled or not profile.smart_nudges_times:
