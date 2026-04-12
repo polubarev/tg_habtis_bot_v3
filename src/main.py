@@ -107,7 +107,7 @@ async def reminders_dispatch(
         elif not profile.sheet_id:
             pass  # No sheet connected — skip send.
         else:
-            target_dates = compute_on_this_day_dates(today_local, profile.created_at)
+            target_dates = compute_on_this_day_dates(today_local)
             if target_dates:
                 sheets_client = SheetsClient(settings.google_credentials_path)
                 try:

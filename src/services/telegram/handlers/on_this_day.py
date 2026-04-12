@@ -51,7 +51,7 @@ async def collect_on_this_day_payloads(
 
     user_tz = resolve_user_timezone(profile)
     today = datetime.now(user_tz).date()
-    target_dates = compute_on_this_day_dates(today, profile.created_at)
+    target_dates = compute_on_this_day_dates(today)
     if not target_dates:
         return [], today
 
