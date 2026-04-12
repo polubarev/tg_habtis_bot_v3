@@ -111,6 +111,29 @@ def schedule_reminder_task(
     )
 
 
+def schedule_on_this_day_task(
+    settings: Settings,
+    user_id: int,
+    reminder_time: time,
+    timezone_name: str,
+    previous_task_name: str | None = None,
+) -> str:
+    """Schedule the next daily "On this day" push for a user."""
+
+    try:
+        tz = ZoneInfo(timezone_name)
+    except Exception as exc:
+        raise ReminderScheduleError("Invalid timezone") from exc
+    next_run = compute_next_run(reminder_time, tz).astimezone(timezone.utc)
+    payload = {"user_id": user_id, "kind": "on_this_day"}
+    return schedule_reminders_task_at(
+        settings=settings,
+        schedule_time_utc=next_run,
+        payload=payload,
+        previous_task_name=previous_task_name,
+    )
+
+
 def schedule_reminders_task_at(
     *,
     settings: Settings,

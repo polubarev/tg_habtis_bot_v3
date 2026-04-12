@@ -54,8 +54,8 @@ def build_main_menu_keyboard(language: str = "en") -> ReplyKeyboardMarkup:
     keyboard = [
         [btns["habits"], btns["dream"]],
         [btns["thought"], btns["reflect"]],
-        [btns["week_analysis"], btns["config"]],
-        [btns["help"]],
+        [btns["week_analysis"], btns["on_this_day"]],
+        [btns["config"], btns["help"]],
         [btns["cancel"]],
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=True)

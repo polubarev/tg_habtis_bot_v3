@@ -10,6 +10,7 @@ from src.services.reminders import (
     delete_reminder_task,
     format_time_value,
     parse_time_text,
+    schedule_on_this_day_task,
     schedule_reminder_task,
     schedule_smart_nudges_task,
 )
@@ -282,6 +283,19 @@ async def handle_timezone_text(update: Update, context: ContextTypes.DEFAULT_TYP
                     )
                 except ReminderScheduleError:
                     schedule_error = True
+            if profile.on_this_day_enabled and profile.on_this_day_time:
+                parsed_otd = parse_time_text(profile.on_this_day_time)
+                if parsed_otd:
+                    try:
+                        profile.on_this_day_task_name = schedule_on_this_day_task(
+                            get_settings(),
+                            update.effective_user.id,
+                            parsed_otd,
+                            profile.timezone,
+                            profile.on_this_day_task_name,
+                        )
+                    except ReminderScheduleError:
+                        schedule_error = True
             await user_repo.update(profile)
 
     if session_repo:
@@ -316,11 +330,17 @@ async def reminder_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     smart_status = msgs["reminders_on"] if profile and profile.smart_nudges_enabled else msgs["reminders_off"]
     smart_times = ", ".join(profile.smart_nudges_times) if profile and profile.smart_nudges_times else msgs["empty_value"]
     rollover = profile.smart_nudges_rollover_time if profile else _SMART_NUDGES_DEFAULT_ROLLOVER
+    on_this_day_label = (
+        profile.on_this_day_time
+        if profile and profile.on_this_day_enabled and profile.on_this_day_time
+        else msgs["reminders_off"]
+    )
     text = msgs["reminders_overview"].format(
         daily_time=daily_label,
         smart_status=smart_status,
         smart_times=smart_times,
         rollover=rollover,
+        on_this_day_time=on_this_day_label,
     )
     keyboard = InlineKeyboardMarkup(
         [
@@ -328,6 +348,7 @@ async def reminder_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 InlineKeyboardButton(msgs["reminders_daily_btn"], callback_data="reminders_menu:daily"),
                 InlineKeyboardButton(msgs["reminders_smart_btn"], callback_data="reminders_menu:smart"),
             ],
+            [InlineKeyboardButton(msgs["reminders_on_this_day_btn"], callback_data="reminders_menu:on_this_day")],
             [InlineKeyboardButton(msgs["reminders_disable_all_btn"], callback_data="reminders_menu:disable_all")],
             [InlineKeyboardButton(msgs["reminders_back_btn"], callback_data="reminders_menu:back")],
         ]
@@ -377,16 +398,31 @@ async def handle_reminders_menu_callback(update: Update, context: ContextTypes.D
         await _show_smart_nudges_menu(update, context)
         return
 
+    if action == "on_this_day":
+        current_time = profile.on_this_day_time if profile and profile.on_this_day_enabled else None
+        time_label = current_time or msgs["empty_value"]
+        if query.message:
+            await query.message.reply_text(msgs["on_this_day_prompt"].format(time=time_label))
+        if session_repo:
+            session = await session_repo.get(update.effective_user.id) or SessionData(user_id=update.effective_user.id)
+            session.state = ConversationState.CONFIG_ON_THIS_DAY_TIME
+            await session_repo.save(session)
+        return
+
     if action == "disable_all":
         if not profile or not user_repo:
             return
         delete_reminder_task(get_settings(), profile.reminder_task_name)
         delete_reminder_task(get_settings(), profile.smart_nudges_task_name)
+        delete_reminder_task(get_settings(), profile.on_this_day_task_name)
         profile.reminder_enabled = False
         profile.reminder_time = None
         profile.reminder_task_name = None
         profile.smart_nudges_enabled = False
         profile.smart_nudges_task_name = None
+        profile.on_this_day_enabled = False
+        profile.on_this_day_time = None
+        profile.on_this_day_task_name = None
         await user_repo.update(profile)
         if query.message:
             await query.message.reply_text(msgs["reminders_disabled_all"], reply_markup=build_main_menu_keyboard(lang))
@@ -535,11 +571,17 @@ async def _show_reminders_menu(update: Update, context: ContextTypes.DEFAULT_TYP
     smart_status = msgs["reminders_on"] if profile and profile.smart_nudges_enabled else msgs["reminders_off"]
     smart_times = ", ".join(profile.smart_nudges_times) if profile and profile.smart_nudges_times else msgs["empty_value"]
     rollover = profile.smart_nudges_rollover_time if profile else _SMART_NUDGES_DEFAULT_ROLLOVER
+    on_this_day_label = (
+        profile.on_this_day_time
+        if profile and profile.on_this_day_enabled and profile.on_this_day_time
+        else msgs["reminders_off"]
+    )
     text = msgs["reminders_overview"].format(
         daily_time=daily_label,
         smart_status=smart_status,
         smart_times=smart_times,
         rollover=rollover,
+        on_this_day_time=on_this_day_label,
     )
     keyboard = InlineKeyboardMarkup(
         [
@@ -547,6 +589,7 @@ async def _show_reminders_menu(update: Update, context: ContextTypes.DEFAULT_TYP
                 InlineKeyboardButton(msgs["reminders_daily_btn"], callback_data="reminders_menu:daily"),
                 InlineKeyboardButton(msgs["reminders_smart_btn"], callback_data="reminders_menu:smart"),
             ],
+            [InlineKeyboardButton(msgs["reminders_on_this_day_btn"], callback_data="reminders_menu:on_this_day")],
             [InlineKeyboardButton(msgs["reminders_disable_all_btn"], callback_data="reminders_menu:disable_all")],
             [InlineKeyboardButton(msgs["reminders_back_btn"], callback_data="reminders_menu:back")],
         ]
@@ -780,6 +823,97 @@ async def handle_smart_nudges_rollover_text(update: Update, context: ContextType
     if session_repo:
         await session_repo.save(session)
     await update.message.reply_text(_messages_for_lang(lang)["smart_nudges_saved"], reply_markup=build_main_menu_keyboard(lang))
+    return True
+
+
+async def handle_on_this_day_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Handle "On this day" autopush time input."""
+
+    if not update.effective_user or not update.message:
+        return False
+    lang = await _get_lang(update, context)
+    text = (update.message.text or "").strip()
+    session_repo, user_repo, _ = _get_repos(context)
+    session = await session_repo.get(update.effective_user.id) if session_repo else None
+
+    if text.lower() in {"/cancel", "cancel", "отмена"}:
+        if session:
+            session.state = ConversationState.IDLE
+            if session_repo:
+                await session_repo.save(session)
+        await update.message.reply_text(
+            _messages_for_lang(lang)["cancelled_config"],
+            reply_markup=build_main_menu_keyboard(lang),
+        )
+        return True
+
+    if session is None or session.state != ConversationState.CONFIG_ON_THIS_DAY_TIME:
+        return False
+
+    if user_repo:
+        profile = await user_repo.get_by_telegram_id(update.effective_user.id)
+        if profile is None:
+            profile = UserProfile(
+                telegram_user_id=update.effective_user.id,
+                telegram_username=update.effective_user.username,
+                habit_schema=DEFAULT_HABIT_SCHEMA.model_copy(deep=True),
+            )
+    else:
+        profile = None
+
+    if text.lower() in _REMINDER_DISABLE_WORDS:
+        if profile and user_repo:
+            delete_reminder_task(get_settings(), profile.on_this_day_task_name)
+            profile.on_this_day_enabled = False
+            profile.on_this_day_time = None
+            profile.on_this_day_task_name = None
+            await user_repo.update(profile)
+        if session:
+            session.state = ConversationState.IDLE
+            if session_repo:
+                await session_repo.save(session)
+        await update.message.reply_text(
+            _messages_for_lang(lang)["on_this_day_disabled"],
+            reply_markup=build_main_menu_keyboard(lang),
+        )
+        return True
+
+    parsed = parse_time_text(text)
+    if not parsed:
+        await update.message.reply_text(_messages_for_lang(lang)["reminder_invalid_time"])
+        return True
+
+    formatted = format_time_value(parsed)
+    if not profile or not user_repo:
+        await update.message.reply_text(_messages_for_lang(lang)["on_this_day_schedule_error"])
+        return True
+
+    try:
+        new_task_name = schedule_on_this_day_task(
+            get_settings(),
+            update.effective_user.id,
+            parsed,
+            profile.timezone,
+            profile.on_this_day_task_name,
+        )
+    except ReminderScheduleError:
+        await update.message.reply_text(_messages_for_lang(lang)["on_this_day_schedule_error"])
+        return True
+
+    profile.on_this_day_time = formatted
+    profile.on_this_day_enabled = True
+    profile.on_this_day_task_name = new_task_name
+    await user_repo.update(profile)
+
+    if session:
+        session.state = ConversationState.IDLE
+        if session_repo:
+            await session_repo.save(session)
+
+    await update.message.reply_text(
+        _messages_for_lang(lang)["on_this_day_saved"].format(time=formatted),
+        reply_markup=build_main_menu_keyboard(lang),
+    )
     return True
 
 
