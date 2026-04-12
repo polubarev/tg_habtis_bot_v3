@@ -22,18 +22,9 @@ def test_shift_year_feb_29_to_feb_28_in_non_leap_year():
     assert _shift_year(date(2024, 2, 29), 4) == date(2020, 2, 29)
 
 
-def test_compute_on_this_day_dates_less_than_one_year_returns_empty():
+def test_compute_on_this_day_dates_returns_years_back():
     today = date(2026, 4, 11)
-    # Created 6 months ago — not a full year yet.
-    created = datetime(2025, 10, 1)
-    assert compute_on_this_day_dates(today, created) == []
-
-
-def test_compute_on_this_day_dates_includes_multiple_years():
-    today = date(2026, 4, 11)
-    created = datetime(2022, 1, 1)
-    result = compute_on_this_day_dates(today, created)
-    # Expect 4 years: 2025, 2024, 2023, 2022 (all >= created_date).
+    result = compute_on_this_day_dates(today, max_years_back=4)
     assert result == [
         date(2025, 4, 11),
         date(2024, 4, 11),
@@ -42,20 +33,19 @@ def test_compute_on_this_day_dates_includes_multiple_years():
     ]
 
 
-def test_compute_on_this_day_dates_stops_before_created_at():
-    today = date(2026, 4, 11)
-    # Created 2023-06-01: 2023-04-11 is BEFORE created → excluded.
-    created = datetime(2023, 6, 1)
-    result = compute_on_this_day_dates(today, created)
-    assert result == [date(2025, 4, 11), date(2024, 4, 11)]
-
-
 def test_compute_on_this_day_dates_feb_29_today_maps_to_feb_28_past():
     today = date(2024, 2, 29)
-    created = datetime(2021, 1, 1)
-    result = compute_on_this_day_dates(today, created)
-    # 2023 and 2022 and 2021 aren't leap → Feb 28; 2020 (not in result: created too late).
+    result = compute_on_this_day_dates(today, max_years_back=3)
+    # 2023 and 2022 aren't leap → Feb 28; 2021 also not leap → Feb 28.
     assert result == [date(2023, 2, 28), date(2022, 2, 28), date(2021, 2, 28)]
+
+
+def test_compute_on_this_day_dates_default_max_is_10():
+    today = date(2026, 4, 11)
+    result = compute_on_this_day_dates(today)
+    assert len(result) == 10
+    assert result[0] == date(2025, 4, 11)
+    assert result[-1] == date(2016, 4, 11)
 
 
 def test_should_autopush_skip_for_new_user_true():
@@ -70,7 +60,8 @@ def test_should_autopush_skip_for_new_user_false():
 
 def test_should_autopush_skip_for_new_user_missing_created_at():
     today = date(2026, 4, 11)
-    assert should_autopush_skip_for_new_user(today, None) is True
+    # Unknown created_at — let sheets decide, don't skip.
+    assert should_autopush_skip_for_new_user(today, None) is False
 
 
 def test_assemble_payloads_groups_by_year_and_drops_empty():

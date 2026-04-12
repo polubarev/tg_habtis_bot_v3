@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from typing import Any, Iterable
+from typing import Any
 
 
 def _shift_year(today: date, years_back: int) -> date:
@@ -30,33 +30,18 @@ def _shift_year(today: date, years_back: int) -> date:
 
 def compute_on_this_day_dates(
     today: date,
-    created_at: datetime | date | None,
-    max_years_back: int = 50,
+    max_years_back: int = 10,
 ) -> list[date]:
     """Return the list of past dates to look up for "On this day".
 
     Starts from `today - 1 year` and goes further back, one year at a time,
-    stopping as soon as the candidate date is earlier than `created_at`.
-    Returns an empty list if the user is less than a full year old in the bot.
+    up to ``max_years_back``.  Filtering by actual data presence is left to
+    the caller (empty Sheets results are naturally skipped).
     """
-
-    if created_at is None:
-        return []
-    if isinstance(created_at, datetime):
-        created_date = created_at.date()
-    else:
-        created_date = created_at
-
-    # Require at least one full year of history.
-    one_year_ago = _shift_year(today, 1)
-    if one_year_ago < created_date:
-        return []
 
     dates: list[date] = []
     for years_back in range(1, max_years_back + 1):
         candidate = _shift_year(today, years_back)
-        if candidate < created_date:
-            break
         dates.append(candidate)
     return dates
 
@@ -238,10 +223,14 @@ def should_autopush_skip_for_new_user(
     today: date,
     created_at: datetime | date | None,
 ) -> bool:
-    """True if user is less than a full year old — skip autopush silently."""
+    """True if user is *definitely* less than a year old — skip autopush.
+
+    NOTE: ``created_at`` in Firestore may default to "now" when a profile is
+    re-read without the field, so this is only a best-effort hint.  Returning
+    ``False`` here simply means "proceed to check Sheets".
+    """
 
     if created_at is None:
-        return True
+        return False  # unknown age — let sheets decide
     created_date = created_at.date() if isinstance(created_at, datetime) else created_at
-    # Allow a 1-day slack for timezones / creation-time rounding.
     return (today - created_date) < timedelta(days=365)
