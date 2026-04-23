@@ -95,6 +95,20 @@ SENSITIVE_APP_ENV_KEYS=(
 # When SERVICE_ACCOUNT is set the container uses Workload Identity and needs no key file.
 if [[ -z "${SERVICE_ACCOUNT}" ]]; then
   CONFIG_APP_ENV_KEYS+=(GOOGLE_CREDENTIALS_PATH)
+  # src/secrets/ is excluded from Docker images (see .dockerignore), so any
+  # GOOGLE_CREDENTIALS_PATH pointing inside src/secrets/ will not resolve in the container.
+  # Fail fast here so the user doesn't silently deploy a broken service.
+  if [[ -n "${GOOGLE_CREDENTIALS_PATH:-}" && "${GOOGLE_CREDENTIALS_PATH}" == src/secrets/* ]]; then
+    cat >&2 <<EOF
+ERROR: SERVICE_ACCOUNT is unset AND GOOGLE_CREDENTIALS_PATH points inside src/secrets/
+       which is excluded from the Docker image. The deployed container will not
+       have access to the key file and will fail to reach Firestore / Sheets.
+
+       Fix: set SERVICE_ACCOUNT=<service-account-email> to use Workload Identity
+            (recommended), e.g. SERVICE_ACCOUNT=tg-habits-bot@${PROJECT_ID}.iam.gserviceaccount.com
+EOF
+    exit 1
+  fi
 fi
 
 if [[ "${BUILD_STRATEGY}" == "local" && "${PLATFORM}" == "linux/amd64" ]]; then
@@ -172,8 +186,13 @@ done
 
 SECRET_ARGS=()
 if [[ "${USE_SECRET_MANAGER}" == "true" ]]; then
+  # Only wire up secrets whose value is present locally (proxy for "user actually uses this key").
+  # This avoids failing when an optional secret like TELEGRAM_BOT_TOKEN_DEBUG doesn't exist in SM.
   for key in "${SENSITIVE_APP_ENV_KEYS[@]}"; do
-    SECRET_ARGS+=("${key}=${key}:latest")
+    val="${!key-}"
+    if [[ -n "${val}" ]]; then
+      SECRET_ARGS+=("${key}=${key}:latest")
+    fi
   done
 else
   echo "WARNING: USE_SECRET_MANAGER is false — sensitive keys passed as plain env vars." >&2

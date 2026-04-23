@@ -50,9 +50,9 @@ async def verify_telegram_webhook(
 
     settings = get_settings()
     if not settings.telegram_webhook_secret:
-        raise HTTPException(status_code=500, detail="Webhook secret not configured")
+        raise HTTPException(status_code=500, detail="Service misconfigured")
     if x_telegram_bot_api_secret_token != settings.telegram_webhook_secret:
-        raise HTTPException(status_code=403, detail="Invalid secret token")
+        raise HTTPException(status_code=403, detail="Forbidden")
     return True
 
 
@@ -63,9 +63,9 @@ async def verify_reminder_dispatch(
 
     settings = get_settings()
     if not settings.reminders_dispatch_secret:
-        raise HTTPException(status_code=500, detail="Reminder dispatch secret not configured")
+        raise HTTPException(status_code=500, detail="Service misconfigured")
     if x_reminder_secret != settings.reminders_dispatch_secret:
-        raise HTTPException(status_code=403, detail="Invalid reminder secret")
+        raise HTTPException(status_code=403, detail="Forbidden")
     return True
 
 
