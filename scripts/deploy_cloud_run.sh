@@ -16,6 +16,11 @@ set -euo pipefail
 #   CLEANUP_AFTER_DEPLOY          - delete pushed image from Artifact Registry and local cache (default: false)
 #   SET_TELEGRAM_WEBHOOK          - call Telegram setWebhook after deploy (default: false)
 #   STARTUP_CPU_BOOST             - enable startup CPU boost (default: false)
+#   USE_SECRET_MANAGER            - load sensitive keys from Secret Manager instead of env vars (default: false)
+#                                   Secrets must exist in Secret Manager using the exact env var name as the secret id.
+#                                   Example: gcloud secrets create TELEGRAM_BOT_TOKEN --data-file=<(echo -n "value")
+#   SERVICE_ACCOUNT               - service account email to run the Cloud Run service as (enables Workload Identity)
+#                                   Recommended: set this so the container never needs a key file.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -44,29 +49,26 @@ ALLOW_QEMU="${ALLOW_QEMU:-false}"
 CLEANUP_AFTER_DEPLOY="${CLEANUP_AFTER_DEPLOY:-true}"
 SET_TELEGRAM_WEBHOOK="${SET_TELEGRAM_WEBHOOK:-false}"
 STARTUP_CPU_BOOST="${STARTUP_CPU_BOOST:-false}"
-APP_ENV_KEYS=(
+USE_SECRET_MANAGER="${USE_SECRET_MANAGER:-false}"
+SERVICE_ACCOUNT="${SERVICE_ACCOUNT:-}"
+
+# Non-sensitive config — always passed as plain env vars.
+CONFIG_APP_ENV_KEYS=(
   APP_NAME
   APP_VERSION
   DEBUG
   LOG_LEVEL
   GCP_PROJECT_ID
   GCP_REGION
-  GOOGLE_CREDENTIALS_PATH
-  TELEGRAM_BOT_TOKEN
-  TELEGRAM_BOT_TOKEN_DEBUG
   TELEGRAM_WEBHOOK_URL
   TELEGRAM_WEBHOOK_URL_DEBUG
-  TELEGRAM_WEBHOOK_SECRET
   REMINDERS_DISPATCH_URL
   REMINDERS_DISPATCH_URL_DEBUG
   REMINDERS_QUEUE_NAME
-  REMINDERS_DISPATCH_SECRET
-  OPENROUTER_API_KEY
   OPENROUTER_BASE_URL
   LLM_MODEL
   LLM_TEMPERATURE
   LLM_MAX_TOKENS
-  OPENAI_API_KEY
   WHISPER_MODEL
   FIRESTORE_COLLECTION_USERS
   FIRESTORE_COLLECTION_SESSIONS
@@ -74,6 +76,26 @@ APP_ENV_KEYS=(
   SESSION_TTL_MINUTES
   RATE_LIMIT_REQUESTS_PER_MINUTE
 )
+
+# Sensitive keys — loaded from Secret Manager when USE_SECRET_MANAGER=true,
+# otherwise passed as plain env vars (legacy / local testing only).
+# Secret Manager secret ids must match these names exactly.
+# Create them once with:
+#   printf '%s' "$VALUE" | gcloud secrets create KEY_NAME --data-file=- --project="${PROJECT_ID}"
+SENSITIVE_APP_ENV_KEYS=(
+  TELEGRAM_BOT_TOKEN
+  TELEGRAM_BOT_TOKEN_DEBUG
+  TELEGRAM_WEBHOOK_SECRET
+  REMINDERS_DISPATCH_SECRET
+  OPENROUTER_API_KEY
+  OPENAI_API_KEY
+)
+
+# GOOGLE_CREDENTIALS_PATH is only needed for local dev (no Workload Identity).
+# When SERVICE_ACCOUNT is set the container uses Workload Identity and needs no key file.
+if [[ -z "${SERVICE_ACCOUNT}" ]]; then
+  CONFIG_APP_ENV_KEYS+=(GOOGLE_CREDENTIALS_PATH)
+fi
 
 if [[ "${BUILD_STRATEGY}" == "local" && "${PLATFORM}" == "linux/amd64" ]]; then
   HOST_ARCH="$(uname -m)"
@@ -141,18 +163,43 @@ fi
 
 DEPLOY_ENV_ARGS=()
 ENV_ARGS=()
-for key in "${APP_ENV_KEYS[@]}"; do
+for key in "${CONFIG_APP_ENV_KEYS[@]}"; do
   val="${!key-}"
   if [[ -n "${val}" ]]; then
     ENV_ARGS+=("${key}=${val}")
   fi
 done
+
+SECRET_ARGS=()
+if [[ "${USE_SECRET_MANAGER}" == "true" ]]; then
+  for key in "${SENSITIVE_APP_ENV_KEYS[@]}"; do
+    SECRET_ARGS+=("${key}=${key}:latest")
+  done
+else
+  echo "WARNING: USE_SECRET_MANAGER is false — sensitive keys passed as plain env vars." >&2
+  echo "         Set USE_SECRET_MANAGER=true once secrets exist in Secret Manager." >&2
+  for key in "${SENSITIVE_APP_ENV_KEYS[@]}"; do
+    val="${!key-}"
+    if [[ -n "${val}" ]]; then
+      ENV_ARGS+=("${key}=${val}")
+    fi
+  done
+fi
+
 if [[ ${#ENV_ARGS[@]} -gt 0 ]]; then
-  DEPLOY_ENV_ARGS=(--set-env-vars "$(IFS=,; echo "${ENV_ARGS[*]}")")
+  DEPLOY_ENV_ARGS+=(--set-env-vars "$(IFS=,; echo "${ENV_ARGS[*]}")")
+fi
+if [[ ${#SECRET_ARGS[@]} -gt 0 ]]; then
+  DEPLOY_ENV_ARGS+=(--set-secrets "$(IFS=,; echo "${SECRET_ARGS[*]}")")
 fi
 CPU_BOOST_ARGS=()
 if [[ "${STARTUP_CPU_BOOST}" == "true" ]]; then
   CPU_BOOST_ARGS=(--cpu-boost)
+fi
+
+SA_ARGS=()
+if [[ -n "${SERVICE_ACCOUNT}" ]]; then
+  SA_ARGS=(--service-account "${SERVICE_ACCOUNT}")
 fi
 
 echo "Deploying to Cloud Run..."
@@ -166,6 +213,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --min-instances 0 \
   --max-instances 1 \
   "${CPU_BOOST_ARGS[@]}" \
+  "${SA_ARGS[@]}" \
   "${DEPLOY_ENV_ARGS[@]}"
 
 SERVICE_URL="$(gcloud run services describe "${SERVICE_NAME}" --region "${REGION}" --project "${PROJECT_ID}" --format='value(status.url)')"

@@ -49,9 +49,10 @@ async def verify_telegram_webhook(
     """Verify the webhook request is from Telegram."""
 
     settings = get_settings()
-    if settings.telegram_webhook_secret:
-        if x_telegram_bot_api_secret_token != settings.telegram_webhook_secret:
-            raise HTTPException(status_code=403, detail="Invalid secret token")
+    if not settings.telegram_webhook_secret:
+        raise HTTPException(status_code=500, detail="Webhook secret not configured")
+    if x_telegram_bot_api_secret_token != settings.telegram_webhook_secret:
+        raise HTTPException(status_code=403, detail="Invalid secret token")
     return True
 
 
@@ -61,9 +62,10 @@ async def verify_reminder_dispatch(
     """Verify the reminder dispatch request is authorized."""
 
     settings = get_settings()
-    if settings.reminders_dispatch_secret:
-        if x_reminder_secret != settings.reminders_dispatch_secret:
-            raise HTTPException(status_code=403, detail="Invalid reminder secret")
+    if not settings.reminders_dispatch_secret:
+        raise HTTPException(status_code=500, detail="Reminder dispatch secret not configured")
+    if x_reminder_secret != settings.reminders_dispatch_secret:
+        raise HTTPException(status_code=403, detail="Invalid reminder secret")
     return True
 
 

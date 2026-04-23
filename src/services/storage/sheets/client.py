@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 import gspread
 import json
 import requests
+import google.auth
 from google.auth.transport.requests import AuthorizedSession
 from google.oauth2.service_account import Credentials
 
@@ -22,6 +23,8 @@ from src.services.storage.interfaces import HabitRowLookup, ISheetsClient
 class SheetsClient(ISheetsClient):
     """Google Sheets client using a service account."""
 
+    _SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+
     def __init__(self, credentials_path: Optional[str] = None):
         self.credentials_path = credentials_path
         self.client: gspread.Client | None = None
@@ -29,10 +32,13 @@ class SheetsClient(ISheetsClient):
         self._tabs_ensured: set[str] = set()
         if credentials_path:
             creds = Credentials.from_service_account_file(
-                credentials_path, scopes=["https://www.googleapis.com/auth/spreadsheets"]
+                credentials_path, scopes=self._SCOPES
             )
-            self.client = gspread.Client(auth=creds, session=AuthorizedSession(creds))
             self.service_email = creds.service_account_email
+        else:
+            # Use Application Default Credentials (Workload Identity on Cloud Run)
+            creds, _ = google.auth.default(scopes=self._SCOPES)
+        self.client = gspread.Client(auth=creds, session=AuthorizedSession(creds))
         self._cache: Dict[str, gspread.Spreadsheet] = {}
 
     @staticmethod
