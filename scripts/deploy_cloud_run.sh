@@ -191,7 +191,11 @@ if [[ "${USE_SECRET_MANAGER}" == "true" ]]; then
   for key in "${SENSITIVE_APP_ENV_KEYS[@]}"; do
     val="${!key-}"
     if [[ -n "${val}" ]]; then
-      SECRET_ARGS+=("${key}=${key}:latest")
+      if gcloud secrets describe "${key}" --project "${PROJECT_ID}" >/dev/null 2>&1; then
+        SECRET_ARGS+=("${key}=${key}:latest")
+      else
+        echo "Secret Manager secret ${key} does not exist; skipping deploy secret binding."
+      fi
     fi
   done
 else
