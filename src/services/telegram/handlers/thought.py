@@ -6,6 +6,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from src.config.constants import MESSAGES_EN, MESSAGES_RU
+from src.core.analytics import log_event
 from src.config.settings import get_settings
 from src.models.entry import ThoughtEntry
 from src.core.exceptions import ExternalTimeoutError, SheetAccessError, SheetWriteError
@@ -50,6 +51,7 @@ async def thought_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     if not update.effective_user or not update.message:
         return
+    log_event("command.thought", user_id=update.effective_user.id)
     profile = await resolve_user_profile(update, context)
     lang = resolve_language(profile)
     session_repo, _, _ = _get_repos(context)

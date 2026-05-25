@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 from datetime import datetime, timedelta
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -10,6 +11,7 @@ from telegram.ext import ContextTypes
 
 from src.config.constants import MESSAGES_EN, MESSAGES_RU
 from src.config.settings import get_settings
+from src.core.analytics import log_event
 from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.services.llm.prompts.weekly_analysis import (
     WEEKLY_ANALYSIS_SYSTEM_PROMPT_EN,
@@ -39,6 +41,7 @@ def _weekly_prompt(lang: str) -> str:
 async def week_analysis_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message or not update.effective_user:
         return
+    log_event("command.week_analysis", user_id=update.effective_user.id)
 
     profile = await resolve_user_profile(update, context)
     lang = resolve_language(profile)
@@ -133,6 +136,7 @@ async def week_analysis_command(update: Update, context: ContextTypes.DEFAULT_TY
         f"{payload}"
     )
 
+    _llm_started = time.monotonic()
     try:
         messages = [
             SystemMessage(content=_weekly_prompt(lang)),
@@ -140,22 +144,43 @@ async def week_analysis_command(update: Update, context: ContextTypes.DEFAULT_TY
         ]
         result = await asyncio.wait_for(llm_client.model.ainvoke(messages), timeout=_OP_TIMEOUT)
     except asyncio.TimeoutError:
+        log_event(
+            "llm.call",
+            extractor="week_analysis",
+            model=get_settings().llm_model,
+            latency_ms=int((time.monotonic() - _llm_started) * 1000),
+            ok=False,
+            error="timeout",
+        )
         await safe_delete_message(progress_message)
         await update.message.reply_text(msgs["external_timeout_error"])
         return
-    except ExternalTimeoutError:
+    except (ExternalTimeoutError, ExternalResponseError, Exception) as exc:
+        log_event(
+            "llm.call",
+            extractor="week_analysis",
+            model=get_settings().llm_model,
+            latency_ms=int((time.monotonic() - _llm_started) * 1000),
+            ok=False,
+            error=type(exc).__name__,
+        )
         await safe_delete_message(progress_message)
-        await update.message.reply_text(msgs["external_timeout_error"])
-        return
-    except ExternalResponseError:
-        await safe_delete_message(progress_message)
-        await update.message.reply_text(msgs["external_response_error"])
-        return
-    except Exception:
-        await safe_delete_message(progress_message)
-        await update.message.reply_text(msgs["external_response_error"])
+        if isinstance(exc, ExternalTimeoutError):
+            await update.message.reply_text(msgs["external_timeout_error"])
+        else:
+            await update.message.reply_text(msgs["external_response_error"])
         return
 
+    usage = getattr(result, "usage_metadata", None) or {}
+    log_event(
+        "llm.call",
+        extractor="week_analysis",
+        model=get_settings().llm_model,
+        latency_ms=int((time.monotonic() - _llm_started) * 1000),
+        tokens_in=usage.get("input_tokens") if isinstance(usage, dict) else None,
+        tokens_out=usage.get("output_tokens") if isinstance(usage, dict) else None,
+        ok=True,
+    )
     await safe_delete_message(progress_message)
     content = getattr(result, "content", None) or str(result)
     message = f"{msgs['week_analysis_title']}\n\n{content}"

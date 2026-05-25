@@ -9,6 +9,7 @@ from telegram.ext import ContextTypes
 
 from src.config.constants import HABITS_SHEET_COLUMNS, MESSAGES_EN, MESSAGES_RU
 from src.config.settings import get_settings
+from src.core.analytics import log_event
 from src.models.habit import HabitSchema
 from src.models.session import ConversationState, SessionData
 from src.services.telegram.keyboards import (
@@ -509,6 +510,7 @@ async def habits_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     if not update.effective_user or not update.message:
         return
+    log_event("command.habits", user_id=update.effective_user.id)
     profile = await resolve_user_profile(update, context)
     lang = resolve_language(profile)
     user_id = update.effective_user.id

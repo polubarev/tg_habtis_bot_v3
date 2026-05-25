@@ -32,6 +32,7 @@ from src.services.transcription.whisper import WhisperClient
 from src.models.session import ConversationState, SessionData
 from src.models.enums import InputType
 from src.config.constants import MESSAGES_EN, MESSAGES_RU, BUTTONS_RU, BUTTONS_EN
+from src.core.analytics import log_event
 from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, TranscriptionError
 from src.services.telegram.handlers.language import language_command
 from src.services.telegram.utils import (
@@ -194,6 +195,12 @@ async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     if not update.message or not update.message.voice:
         return
+    log_event(
+        "voice.received",
+        user_id=update.effective_user.id if update.effective_user else None,
+        duration_s=update.message.voice.duration,
+        file_size=update.message.voice.file_size,
+    )
     profile = await resolve_user_profile(update, context)
     lang = resolve_language(profile)
     msgs = _messages_for_lang(lang)

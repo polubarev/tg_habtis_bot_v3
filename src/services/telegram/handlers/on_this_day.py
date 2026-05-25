@@ -13,6 +13,7 @@ from telegram.ext import ContextTypes
 
 from src.config.constants import MESSAGES_EN, MESSAGES_RU
 from src.config.settings import get_settings
+from src.core.analytics import log_event
 from src.core.exceptions import ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.models.user import UserProfile
 from src.services.on_this_day import (
@@ -77,6 +78,7 @@ async def collect_on_this_day_payloads(
 async def on_this_day_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message or not update.effective_user:
         return
+    log_event("command.on_this_day", user_id=update.effective_user.id)
 
     profile = await resolve_user_profile(update, context)
     lang = resolve_language(profile)

@@ -17,6 +17,7 @@ from src.services.reminders import (
 
 from src.config.constants import DEFAULT_HABIT_SCHEMA, MESSAGES_EN, MESSAGES_RU
 from src.config.settings import get_settings
+from src.core.analytics import log_event
 from src.core.exceptions import ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.models.session import ConversationState, SessionData
 from src.models.user import UserProfile
@@ -84,6 +85,7 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     if not update.message:
         return
+    log_event("command.reset", user_id=update.effective_user.id if update.effective_user else None)
     lang = await _get_lang(update, context)
     await update.message.reply_text(
         _messages_for_lang(lang)["reset_prompt"],
@@ -96,6 +98,7 @@ async def config_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     if not update.effective_user or not update.message:
         return
+    log_event("command.config", user_id=update.effective_user.id)
     session_repo, user_repo, _ = _get_repos(context)
     profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
     lang = resolve_language(profile)
@@ -321,6 +324,7 @@ async def reminder_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     if not update.effective_user or not update.message:
         return
+    log_event("command.reminders", user_id=update.effective_user.id)
     session_repo, user_repo, _ = _get_repos(context)
     profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
     lang = resolve_language(profile)

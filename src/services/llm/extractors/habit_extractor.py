@@ -1,5 +1,6 @@
 
 import asyncio
+import time
 from typing import Any, Dict, Optional, Literal
 import json
 
@@ -8,6 +9,8 @@ from pydantic import create_model
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from src.config.constants import DEFAULT_HABIT_SCHEMA
+from src.config.settings import get_settings
+from src.core.analytics import log_event
 from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, ExtractionError
 from src.core.logging import get_logger
 from src.models.habit import HabitSchema
@@ -124,13 +127,11 @@ class HabitExtractor:
             if isinstance(cfg, dict):
                 cfg.pop("default", None)
         structured_model = self._build_model(schema_for_llm)
-        preview = (raw_text or "")[:500]
         logger.info(
             "Habit LLM request",
             extra={
                 "language": language,
                 "schema_fields": list(schema_dict.get("fields", {}).keys()),
-                "text_preview": preview,
                 "text_length": len(raw_text or ""),
             },
         )
@@ -149,8 +150,25 @@ class HabitExtractor:
                     )
                 ),
             ]
-            logger.info(messages)
-            result = await chain.ainvoke(messages)
+            _started = time.monotonic()
+            try:
+                result = await chain.ainvoke(messages)
+            except Exception:
+                log_event(
+                    "llm.call",
+                    extractor="habit",
+                    model=get_settings().llm_model,
+                    latency_ms=int((time.monotonic() - _started) * 1000),
+                    ok=False,
+                )
+                raise
+            log_event(
+                "llm.call",
+                extractor="habit",
+                model=get_settings().llm_model,
+                latency_ms=int((time.monotonic() - _started) * 1000),
+                ok=True,
+            )
 
             if structured_model and hasattr(result, "model_dump"):
                 payload = result.model_dump()
@@ -160,7 +178,6 @@ class HabitExtractor:
                 "Habit LLM response",
                 extra={
                     "keys": list(payload.keys()) if isinstance(payload, dict) else None,
-                    "preview": str(payload)[:500],
                 },
             )
             if not isinstance(payload, dict):

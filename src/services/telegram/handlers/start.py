@@ -2,6 +2,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from src.config.constants import DEFAULT_HABIT_SCHEMA, MESSAGES_EN, MESSAGES_RU
+from src.core.analytics import log_event
 from src.models.session import ConversationState, SessionData
 from src.models.user import UserProfile
 from src.services.telegram.keyboards import build_language_keyboard, build_main_menu_keyboard
@@ -25,6 +26,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     if not update.message:
         return
+    log_event("command.start", user_id=update.effective_user.id if update.effective_user else None)
 
     user_repo = _get_user_repo(context)
     session_repo = _get_session_repo(context)

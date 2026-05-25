@@ -3,6 +3,7 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from src.config.constants import MESSAGES_EN, MESSAGES_RU
+from src.core.analytics import log_event
 from src.services.telegram.keyboards import build_main_menu_keyboard
 from src.services.telegram.utils import resolve_language, resolve_user_profile
 
@@ -16,6 +17,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     if not update.message:
         return
+    log_event("command.help", user_id=update.effective_user.id if update.effective_user else None)
 
     profile = await resolve_user_profile(update, context)
     lang = resolve_language(profile)

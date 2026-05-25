@@ -8,6 +8,7 @@ from src.config.constants import (
     MESSAGES_EN,
     MESSAGES_RU,
 )
+from src.core.analytics import log_event
 from src.models.session import ConversationState, SessionData
 from src.models.user import CustomQuestion, UserProfile
 from src.services.telegram.keyboards import build_config_keyboard, build_language_keyboard, build_main_menu_keyboard
@@ -30,6 +31,7 @@ async def language_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     if not update.message or not update.effective_user:
         return
+    log_event("command.language", user_id=update.effective_user.id)
     session_repo, user_repo = _get_repos(context)
     profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
     lang = resolve_language(profile)

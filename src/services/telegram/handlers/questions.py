@@ -10,6 +10,7 @@ from src.config.constants import (
     MESSAGES_EN,
     MESSAGES_RU,
 )
+from src.core.analytics import log_event
 from src.models.session import ConversationState
 from src.models.user import CustomQuestion
 from src.services.telegram.keyboards import build_main_menu_keyboard, build_question_fields_keyboard
@@ -58,6 +59,7 @@ async def questions_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
     if not update.effective_user or not update.message:
         return
+    log_event("command.reflect_config", user_id=update.effective_user.id)
     session_repo, user_repo = _get_repos(context)
     profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
     if profile is None:

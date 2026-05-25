@@ -7,6 +7,7 @@ from telegram.ext import ContextTypes
 
 from src.config.constants import DEFAULT_REFLECTION_QUESTIONS_EN, DEFAULT_REFLECTION_QUESTIONS_RU, MESSAGES_EN, MESSAGES_RU
 from src.config.settings import get_settings
+from src.core.analytics import log_event
 from src.models.entry import ReflectionEntry
 from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.models.user import CustomQuestion
@@ -56,6 +57,7 @@ async def reflect_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     if not update.effective_user or not update.message:
         return
+    log_event("command.reflect", user_id=update.effective_user.id)
     session_repo, user_repo, _, llm_client = _get_repos(context)
     profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
     lang = resolve_language(profile)

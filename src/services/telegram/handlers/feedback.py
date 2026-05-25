@@ -2,6 +2,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from src.config.constants import MESSAGES_EN, MESSAGES_RU
+from src.core.analytics import log_event
 from src.models.feedback import FeedbackEntry
 from src.models.session import ConversationState, SessionData
 from src.services.telegram.keyboards import build_main_menu_keyboard
@@ -22,6 +23,7 @@ async def feedback_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     if not update.effective_user or not update.message:
         return
+    log_event("command.feedback", user_id=update.effective_user.id)
     session_repo = get_session_repo(context)
     if session_repo:
         session = await session_repo.get(update.effective_user.id) or SessionData(

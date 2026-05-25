@@ -1,9 +1,12 @@
 import asyncio
+import time
 from typing import Any, Dict, List
 
 import httpx
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
+from src.config.settings import get_settings
+from src.core.analytics import log_event
 from src.core.exceptions import ExternalResponseError, ExternalTimeoutError
 from src.core.logging import get_logger
 from src.services.llm.client import LLMClient
@@ -41,9 +44,30 @@ class ReflectionExtractor:
             ),
         ]
         logger.info(messages)
+        _started = time.monotonic()
         try:
             # Use raw model call to avoid structured-output schema issues with dict
-            result = await self.client.model.ainvoke(messages)
+            try:
+                result = await self.client.model.ainvoke(messages)
+            except Exception:
+                log_event(
+                    "llm.call",
+                    extractor="reflection",
+                    model=get_settings().llm_model,
+                    latency_ms=int((time.monotonic() - _started) * 1000),
+                    ok=False,
+                )
+                raise
+            usage = getattr(result, "usage_metadata", None) or {}
+            log_event(
+                "llm.call",
+                extractor="reflection",
+                model=get_settings().llm_model,
+                latency_ms=int((time.monotonic() - _started) * 1000),
+                tokens_in=usage.get("input_tokens") if isinstance(usage, dict) else None,
+                tokens_out=usage.get("output_tokens") if isinstance(usage, dict) else None,
+                ok=True,
+            )
             content = result.content if isinstance(result, AIMessage) else getattr(result, "content", result)
 
             def _to_str(val: Any) -> str:
