@@ -58,13 +58,13 @@ deploys to the same GCP project referenced by `gcp_project_id` in `.env`.
 
 ```bash
 export PROJECT_ID=<your-gcp-project>
-export REGION=US                    # BigQuery dataset location
+export BQ_LOCATION=US               # BigQuery dataset location
 export DATASET=bot_analytics
 export SINK_NAME=habits-bot-analytics
 export SERVICE_NAME=habits-diary-bot
 
 # 1. Create the destination dataset.
-bq --location="${REGION}" mk --dataset \
+bq --location="${BQ_LOCATION}" mk --dataset \
    --description "Analytics events from ${SERVICE_NAME}" \
    "${PROJECT_ID}:${DATASET}"
 
@@ -90,171 +90,200 @@ Schema columns appear lazily as new fields are emitted — re-run a representati
 flow (`/habits`, `/reflect`, a voice message, `/week_analysis`) to populate every
 column before building dashboards.
 
-## Sample queries
+## Dashboard data sources
 
-Replace `PROJECT.bot_analytics.run_googleapis_com_stdout` with your fully qualified
-table name. Sinks use a daily-partitioned `_PARTITIONTIME` column — filter on it
-for cheap queries.
+Run SQL in the BigQuery workspace:
+[BigQuery query editor for `tg-bot-sso`](https://console.cloud.google.com/bigquery?project=tg-bot-sso&ws=!1m0).
+In the Google Cloud Console, you can also open **BigQuery → SQL workspace**,
+paste a query, replace `tg-bot-sso` if needed, and click **Run**.
 
-### 1. Daily active users (last 30 days)
+Cloud Logging exports stdout logs into daily sharded tables like
+`run_googleapis_com_stdout_20260525`. Use the wildcard table
+`run_googleapis_com_stdout_*` and filter `_TABLE_SUFFIX` to keep scans small.
+Do not name dashboard views with the `run_googleapis_com_stdout_` prefix:
+BigQuery wildcard queries fail if the wildcard matches a view.
+
+### Option A: Looker Studio custom queries
+
+This is fastest for one-off dashboards: create one BigQuery data source per SQL
+block below using **BigQuery → Custom Query**.
+
+### Option B: BigQuery views, then normal Looker Studio tables
+
+This is better for reusable dashboards. Create views once in BigQuery, then
+connect Looker Studio to the views as regular tables. This avoids pasting custom
+queries into Looker Studio and keeps the business logic versioned in BigQuery.
+
+Create the base normalized view first:
 
 ```sql
+CREATE OR REPLACE VIEW `tg-bot-sso.bot_analytics.analytics_events` AS
 SELECT
-  DATE(timestamp)              AS day,
-  COUNT(DISTINCT jsonPayload.user_id) AS dau
-FROM `PROJECT.bot_analytics.run_googleapis_com_stdout`
-WHERE _PARTITIONTIME >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
-  AND jsonPayload.event = "bot_event"
-  AND jsonPayload.user_id IS NOT NULL
-GROUP BY day
-ORDER BY day;
+  timestamp,
+  DATE(timestamp) AS day,
+  jsonPayload.event AS event_type,
+  jsonPayload.name AS event_name,
+  CAST(jsonPayload.user_id AS STRING) AS user_id,
+  JSON_VALUE(TO_JSON_STRING(jsonPayload), '$.extractor') AS extractor,
+  JSON_VALUE(TO_JSON_STRING(jsonPayload), '$.model') AS model,
+  SAFE_CAST(JSON_VALUE(TO_JSON_STRING(jsonPayload), '$.ok') AS BOOL) AS ok,
+  JSON_VALUE(TO_JSON_STRING(jsonPayload), '$.error') AS error,
+  SAFE_CAST(JSON_VALUE(TO_JSON_STRING(jsonPayload), '$.latency_ms') AS INT64) AS latency_ms,
+  SAFE_CAST(JSON_VALUE(TO_JSON_STRING(jsonPayload), '$.tokens_in') AS INT64) AS tokens_in,
+  SAFE_CAST(JSON_VALUE(TO_JSON_STRING(jsonPayload), '$.tokens_out') AS INT64) AS tokens_out,
+  SAFE_CAST(JSON_VALUE(TO_JSON_STRING(jsonPayload), '$.audio_bytes') AS INT64) AS audio_bytes
+FROM `tg-bot-sso.bot_analytics.run_googleapis_com_stdout_*`
+WHERE _TABLE_SUFFIX >= FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 180 DAY))
+  AND jsonPayload.event = 'bot_event';
 ```
 
-### 2. WAU / MAU rollups
+Then either query `analytics_events` directly, or create the summary views below.
+
+### 1. Daily overview
 
 ```sql
-WITH base AS (
-  SELECT DATE(timestamp) AS day, jsonPayload.user_id AS uid
-  FROM `PROJECT.bot_analytics.run_googleapis_com_stdout`
-  WHERE _PARTITIONTIME >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 60 DAY)
-    AND jsonPayload.event = "bot_event"
-    AND jsonPayload.user_id IS NOT NULL
-)
+CREATE OR REPLACE VIEW `tg-bot-sso.bot_analytics.dashboard_daily_overview` AS
 SELECT
   day,
-  COUNT(DISTINCT IF(uid IS NOT NULL, uid, NULL)) AS dau,
-  (SELECT COUNT(DISTINCT uid) FROM base b2
-    WHERE b2.day BETWEEN DATE_SUB(base.day, INTERVAL 6 DAY) AND base.day) AS wau,
-  (SELECT COUNT(DISTINCT uid) FROM base b3
-    WHERE b3.day BETWEEN DATE_SUB(base.day, INTERVAL 29 DAY) AND base.day) AS mau
-FROM base
-GROUP BY day
-ORDER BY day;
+  COUNT(*) AS events,
+  COUNT(DISTINCT user_id) AS active_users,
+  COUNT(DISTINCT IF(event_name LIKE 'command.%', user_id, NULL)) AS command_users,
+  COUNTIF(event_name LIKE 'command.%') AS command_events,
+  COUNTIF(event_name = 'llm.call') AS llm_calls,
+  COUNTIF(event_name = 'transcription.call') AS transcription_calls
+FROM `tg-bot-sso.bot_analytics.analytics_events`
+GROUP BY day;
 ```
 
-### 3. Feature usage breakdown
+Good charts: scorecards for active users/events/LLM calls, and a time series for
+daily active users.
+
+### 2. Feature usage
 
 ```sql
+CREATE OR REPLACE VIEW `tg-bot-sso.bot_analytics.dashboard_feature_usage` AS
 SELECT
-  jsonPayload.name               AS feature,
-  COUNT(*)                       AS invocations,
-  COUNT(DISTINCT jsonPayload.user_id) AS unique_users
-FROM `PROJECT.bot_analytics.run_googleapis_com_stdout`
-WHERE _PARTITIONTIME >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
-  AND jsonPayload.event = "bot_event"
-  AND jsonPayload.name LIKE "command.%"
-GROUP BY feature
-ORDER BY invocations DESC;
+  day,
+  REPLACE(event_name, 'command.', '') AS feature,
+  COUNT(*) AS uses,
+  COUNT(DISTINCT user_id) AS users
+FROM `tg-bot-sso.bot_analytics.analytics_events`
+WHERE event_name LIKE 'command.%'
+GROUP BY day, feature;
 ```
 
-### 4. New users per day (first time `/start` was seen)
+Good charts: bar chart by feature, stacked time series by feature, table of
+features sorted by `uses`.
+
+### 3. User retention cohorts
 
 ```sql
-WITH first_seen AS (
-  SELECT jsonPayload.user_id AS uid, MIN(DATE(timestamp)) AS first_day
-  FROM `PROJECT.bot_analytics.run_googleapis_com_stdout`
-  WHERE jsonPayload.event = "bot_event"
-    AND jsonPayload.user_id IS NOT NULL
-  GROUP BY uid
-)
-SELECT first_day AS day, COUNT(*) AS new_users
-FROM first_seen
-GROUP BY day
-ORDER BY day;
-```
-
-### 5. LLM latency and volume
-
-```sql
-SELECT
-  DATE(timestamp)                AS day,
-  jsonPayload.extractor          AS extractor,
-  COUNT(*)                       AS calls,
-  COUNTIF(jsonPayload.ok = false) AS failures,
-  APPROX_QUANTILES(jsonPayload.latency_ms, 100)[OFFSET(50)] AS p50_ms,
-  APPROX_QUANTILES(jsonPayload.latency_ms, 100)[OFFSET(95)] AS p95_ms,
-  SUM(jsonPayload.tokens_in)     AS tokens_in,
-  SUM(jsonPayload.tokens_out)    AS tokens_out
-FROM `PROJECT.bot_analytics.run_googleapis_com_stdout`
-WHERE _PARTITIONTIME >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 14 DAY)
-  AND jsonPayload.event = "bot_event"
-  AND jsonPayload.name = "llm.call"
-GROUP BY day, extractor
-ORDER BY day, extractor;
-```
-
-### 6. Voice transcription volume
-
-```sql
-SELECT
-  DATE(timestamp) AS day,
-  COUNT(*)        AS transcriptions,
-  COUNTIF(jsonPayload.ok = false) AS failures,
-  SUM(jsonPayload.audio_bytes) / 1e6 AS audio_megabytes
-FROM `PROJECT.bot_analytics.run_googleapis_com_stdout`
-WHERE _PARTITIONTIME >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
-  AND jsonPayload.event = "bot_event"
-  AND jsonPayload.name = "transcription.call"
-GROUP BY day
-ORDER BY day;
-```
-
-### 7. Retention: users active in week N+1 after first seen in week N
-
-```sql
-WITH first_week AS (
-  SELECT jsonPayload.user_id AS uid,
-         DATE_TRUNC(MIN(DATE(timestamp)), WEEK) AS cohort_week
-  FROM `PROJECT.bot_analytics.run_googleapis_com_stdout`
-  WHERE jsonPayload.event = "bot_event"
-    AND jsonPayload.user_id IS NOT NULL
-  GROUP BY uid
+CREATE OR REPLACE VIEW `tg-bot-sso.bot_analytics.dashboard_user_retention` AS
+WITH user_days AS (
+  SELECT DISTINCT user_id, day
+  FROM `tg-bot-sso.bot_analytics.analytics_events`
+  WHERE user_id IS NOT NULL
 ),
-weekly_activity AS (
-  SELECT DISTINCT
-    jsonPayload.user_id AS uid,
-    DATE_TRUNC(DATE(timestamp), WEEK) AS active_week
-  FROM `PROJECT.bot_analytics.run_googleapis_com_stdout`
-  WHERE jsonPayload.event = "bot_event"
-    AND jsonPayload.user_id IS NOT NULL
+first_seen AS (
+  SELECT user_id, MIN(day) AS first_day
+  FROM user_days
+  GROUP BY user_id
 )
 SELECT
-  first_week.cohort_week,
-  DATE_DIFF(weekly_activity.active_week, first_week.cohort_week, WEEK) AS week_offset,
-  COUNT(DISTINCT first_week.uid) AS active_users
-FROM first_week
-JOIN weekly_activity USING (uid)
-GROUP BY cohort_week, week_offset
-ORDER BY cohort_week, week_offset;
+  first_seen.first_day,
+  DATE_DIFF(user_days.day, first_seen.first_day, DAY) AS days_since_first_seen,
+  COUNT(DISTINCT user_days.user_id) AS retained_users
+FROM user_days
+JOIN first_seen USING (user_id)
+WHERE DATE_DIFF(user_days.day, first_seen.first_day, DAY) BETWEEN 0 AND 30
+GROUP BY first_day, days_since_first_seen;
 ```
 
-### 8. Error rate per feature
+Good charts: heatmap with `first_day` and `days_since_first_seen`, or a line
+chart filtered to recent cohorts.
+
+### 4. LLM performance
 
 ```sql
+CREATE OR REPLACE VIEW `tg-bot-sso.bot_analytics.dashboard_llm_performance` AS
 SELECT
-  jsonPayload.name AS event,
-  COUNTIF(jsonPayload.ok = false) AS failures,
-  COUNT(*) AS total,
-  SAFE_DIVIDE(COUNTIF(jsonPayload.ok = false), COUNT(*)) AS failure_rate
-FROM `PROJECT.bot_analytics.run_googleapis_com_stdout`
-WHERE _PARTITIONTIME >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
-  AND jsonPayload.event = "bot_event"
-  AND jsonPayload.name IN ("llm.call", "transcription.call")
-GROUP BY event;
+  day,
+  extractor,
+  model,
+  COUNT(*) AS calls,
+  COUNTIF(ok = false) AS failures,
+  SAFE_DIVIDE(COUNTIF(ok = false), COUNT(*)) AS failure_rate,
+  APPROX_QUANTILES(latency_ms, 100)[OFFSET(50)] AS p50_ms,
+  APPROX_QUANTILES(latency_ms, 100)[OFFSET(95)] AS p95_ms,
+  SUM(tokens_in) AS tokens_in,
+  SUM(tokens_out) AS tokens_out
+FROM `tg-bot-sso.bot_analytics.analytics_events`
+WHERE event_name = 'llm.call'
+GROUP BY day, extractor, model;
 ```
+
+Good charts: p95 latency over time, failure-rate scorecard, token volume by
+extractor.
+
+### 5. Voice usage
+
+```sql
+CREATE OR REPLACE VIEW `tg-bot-sso.bot_analytics.dashboard_voice_usage` AS
+SELECT
+  day,
+  COUNT(*) AS transcriptions,
+  COUNTIF(ok = false) AS failures,
+  SAFE_DIVIDE(COUNTIF(ok = false), COUNT(*)) AS failure_rate,
+  SUM(audio_bytes) / 1000000 AS audio_mb,
+  APPROX_QUANTILES(latency_ms, 100)[OFFSET(50)] AS p50_ms,
+  APPROX_QUANTILES(latency_ms, 100)[OFFSET(95)] AS p95_ms
+FROM `tg-bot-sso.bot_analytics.analytics_events`
+WHERE event_name = 'transcription.call'
+GROUP BY day;
+```
+
+Good charts: daily transcriptions, audio MB, and p95 transcription latency.
+
+### 6. Power users
+
+```sql
+CREATE OR REPLACE VIEW `tg-bot-sso.bot_analytics.dashboard_power_users` AS
+SELECT
+  user_id,
+  COUNT(*) AS total_events,
+  COUNTIF(event_name LIKE 'command.%') AS command_events,
+  COUNT(DISTINCT day) AS active_days,
+  MIN(day) AS first_seen,
+  MAX(day) AS last_seen
+FROM `tg-bot-sso.bot_analytics.analytics_events`
+WHERE user_id IS NOT NULL
+GROUP BY user_id;
+```
+
+Good charts: table sorted by active days, table sorted by total events, and a
+scorecard for users active on at least three days.
 
 ## Wiring Looker Studio
 
-1. https://lookerstudio.google.com → **Create → Data source → BigQuery**.
-2. Pick the `bot_analytics` dataset and the `run_googleapis_com_stdout` table
-   (or **Custom Query** with one of the SQL blocks above to pre-aggregate).
-3. Type-check fields after connecting — `user_id`, `latency_ms`, token counts
-   should be **Number**; `timestamp` should be **Date & Time**.
-4. Add filter controls on `jsonPayload.name` and a date range on `timestamp`.
+1. Go to [Looker Studio](https://lookerstudio.google.com/reporting/create) →
+   **Create → Report**.
+2. Add data source → **BigQuery**.
+3. Preferred: choose `tg-bot-sso` → `bot_analytics` → one of the
+   `dashboard_*` views. Alternative: choose **Custom Query** and paste one of
+   the SQL blocks above without the `CREATE OR REPLACE VIEW ... AS` line.
+4. Type-check fields after connecting: `user_id` is text, counts/latencies/tokens
+   are numbers, and `day` / `timestamp` are dates.
+5. Add a report-level date range control using `day`, and optional filter
+   controls for `feature`, `extractor`, and `model`.
 
-A "good enough" v1 dashboard: DAU/WAU/MAU time series, feature-usage bar chart,
-new-users-per-day, and an LLM-latency / cost-tokens row. Add the retention
-cohort heatmap once you have ~6 weeks of data.
+A useful v1 dashboard layout:
+
+1. Scorecards: active users, total events, command events, LLM calls, voice calls.
+2. Time series: DAU from `dashboard_daily_overview`.
+3. Feature section: bar chart and stacked trend from `dashboard_feature_usage`.
+4. Reliability section: LLM and voice failure rates plus p95 latency.
+5. Retention section: cohort heatmap from `dashboard_user_retention`.
+6. User table: `dashboard_power_users` sorted by `active_days`.
 
 ## Local development
 

@@ -4,8 +4,8 @@ set -euo pipefail
 # Build the container locally, push to Artifact Registry, and deploy to Cloud Run.
 # Required env vars (either name is accepted):
 #   PROJECT_ID / GCP_PROJECT_ID   - GCP project id
-# Optional env vars (either name accepted for region):
-#   REGION / GCP_REGION           - Artifact Registry + Cloud Run region (default: us-central1)
+# Optional env vars:
+#   GCP_REGION / REGION           - Artifact Registry + Cloud Run region (default: us-central1)
 #   REPO                          - Artifact Registry repo name (default: habits-bot)
 #   SERVICE_NAME                  - Cloud Run service name (default: habits-diary-bot)
 #   IMAGE_TAG                     - Image tag (default: latest)
@@ -16,11 +16,11 @@ set -euo pipefail
 #   CLEANUP_AFTER_DEPLOY          - delete pushed image from Artifact Registry and local cache (default: false)
 #   SET_TELEGRAM_WEBHOOK          - call Telegram setWebhook after deploy (default: false)
 #   STARTUP_CPU_BOOST             - enable startup CPU boost (default: false)
-#   USE_SECRET_MANAGER            - load sensitive keys from Secret Manager instead of env vars (default: false)
+#   USE_SECRET_MANAGER            - load sensitive keys from Secret Manager instead of env vars (default: true)
 #                                   Secrets must exist in Secret Manager using the exact env var name as the secret id.
 #                                   Example: gcloud secrets create TELEGRAM_BOT_TOKEN --data-file=<(echo -n "value")
-#   SERVICE_ACCOUNT               - service account email to run the Cloud Run service as (enables Workload Identity)
-#                                   Recommended: set this so the container never needs a key file.
+#   SERVICE_ACCOUNT               - service account email to run the Cloud Run service as (enables Workload Identity).
+#                                   Defaults to tg-habits-bot@${PROJECT_ID}.iam.gserviceaccount.com when present.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -36,9 +36,13 @@ for env_file in "${ENV_CANDIDATES[@]}"; do
   fi
 done
 
-: "${PROJECT_ID:=${GCP_PROJECT_ID:-}}"
+# Prefer project/region values from .env over stale shell values from other
+# setup steps. PROJECT_ID and REGION are common generic variable names.
+PROJECT_ID="${GCP_PROJECT_ID:-${PROJECT_ID:-}}"
 : "${PROJECT_ID:?Set PROJECT_ID or GCP_PROJECT_ID}"
-REGION="${REGION:-${GCP_REGION:-us-central1}}"
+REGION="${GCP_REGION:-${REGION:-us-central1}}"
+GCP_PROJECT_ID="${GCP_PROJECT_ID:-${PROJECT_ID}}"
+GCP_REGION="${GCP_REGION:-${REGION}}"
 REPO="${REPO:-habits-bot}"
 SERVICE_NAME="${SERVICE_NAME:-habits-diary-bot}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
@@ -49,8 +53,8 @@ ALLOW_QEMU="${ALLOW_QEMU:-false}"
 CLEANUP_AFTER_DEPLOY="${CLEANUP_AFTER_DEPLOY:-true}"
 SET_TELEGRAM_WEBHOOK="${SET_TELEGRAM_WEBHOOK:-false}"
 STARTUP_CPU_BOOST="${STARTUP_CPU_BOOST:-false}"
-USE_SECRET_MANAGER="${USE_SECRET_MANAGER:-false}"
-SERVICE_ACCOUNT="${SERVICE_ACCOUNT:-}"
+USE_SECRET_MANAGER="${USE_SECRET_MANAGER:-true}"
+SERVICE_ACCOUNT="${SERVICE_ACCOUNT:-tg-habits-bot@${PROJECT_ID}.iam.gserviceaccount.com}"
 
 # Non-sensitive config — always passed as plain env vars.
 CONFIG_APP_ENV_KEYS=(
