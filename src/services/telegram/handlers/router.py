@@ -27,6 +27,7 @@ from src.services.telegram.handlers.help import help_command
 from src.services.telegram.handlers.feedback import feedback_command, handle_feedback_text
 from src.services.telegram.handlers.week_analysis import week_analysis_command
 from src.services.telegram.handlers.on_this_day import on_this_day_command
+from src.services.telegram.handlers.admin import handle_admin_broadcast_text, handle_admin_text
 from src.services.telegram.keyboards import build_main_menu_keyboard, build_config_keyboard
 from src.services.transcription.whisper import WhisperClient
 from src.models.session import ConversationState, SessionData
@@ -38,6 +39,7 @@ from src.services.telegram.handlers.language import language_command
 from src.services.telegram.utils import (
     get_session_repo,
     get_whisper_client,
+    record_usage_event,
     resolve_language,
     resolve_user_profile,
     safe_delete_message,
@@ -146,6 +148,12 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
         await feedback_command(update, context)
         return
 
+    if await handle_admin_text(update, context):
+        return
+
+    if await handle_admin_broadcast_text(update, context):
+        return
+
     if looks_like_sheet_input(text):
         session_repo = get_session_repo(context)
         session = await session_repo.get(update.effective_user.id) if session_repo and update.effective_user else None
@@ -200,6 +208,12 @@ async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         user_id=update.effective_user.id if update.effective_user else None,
         duration_s=update.message.voice.duration,
         file_size=update.message.voice.file_size,
+    )
+    await record_usage_event(
+        context,
+        "voice.received",
+        user_id=update.effective_user.id if update.effective_user else None,
+        metadata={"duration_s": update.message.voice.duration},
     )
     profile = await resolve_user_profile(update, context)
     lang = resolve_language(profile)

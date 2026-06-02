@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from src.services.storage.firestore.client import FirestoreClient
     from src.services.storage.firestore.feedback_repo import FeedbackRepository
     from src.services.storage.firestore.session_repo import SessionRepository
+    from src.services.storage.firestore.usage_event_repo import UsageEventRepository
     from src.services.storage.firestore.user_repo import UserRepository
     from src.services.storage.sheets.client import SheetsClient
     from src.services.transcription.whisper import WhisperClient
@@ -23,11 +24,16 @@ class DependencyProvider:
         self._session_repo: SessionRepository | None = None
         self._user_repo: UserRepository | None = None
         self._feedback_repo: FeedbackRepository | None = None
+        self._usage_event_repo: UsageEventRepository | None = None
         self._sheets_client: SheetsClient | None = None
         self._llm_client: LLMClient | None = None
         self._whisper_client: WhisperClient | None = None
         self._llm_initialized = False
         self._whisper_initialized = False
+
+    @property
+    def settings(self) -> Settings:
+        return self._settings
 
     def firestore_client(self) -> FirestoreClient:
         if self._firestore_client is None:
@@ -59,6 +65,13 @@ class DependencyProvider:
 
             self._feedback_repo = FeedbackRepository(self.firestore_client())
         return self._feedback_repo
+
+    def usage_event_repo(self) -> UsageEventRepository:
+        if self._usage_event_repo is None:
+            from src.services.storage.firestore.usage_event_repo import UsageEventRepository
+
+            self._usage_event_repo = UsageEventRepository(self.firestore_client())
+        return self._usage_event_repo
 
     def sheets_client(self) -> SheetsClient:
         if self._sheets_client is None:

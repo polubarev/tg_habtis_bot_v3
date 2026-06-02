@@ -1,5 +1,3 @@
-from datetime import date, timedelta
-
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 
 from src.config.constants import BUTTONS_RU, BUTTONS_EN, INLINE_BUTTONS_RU, INLINE_BUTTONS_EN
@@ -75,6 +73,40 @@ def build_config_keyboard(language: str = "en") -> ReplyKeyboardMarkup:
         [btns["back"], btns["cancel"]]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=True)
+
+
+def build_admin_keyboard(language: str = "en") -> ReplyKeyboardMarkup:
+    """Admin submenu."""
+
+    btns = BUTTONS_RU if language == "ru" else BUTTONS_EN
+    keyboard = [
+        [btns["admin_stats"], btns["admin_users"]],
+        [btns["admin_today"], btns["admin_week"]],
+        [btns["admin_month"], btns["admin_last_30"]],
+        [btns["admin_feedback"]],
+        [btns["admin_broadcast"]],
+        [btns["back"], btns["cancel"]],
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=True)
+
+
+def build_admin_broadcast_confirm_keyboard(language: str = "en") -> InlineKeyboardMarkup:
+    """Inline confirmation keyboard for admin broadcasts."""
+
+    btns = INLINE_BUTTONS_RU if language == "ru" else INLINE_BUTTONS_EN
+    buttons = [
+        [
+            InlineKeyboardButton(
+                btns["admin_broadcast_send"],
+                callback_data="admin_broadcast:send",
+            ),
+            InlineKeyboardButton(
+                btns["admin_broadcast_cancel"],
+                callback_data="admin_broadcast:cancel",
+            ),
+        ]
+    ]
+    return InlineKeyboardMarkup(buttons)
 
 
 def build_language_keyboard() -> InlineKeyboardMarkup:

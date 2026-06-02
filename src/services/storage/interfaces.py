@@ -16,6 +16,10 @@ class IUserRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def list_all(self) -> list[UserProfile]:
+        raise NotImplementedError
+
+    @abstractmethod
     async def create(self, user: UserProfile) -> UserProfile:
         raise NotImplementedError
 

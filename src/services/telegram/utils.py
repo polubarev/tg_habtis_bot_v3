@@ -8,7 +8,9 @@ from telegram import Message, Update
 from telegram.ext import ContextTypes
 
 from src.config.constants import MESSAGES_EN, MESSAGES_RU
+from src.config.settings import Settings, get_settings
 from src.models.user import UserProfile
+from src.models.usage_event import MetadataValue, UsageEvent
 from src.services.telegram.deps import DependencyProvider
 
 
@@ -47,6 +49,19 @@ def _get_deps(context: ContextTypes.DEFAULT_TYPE) -> DependencyProvider | None:
     return context.application.bot_data.get("deps")
 
 
+def get_settings_from_context(context: ContextTypes.DEFAULT_TYPE) -> Settings:
+    deps = _get_deps(context)
+    if deps and hasattr(deps, "settings"):
+        return deps.settings
+    return get_settings()
+
+
+def is_admin_user(user_id: int | None, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    if user_id is None:
+        return False
+    return user_id in get_settings_from_context(context).get_admin_telegram_ids()
+
+
 def get_session_repo(context: ContextTypes.DEFAULT_TYPE):
     deps = _get_deps(context)
     return deps.session_repo() if deps else None
@@ -60,6 +75,11 @@ def get_user_repo(context: ContextTypes.DEFAULT_TYPE):
 def get_feedback_repo(context: ContextTypes.DEFAULT_TYPE):
     deps = _get_deps(context)
     return deps.feedback_repo() if deps else None
+
+
+def get_usage_event_repo(context: ContextTypes.DEFAULT_TYPE):
+    deps = _get_deps(context)
+    return deps.usage_event_repo() if deps and hasattr(deps, "usage_event_repo") else None
 
 
 def get_sheets_client(context: ContextTypes.DEFAULT_TYPE):
@@ -88,6 +108,27 @@ async def increment_usage_stat(profile: Optional[UserProfile], user_repo, field:
     profile.usage_stats = stats
     profile.updated_at = datetime.utcnow()
     await user_repo.update(profile)
+
+
+async def record_usage_event(
+    context: ContextTypes.DEFAULT_TYPE,
+    event_name: str,
+    *,
+    user_id: int | None = None,
+    feature: str | None = None,
+    metadata: dict[str, MetadataValue] | None = None,
+) -> None:
+    repo = get_usage_event_repo(context)
+    if repo is None:
+        return
+    await repo.create(
+        UsageEvent.create(
+            event_name,
+            user_id=user_id,
+            feature=feature,
+            metadata=metadata,
+        )
+    )
 
 
 async def safe_delete_message(message: Message | None) -> None:

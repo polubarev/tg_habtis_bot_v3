@@ -18,6 +18,7 @@ from src.services.telegram.utils import (
     get_session_expired_message,
     get_user_repo,
     increment_usage_stat,
+    record_usage_event,
     resolve_language,
     resolve_user_profile,
     resolve_user_timezone,
@@ -161,6 +162,12 @@ async def handle_thought_confirm(update: Update, context: ContextTypes.DEFAULT_T
                 text=_messages_for_lang(lang)["thought_saved"]
             )
             await increment_usage_stat(profile, user_repo, "thought")
+            await record_usage_event(
+                context,
+                "feature.saved",
+                user_id=update.effective_user.id,
+                feature="thought",
+            )
         else:
             await query.edit_message_text(_messages_for_lang(lang)["sheet_not_configured"])
     else:

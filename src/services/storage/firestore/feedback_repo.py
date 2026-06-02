@@ -27,3 +27,20 @@ class FeedbackRepository:
                 )
                 self.client = None
         return False
+
+    async def list_recent(self, limit: int = 10) -> list[FeedbackEntry]:
+        if self.client and self.client.is_ready:
+            try:
+                query = (
+                    self.client.collection(self.collection_name)
+                    .order_by("created_at", direction="DESCENDING")
+                    .limit(limit)
+                )
+                return [FeedbackEntry(**doc.to_dict()) for doc in query.stream()]
+            except Exception as exc:
+                logger.warning(
+                    "Firestore unavailable for feedback; cannot list recent entries",
+                    error=str(exc),
+                )
+                self.client = None
+        return []

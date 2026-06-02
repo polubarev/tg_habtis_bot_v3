@@ -29,6 +29,7 @@ from src.services.telegram.utils import (
     get_sheets_client,
     get_user_repo,
     increment_usage_stat,
+    record_usage_event,
     resolve_language,
     resolve_user_profile,
     resolve_user_timezone,
@@ -891,6 +892,12 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
             if profile and user_repo:
                 profile.last_habits_logged_for_date = entry.date.isoformat()
             await increment_usage_stat(profile, user_repo, "habits")
+            await record_usage_event(
+                context,
+                "feature.saved",
+                user_id=update.effective_user.id,
+                feature="habits",
+            )
         else:
             await query.edit_message_text(_messages_for_lang(lang)["sheet_not_configured"])
     else:

@@ -63,6 +63,14 @@ BUTTONS_RU = {
     "reminders": "🔔 Напоминания",
     "feedback": "💬 Обратная связь",
     "reset": "🧹 Сбросить всё",
+    "admin_stats": "📊 Статистика",
+    "admin_today": "Сегодня",
+    "admin_week": "Неделя",
+    "admin_month": "Месяц",
+    "admin_last_30": "30 дней",
+    "admin_users": "Пользователи",
+    "admin_feedback": "💬 Отзывы",
+    "admin_broadcast": "📣 Рассылка",
 }
 
 BUTTONS_EN = {
@@ -84,6 +92,14 @@ BUTTONS_EN = {
     "reminders": "🔔 Reminders",
     "feedback": "💬 Feedback",
     "reset": "🧹 Reset",
+    "admin_stats": "📊 Stats",
+    "admin_today": "Today",
+    "admin_week": "Week",
+    "admin_month": "Month",
+    "admin_last_30": "30 days",
+    "admin_users": "Users",
+    "admin_feedback": "💬 Feedback",
+    "admin_broadcast": "📣 Broadcast",
 }
 
 INLINE_BUTTONS_RU = {
@@ -122,6 +138,8 @@ INLINE_BUTTONS_RU = {
     "question_cancel": "✖ Отмена",
     "language_en": "English",
     "language_ru": "Русский",
+    "admin_broadcast_send": "✅ Отправить",
+    "admin_broadcast_cancel": "✖ Отмена",
 }
 
 INLINE_BUTTONS_EN = {
@@ -160,6 +178,8 @@ INLINE_BUTTONS_EN = {
     "question_cancel": "✖ Cancel",
     "language_en": "English",
     "language_ru": "Русский",
+    "admin_broadcast_send": "✅ Send",
+    "admin_broadcast_cancel": "✖ Cancel",
 }
 
 # Message templates (Russian)
@@ -532,6 +552,50 @@ MESSAGES_RU = {
     "feedback_saved": "✅ Спасибо! Отзыв сохранён.",
     "feedback_error": "⚠️ Не удалось сохранить отзыв (Firestore недоступен). Попробуй позже.",
     "main_menu": "Главное меню",
+    "admin_denied": "Эта команда доступна только администратору.",
+    "admin_menu": "Админ-меню",
+    "admin_storage_unavailable": "⚠️ Хранилище недоступно.",
+    "admin_analytics_unavailable": "⚠️ Статистика пока недоступна.",
+    "admin_no_feedback": "Пока нет отзывов.",
+    "admin_feedback_title": "Последние отзывы:",
+    "admin_broadcast_prompt": "Отправь текст рассылки. Отмена: /cancel",
+    "admin_broadcast_preview": "Предпросмотр рассылки:\n\n{text}\n\nОтправить всем пользователям?",
+    "admin_broadcast_cancelled": "Рассылка отменена.",
+    "admin_broadcast_empty": "Текст пустой. Отправь сообщение для рассылки или /cancel.",
+    "admin_broadcast_done": "✅ Рассылка завершена. Отправлено: {sent}. Ошибок: {failed}.",
+    "admin_stats": (
+        "📊 Статистика\n"
+        "Пользователей: {users_total}\n"
+        "С подключенной таблицей: {users_with_sheet}\n"
+        "Привычки: {habits}\n"
+        "Сны: {dream}\n"
+        "Мысли: {thought}\n"
+        "Рефлексии: {reflection}"
+    ),
+    "admin_period_stats": (
+        "📊 {period}\n"
+        "Активных пользователей: {active_users}\n"
+        "Новых пользователей: {new_users}\n"
+        "Пользователей с таблицей: {users_with_sheet}\n"
+        "Сохранений: {feature_total}\n"
+        "Привычки: {habits}\n"
+        "Сны: {dream}\n"
+        "Мысли: {thought}\n"
+        "Рефлексии: {reflection}\n"
+        "Голосовые: {voice}\n"
+        "Отзывы: {feedback}\n"
+        "Команды: {commands}\n"
+        "Рассылки: {broadcasts} (отправлено {broadcast_sent}, ошибок {broadcast_failed})"
+    ),
+    "admin_user_stats": (
+        "👥 Пользователи\n"
+        "Всего: {users_total}\n"
+        "С таблицей: {users_with_sheet}\n"
+        "Новые сегодня: {new_today}\n"
+        "Новые за неделю: {new_week}\n"
+        "Новые за месяц: {new_month}\n"
+        "Новые за 30 дней: {new_last_30}"
+    ),
     "reset_prompt": (
         "⚠️ Сбросит все данные в боте: подключённую таблицу, поля привычек, вопросы, часовой пояс и сессию. "
         "Твои записи в Google Sheet не трогаю.\n\nПродолжить?"
@@ -898,6 +962,50 @@ MESSAGES_EN = {
     "feedback_saved": "✅ Thanks! Your feedback was saved.",
     "feedback_error": "⚠️ Couldn't save feedback (Firestore unavailable). Please try again later.",
     "main_menu": "Main Menu",
+    "admin_denied": "This command is only available to admins.",
+    "admin_menu": "Admin menu",
+    "admin_storage_unavailable": "⚠️ Storage is unavailable.",
+    "admin_analytics_unavailable": "⚠️ Analytics are not available yet.",
+    "admin_no_feedback": "No feedback yet.",
+    "admin_feedback_title": "Recent feedback:",
+    "admin_broadcast_prompt": "Send the broadcast text. Cancel: /cancel",
+    "admin_broadcast_preview": "Broadcast preview:\n\n{text}\n\nSend this to all users?",
+    "admin_broadcast_cancelled": "Broadcast cancelled.",
+    "admin_broadcast_empty": "The message is empty. Send broadcast text or /cancel.",
+    "admin_broadcast_done": "✅ Broadcast complete. Sent: {sent}. Failed: {failed}.",
+    "admin_stats": (
+        "📊 Stats\n"
+        "Users: {users_total}\n"
+        "Users with sheet: {users_with_sheet}\n"
+        "Habits: {habits}\n"
+        "Dreams: {dream}\n"
+        "Thoughts: {thought}\n"
+        "Reflections: {reflection}"
+    ),
+    "admin_period_stats": (
+        "📊 {period}\n"
+        "Active users: {active_users}\n"
+        "New users: {new_users}\n"
+        "Users with sheet: {users_with_sheet}\n"
+        "Saved entries: {feature_total}\n"
+        "Habits: {habits}\n"
+        "Dreams: {dream}\n"
+        "Thoughts: {thought}\n"
+        "Reflections: {reflection}\n"
+        "Voice messages: {voice}\n"
+        "Feedback: {feedback}\n"
+        "Commands: {commands}\n"
+        "Broadcasts: {broadcasts} (sent {broadcast_sent}, failed {broadcast_failed})"
+    ),
+    "admin_user_stats": (
+        "👥 Users\n"
+        "Total: {users_total}\n"
+        "With sheet: {users_with_sheet}\n"
+        "New today: {new_today}\n"
+        "New this week: {new_week}\n"
+        "New this month: {new_month}\n"
+        "New last 30 days: {new_last_30}"
+    ),
     "reset_prompt": (
         "⚠️ This will wipe your bot data: connected Sheet, habit fields, questions, timezone, and session. "
         "Your existing rows in Google Sheets stay untouched.\n\nProceed?"

@@ -2,12 +2,12 @@
 from typing import Dict, Optional
 
 from src.models.user import UserProfile
-from src.services.storage.interfaces import IUserRepository
 from src.config.settings import get_settings
 from src.core.logging import get_logger
+from src.services.storage.firestore.client import FirestoreClient
+from src.services.storage.interfaces import IUserRepository
 
 logger = get_logger(__name__)
-from src.services.storage.firestore.client import FirestoreClient
 
 
 class UserRepository(IUserRepository):
@@ -30,6 +30,18 @@ class UserRepository(IUserRepository):
                 logger.warning("Firestore unavailable for users; falling back to memory", error=str(exc))
                 self.client = None
         return self._store.get(telegram_id)
+
+    async def list_all(self) -> list[UserProfile]:
+        if self.client and self.client.is_ready:
+            try:
+                profiles: list[UserProfile] = []
+                for doc in self.client.collection(self.collection_name).stream():
+                    profiles.append(UserProfile(**doc.to_dict()))
+                return profiles
+            except Exception as exc:
+                logger.warning("Firestore unavailable for users; falling back to memory", error=str(exc))
+                self.client = None
+        return list(self._store.values())
 
     async def create(self, user: UserProfile) -> UserProfile:
         if self.client and self.client.is_ready:

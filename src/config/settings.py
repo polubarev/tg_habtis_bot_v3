@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     telegram_webhook_url: Optional[str] = None
     telegram_webhook_url_debug: Optional[str] = None
     telegram_webhook_secret: str = Field(default="")
+    admin_telegram_ids: str = ""
     reminders_dispatch_url: Optional[str] = None
     reminders_dispatch_url_debug: Optional[str] = None
     reminders_queue_name: str = "reminders"
@@ -45,6 +46,7 @@ class Settings(BaseSettings):
     firestore_collection_users: str = "users"
     firestore_collection_sessions: str = "sessions"
     firestore_collection_feedback: str = "feedback"
+    firestore_collection_usage_events: str = "usage_events"
 
     # Session
     session_ttl_minutes: int = 60
@@ -75,6 +77,14 @@ class Settings(BaseSettings):
         if self.debug and self.reminders_dispatch_url_debug:
             return self.reminders_dispatch_url_debug
         return self.reminders_dispatch_url
+
+    def get_admin_telegram_ids(self) -> set[int]:
+        ids: set[int] = set()
+        for raw_id in self.admin_telegram_ids.split(","):
+            raw_id = raw_id.strip()
+            if raw_id.isdigit():
+                ids.add(int(raw_id))
+        return ids
 
 
 @lru_cache()

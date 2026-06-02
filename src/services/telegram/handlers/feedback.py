@@ -9,6 +9,7 @@ from src.services.telegram.keyboards import build_main_menu_keyboard
 from src.services.telegram.utils import (
     get_feedback_repo,
     get_session_repo,
+    record_usage_event,
     resolve_language,
     resolve_user_profile,
 )
@@ -71,6 +72,13 @@ async def handle_feedback_text(update: Update, context: ContextTypes.DEFAULT_TYP
     )
     feedback_repo = get_feedback_repo(context)
     saved = await feedback_repo.create(entry) if feedback_repo else False
+    await record_usage_event(
+        context,
+        "feedback.submitted",
+        user_id=user.id,
+        feature="feedback",
+        metadata={"saved": saved},
+    )
     if saved:
         await update.message.reply_text(
             _messages_for_lang(lang)["feedback_saved"],

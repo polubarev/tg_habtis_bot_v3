@@ -10,12 +10,12 @@ from telegram.ext import (
     ApplicationBuilder,
     CallbackQueryHandler,
     CommandHandler,
-    ContextTypes,
     MessageHandler,
     filters,
 )
 
 from src.config.settings import Settings
+from src.models.usage_event import UsageEvent
 from src.services.telegram.handlers.habits import (
     habits_command,
     handle_habits_confirm,
@@ -27,6 +27,7 @@ from src.services.telegram.handlers.thought import thought_command, handle_thoug
 from src.services.telegram.handlers.reflect import reflect_command, handle_reflect_confirm
 from src.services.telegram.handlers.help import help_command
 from src.services.telegram.handlers.on_this_day import on_this_day_command
+from src.services.telegram.handlers.admin import admin_command, handle_admin_broadcast_callback
 from src.services.telegram.handlers.config import config_command, handle_reset_confirm
 from src.services.telegram.handlers.config import handle_reminders_menu_callback, handle_smart_nudges_callback
 from src.services.telegram.handlers.language import handle_language_select
@@ -91,6 +92,7 @@ class TelegramBotService:
         self.app.add_handler(CommandHandler("reflect_config", questions_command))
         self.app.add_handler(CommandHandler("on_this_day", on_this_day_command))
         self.app.add_handler(CommandHandler("help", help_command))
+        self.app.add_handler(CommandHandler("admin", admin_command))
         self.app.add_handler(
             CallbackQueryHandler(handle_habits_date_callback, pattern="^habits_date:|^habits_cancel$")
         )
@@ -143,6 +145,9 @@ class TelegramBotService:
             CallbackQueryHandler(handle_language_select, pattern="^lang_select:")
         )
         self.app.add_handler(
+            CallbackQueryHandler(handle_admin_broadcast_callback, pattern="^admin_broadcast:")
+        )
+        self.app.add_handler(
             MessageHandler(filters.TEXT & ~filters.COMMAND, route_text)
         )
         self.app.add_handler(
@@ -166,6 +171,28 @@ class TelegramBotService:
             return
         update = Update.de_json(update_payload, self.app.bot)
         await self.app.process_update(update)
+        await self._record_command_usage(update)
+
+    async def _record_command_usage(self, update: Update) -> None:
+        if not update.effective_user or not update.message or not update.message.text:
+            return
+        text = update.message.text.strip()
+        if not text.startswith("/"):
+            return
+        command = text.split()[0].split("@", 1)[0].lstrip("/").lower()
+        if not command:
+            return
+        try:
+            await self.deps.usage_event_repo().create(
+                UsageEvent.create(
+                    "command.used",
+                    user_id=update.effective_user.id,
+                    feature=command,
+                )
+            )
+        except Exception:
+            logger.debug("Failed to record command usage", exc_info=True)
+
 
 
 async def build_bot_application(settings: Settings) -> Application | None:
