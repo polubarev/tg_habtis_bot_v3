@@ -11,6 +11,6 @@ def append_reflection_entry(client, sheet_id: str, entry: ReflectionEntry) -> No
     header = sheet.row_values(1)
     canonical_header = ["timestamp", "reflections"]
     if header != canonical_header:
-        sheet.update("1:1", [canonical_header])
+        sheet.update("1:1", [canonical_header], value_input_option="RAW")
     row = [entry.timestamp.isoformat(), json.dumps(entry.answers, ensure_ascii=False)]
-    sheet.append_row(row)
+    sheet.append_row(row, value_input_option="RAW")

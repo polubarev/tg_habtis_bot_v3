@@ -15,6 +15,7 @@ from telegram.ext import (
 )
 
 from src.config.settings import Settings
+from src.core.rate_limit import SlidingWindowRateLimiter
 from src.models.usage_event import UsageEvent
 from src.services.telegram.handlers.habits import (
     habits_command,
@@ -51,6 +52,31 @@ from src.services.telegram.handlers.start import start_command
 logger = logging.getLogger(__name__)
 
 
+def _extract_update_user_id(update_payload: dict[str, Any]) -> int | None:
+    """Return the Telegram user id for update types that carry one."""
+
+    for key in (
+        "message",
+        "edited_message",
+        "callback_query",
+        "inline_query",
+        "chosen_inline_result",
+        "shipping_query",
+        "pre_checkout_query",
+        "poll_answer",
+        "my_chat_member",
+        "chat_member",
+        "chat_join_request",
+    ):
+        value = update_payload.get(key)
+        if not isinstance(value, dict):
+            continue
+        user = value.get("from") or value.get("user")
+        if isinstance(user, dict) and isinstance(user.get("id"), int):
+            return user["id"]
+    return None
+
+
 class TelegramBotService:
     """Wraps python-telegram-bot Application lifecycle for FastAPI webhooks."""
 
@@ -58,6 +84,10 @@ class TelegramBotService:
         self.settings = settings
         self.app: Application | None = None
         self.deps = DependencyProvider(settings)
+        self._rate_limiter = SlidingWindowRateLimiter(
+            settings.rate_limit_requests_per_minute,
+            window_seconds=60,
+        )
 
     async def _ensure_app(self) -> None:
         if self.app:
@@ -165,13 +195,18 @@ class TelegramBotService:
             return
 
     async def handle_update(self, update_payload: dict[str, Any]) -> None:
+        user_id = _extract_update_user_id(update_payload)
+        if user_id is not None and not self._rate_limiter.allow(user_id):
+            logger.warning("Telegram update rate limited for user %s", user_id)
+            return
+
         await self._ensure_app()
         if not self.app:
             logger.debug("No Telegram application initialized; skipping update.")
             return
         update = Update.de_json(update_payload, self.app.bot)
-        await self.app.process_update(update)
         await self._record_command_usage(update)
+        await self.app.process_update(update)
 
     async def _record_command_usage(self, update: Update) -> None:
         if not update.effective_user or not update.message or not update.message.text:
@@ -192,7 +227,6 @@ class TelegramBotService:
             )
         except Exception:
             logger.debug("Failed to record command usage", exc_info=True)
-
 
 
 async def build_bot_application(settings: Settings) -> Application | None:

@@ -10,4 +10,4 @@ def append_habit_entry(client, sheet_id: str, field_order: Iterable[str], entry:
     if client is None:
         raise RuntimeError("Sheets client is not configured")
     sheet = client.open_by_key(sheet_id).worksheet("Habits")
-    sheet.append_row(entry.to_sheet_row(list(field_order)))
+    sheet.append_row(entry.to_sheet_row(list(field_order)), value_input_option="RAW")

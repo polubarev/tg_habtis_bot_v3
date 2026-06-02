@@ -24,6 +24,7 @@ class SheetsClient(ISheetsClient):
     """Google Sheets client using a service account."""
 
     _SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+    _WRITE_INPUT_OPTION = "RAW"
 
     def __init__(self, credentials_path: Optional[str] = None):
         self.credentials_path = credentials_path
@@ -135,7 +136,7 @@ class SheetsClient(ISheetsClient):
         try:
             values = worksheet.get("A1", value_render_option="FORMULA")
             value = self._safe_cell_value(values)
-            worksheet.update("A1", [[value]], value_input_option="USER_ENTERED")
+            worksheet.update("A1", [[value]], value_input_option=self._WRITE_INPUT_OPTION)
         except Exception as exc:
             self._raise_mapped_error(exc)
             raise
@@ -154,12 +155,12 @@ class SheetsClient(ISheetsClient):
             ]:
                 if title not in existing:
                     ws = ss.add_worksheet(title=title, rows=1000, cols=30)
-                    ws.append_row(header)
+                    ws.append_row(header, value_input_option=self._WRITE_INPUT_OPTION)
                 else:
                     ws = existing[title]
                     current = ws.row_values(1)
                     if not current:
-                        ws.append_row(header)
+                        ws.append_row(header, value_input_option=self._WRITE_INPUT_OPTION)
                     else:
                         # migrate legacy raw_diary -> raw_record if needed
                         migrated = [("raw_record" if col == "raw_diary" else col) for col in current]
@@ -175,7 +176,7 @@ class SheetsClient(ISheetsClient):
                         else:
                             new_header = migrated + [m for m in missing if m not in migrated]
                         if new_header != current:
-                            ws.update("1:1", [new_header])
+                            ws.update("1:1", [new_header], value_input_option=self._WRITE_INPUT_OPTION)
             self._tabs_ensured.add(sheet_id)
         except Exception as exc:
             self._raise_mapped_error(exc)
@@ -240,9 +241,9 @@ class SheetsClient(ISheetsClient):
             header = ws.row_values(1)
             canonical_header, row = self._prepare_habit_header_and_row(header, field_order, entry)
             if header != canonical_header:
-                ws.update("1:1", [canonical_header])
+                ws.update("1:1", [canonical_header], value_input_option=self._WRITE_INPUT_OPTION)
 
-            ws.append_row(row, value_input_option="USER_ENTERED")
+            ws.append_row(row, value_input_option=self._WRITE_INPUT_OPTION)
         except Exception as exc:
             self._raise_mapped_error(exc)
             raise
@@ -434,11 +435,11 @@ class SheetsClient(ISheetsClient):
             header = ws.row_values(1)
             canonical_header, row = self._prepare_habit_header_and_row(header, field_order, entry)
             if header != canonical_header:
-                ws.update("1:1", [canonical_header])
+                ws.update("1:1", [canonical_header], value_input_option=self._WRITE_INPUT_OPTION)
             ws.update(
                 f"A{row_index}",
                 [row],
-                value_input_option="USER_ENTERED",
+                value_input_option=self._WRITE_INPUT_OPTION,
             )
         except Exception as exc:
             self._raise_mapped_error(exc)
@@ -469,7 +470,7 @@ class SheetsClient(ISheetsClient):
                 entry.timestamp.isoformat(),
                 entry.record,
             ]
-            ws.append_row(row, value_input_option="USER_ENTERED")
+            ws.append_row(row, value_input_option=self._WRITE_INPUT_OPTION)
         except Exception as exc:
             self._raise_mapped_error(exc)
             raise
@@ -487,7 +488,7 @@ class SheetsClient(ISheetsClient):
                 entry.timestamp.isoformat(),
                 entry.record,
             ]
-            ws.append_row(row, value_input_option="USER_ENTERED")
+            ws.append_row(row, value_input_option=self._WRITE_INPUT_OPTION)
         except Exception as exc:
             self._raise_mapped_error(exc)
             raise
@@ -504,13 +505,13 @@ class SheetsClient(ISheetsClient):
             header = ws.row_values(1)
             canonical_header = ["timestamp", "reflections"]
             if header != canonical_header:
-                ws.update("1:1", [canonical_header])
+                ws.update("1:1", [canonical_header], value_input_option=self._WRITE_INPUT_OPTION)
             ws.append_row(
                 [
                     entry.timestamp.isoformat(),
                     json.dumps(entry.answers, ensure_ascii=False),
                 ],
-                value_input_option="USER_ENTERED",
+                value_input_option=self._WRITE_INPUT_OPTION,
             )
         except Exception as exc:
             self._raise_mapped_error(exc)
