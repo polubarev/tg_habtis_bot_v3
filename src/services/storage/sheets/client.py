@@ -25,6 +25,7 @@ class SheetsClient(ISheetsClient):
 
     _SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
     _WRITE_INPUT_OPTION = "RAW"
+    _SHEETS_DATE_BASE = date(1899, 12, 30)
 
     def __init__(self, credentials_path: Optional[str] = None):
         self.credentials_path = credentials_path
@@ -59,12 +60,13 @@ class SheetsClient(ISheetsClient):
             return value
         if isinstance(value, (int, float)):
             try:
-                base = date(1899, 12, 30)
-                return base + timedelta(days=int(value))
+                return SheetsClient._SHEETS_DATE_BASE + timedelta(days=int(value))
             except Exception:
                 return None
         if isinstance(value, str):
             text = value.strip()
+            if text.startswith("'"):
+                text = text[1:].strip()
             if not text:
                 return None
             try:
@@ -82,6 +84,19 @@ class SheetsClient(ISheetsClient):
     def _column_letter(col_index: int) -> str:
         a1 = gspread.utils.rowcol_to_a1(1, col_index)
         return "".join(ch for ch in a1 if ch.isalpha())
+
+    @classmethod
+    def _sheet_date_serial(cls, value: date) -> int:
+        return (value - cls._SHEETS_DATE_BASE).days
+
+    def _format_habit_date_column(self, worksheet: gspread.Worksheet, header: list[str]) -> None:
+        if "date" not in header:
+            return
+        date_col = self._column_letter(header.index("date") + 1)
+        worksheet.format(
+            f"{date_col}:{date_col}",
+            {"numberFormat": {"type": "DATE", "pattern": "dd-mm-yyyy"}},
+        )
 
     @staticmethod
     def _is_permission_error(exc: Exception) -> bool:
@@ -190,7 +205,7 @@ class SheetsClient(ISheetsClient):
         header: list[str],
         field_order: list[str],
         entry: HabitEntry,
-    ) -> tuple[list[str], list[str]]:
+    ) -> tuple[list[str], list[Any]]:
         base_header = ["timestamp", "date", "raw_record", "diary"]
         if header:
             header = [("raw_record" if col == "raw_diary" else col) for col in header]
@@ -217,7 +232,7 @@ class SheetsClient(ISheetsClient):
             if col == "timestamp":
                 row.append(entry.created_at.isoformat())
             elif col == "date":
-                row.append(entry.date.strftime("%d-%m-%Y"))
+                row.append(self._sheet_date_serial(entry.date))
             elif col == "raw_record":
                 row.append(entry.raw_record)
             elif col == "diary":
@@ -242,6 +257,7 @@ class SheetsClient(ISheetsClient):
             canonical_header, row = self._prepare_habit_header_and_row(header, field_order, entry)
             if header != canonical_header:
                 ws.update("1:1", [canonical_header], value_input_option=self._WRITE_INPUT_OPTION)
+            self._format_habit_date_column(ws, canonical_header)
 
             ws.append_row(row, value_input_option=self._WRITE_INPUT_OPTION)
         except Exception as exc:
@@ -436,6 +452,7 @@ class SheetsClient(ISheetsClient):
             canonical_header, row = self._prepare_habit_header_and_row(header, field_order, entry)
             if header != canonical_header:
                 ws.update("1:1", [canonical_header], value_input_option=self._WRITE_INPUT_OPTION)
+            self._format_habit_date_column(ws, canonical_header)
             ws.update(
                 f"A{row_index}",
                 [row],

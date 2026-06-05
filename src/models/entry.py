@@ -6,6 +6,9 @@ from pydantic import BaseModel, Field
 from src.models.enums import InputType
 
 
+_SHEETS_DATE_BASE = date(1899, 12, 30)
+
+
 class HabitEntry(BaseModel):
     """A single habit entry to be written to Google Sheets."""
 
@@ -26,7 +29,7 @@ class HabitEntry(BaseModel):
             if field == "timestamp":
                 row.append(self.created_at.isoformat())
             elif field == "date":
-                row.append(self.date.isoformat())
+                row.append((self.date - _SHEETS_DATE_BASE).days)
             elif field == "raw_record":
                 row.append(self.raw_record)
             elif field == "diary":

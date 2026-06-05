@@ -15,6 +15,8 @@ set -euo pipefail
 #   ALLOW_QEMU                    - keep local cross-arch build on Apple Silicon (default: false)
 #   CLEANUP_AFTER_DEPLOY          - delete pushed image from Artifact Registry and local cache (default: false)
 #   SET_TELEGRAM_WEBHOOK          - call Telegram setWebhook after deploy (default: false)
+#   TELEGRAM_SET_WEBHOOK_URL      - optional custom webhook base URL for setWebhook.
+#                                   Defaults to the just-deployed Cloud Run service URL.
 #   STARTUP_CPU_BOOST             - enable startup CPU boost (default: false)
 #   USE_SECRET_MANAGER            - load sensitive keys from Secret Manager instead of env vars (default: true)
 #                                   Secrets must exist in Secret Manager using the exact env var name as the secret id.
@@ -24,6 +26,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+BUILD_STRATEGY_OVERRIDE="${BUILD_STRATEGY:-}"
+CLEANUP_AFTER_DEPLOY_OVERRIDE="${CLEANUP_AFTER_DEPLOY:-}"
 ENV_CANDIDATES=(".env" "${SCRIPT_DIR}/../.env" "${SCRIPT_DIR}/.env")
 for env_file in "${ENV_CANDIDATES[@]}"; do
   if [[ -f "${env_file}" ]]; then
@@ -35,6 +39,12 @@ for env_file in "${ENV_CANDIDATES[@]}"; do
     break
   fi
 done
+if [[ -n "${BUILD_STRATEGY_OVERRIDE}" ]]; then
+  BUILD_STRATEGY="${BUILD_STRATEGY_OVERRIDE}"
+fi
+if [[ -n "${CLEANUP_AFTER_DEPLOY_OVERRIDE}" ]]; then
+  CLEANUP_AFTER_DEPLOY="${CLEANUP_AFTER_DEPLOY_OVERRIDE}"
+fi
 
 # Prefer project/region values from .env over stale shell values from other
 # setup steps. PROJECT_ID and REGION are common generic variable names.
@@ -50,7 +60,7 @@ CONTAINER_TOOL="${CONTAINER_TOOL:-docker}"
 PLATFORM="${PLATFORM:-linux/amd64}"
 BUILD_STRATEGY="${BUILD_STRATEGY:-local}"
 ALLOW_QEMU="${ALLOW_QEMU:-false}"
-CLEANUP_AFTER_DEPLOY="${CLEANUP_AFTER_DEPLOY:-true}"
+CLEANUP_AFTER_DEPLOY="${CLEANUP_AFTER_DEPLOY:-false}"
 SET_TELEGRAM_WEBHOOK="${SET_TELEGRAM_WEBHOOK:-false}"
 STARTUP_CPU_BOOST="${STARTUP_CPU_BOOST:-false}"
 USE_SECRET_MANAGER="${USE_SECRET_MANAGER:-true}"
@@ -192,16 +202,12 @@ done
 
 SECRET_ARGS=()
 if [[ "${USE_SECRET_MANAGER}" == "true" ]]; then
-  # Only wire up secrets whose value is present locally (proxy for "user actually uses this key").
-  # This avoids failing when an optional secret like TELEGRAM_BOT_TOKEN_DEBUG doesn't exist in SM.
   for key in "${SENSITIVE_APP_ENV_KEYS[@]}"; do
     val="${!key-}"
-    if [[ -n "${val}" ]]; then
-      if gcloud secrets describe "${key}" --project "${PROJECT_ID}" >/dev/null 2>&1; then
-        SECRET_ARGS+=("${key}=${key}:latest")
-      else
-        echo "Secret Manager secret ${key} does not exist; skipping deploy secret binding."
-      fi
+    if gcloud secrets describe "${key}" --project "${PROJECT_ID}" >/dev/null 2>&1; then
+      SECRET_ARGS+=("${key}=${key}:latest")
+    elif [[ -n "${val}" ]]; then
+      echo "Secret Manager secret ${key} does not exist; skipping deploy secret binding."
     fi
   done
 else
@@ -248,18 +254,43 @@ gcloud run deploy "${SERVICE_NAME}" \
 SERVICE_URL="$(gcloud run services describe "${SERVICE_NAME}" --region "${REGION}" --project "${PROJECT_ID}" --format='value(status.url)')"
 
 if [[ "${SET_TELEGRAM_WEBHOOK}" == "true" ]]; then
-  if [[ -z "${TELEGRAM_BOT_TOKEN:-}" ]]; then
-    echo "SET_TELEGRAM_WEBHOOK is true but TELEGRAM_BOT_TOKEN is not set; skipping webhook registration."
+  WEBHOOK_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
+  WEBHOOK_SECRET="${TELEGRAM_WEBHOOK_SECRET:-}"
+  if [[ "${USE_SECRET_MANAGER}" == "true" ]]; then
+    if gcloud secrets describe TELEGRAM_BOT_TOKEN --project "${PROJECT_ID}" >/dev/null 2>&1; then
+      WEBHOOK_BOT_TOKEN="$(gcloud secrets versions access latest --secret=TELEGRAM_BOT_TOKEN --project "${PROJECT_ID}")"
+    fi
+    if gcloud secrets describe TELEGRAM_WEBHOOK_SECRET --project "${PROJECT_ID}" >/dev/null 2>&1; then
+      WEBHOOK_SECRET="$(gcloud secrets versions access latest --secret=TELEGRAM_WEBHOOK_SECRET --project "${PROJECT_ID}")"
+    fi
+  fi
+
+  if [[ -z "${WEBHOOK_BOT_TOKEN}" ]]; then
+    echo "SET_TELEGRAM_WEBHOOK is true but no Telegram bot token is available; skipping webhook registration."
+    echo "Set TELEGRAM_BOT_TOKEN locally or create Secret Manager secret TELEGRAM_BOT_TOKEN."
   else
-    WEBHOOK_URL="${TELEGRAM_WEBHOOK_URL:-${SERVICE_URL}/telegram/webhook}"
+    WEBHOOK_BASE="${TELEGRAM_SET_WEBHOOK_URL:-${SERVICE_URL}}"
+    WEBHOOK_BASE="${WEBHOOK_BASE%/telegram/webhook}"
+    WEBHOOK_BASE="${WEBHOOK_BASE%/}"
+    WEBHOOK_URL="${WEBHOOK_BASE}/telegram/webhook"
+    if [[ -n "${TELEGRAM_SET_WEBHOOK_URL:-}" && "${WEBHOOK_BASE}" != "${SERVICE_URL}" ]]; then
+      echo "WARNING: TELEGRAM_SET_WEBHOOK_URL points to ${WEBHOOK_BASE}, not the deployed service URL ${SERVICE_URL}."
+    fi
     echo "Setting Telegram webhook to ${WEBHOOK_URL}"
-    if [[ -n "${TELEGRAM_WEBHOOK_SECRET:-}" ]]; then
-      curl -sSf -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
-        -d "url=${WEBHOOK_URL}" \
-        -d "secret_token=${TELEGRAM_WEBHOOK_SECRET}"
-    else
-      curl -sSf -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
-        -d "url=${WEBHOOK_URL}"
+    CURL_FLAGS=(-sSf)
+    if curl --version 2>/dev/null | grep -qi schannel; then
+      CURL_FLAGS+=(--ssl-no-revoke)
+    fi
+    CURL_ARGS=("${CURL_FLAGS[@]}" -X POST "https://api.telegram.org/bot${WEBHOOK_BOT_TOKEN}/setWebhook" -d "url=${WEBHOOK_URL}")
+    if [[ -n "${WEBHOOK_SECRET}" ]]; then
+      CURL_ARGS+=(-d "secret_token=${WEBHOOK_SECRET}")
+    fi
+    if ! curl "${CURL_ARGS[@]}"; then
+      echo
+      echo "Failed to set Telegram webhook."
+      echo "If Telegram returned HTTP 401, the bot token used for setWebhook is invalid."
+      echo "With USE_SECRET_MANAGER=true, the script uses Secret Manager secret TELEGRAM_BOT_TOKEN when it exists."
+      exit 1
     fi
     echo "Telegram webhook set."
   fi

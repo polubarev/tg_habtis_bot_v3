@@ -11,6 +11,7 @@ class FakeWorksheet:
         self.header = header
         self.appended: list[tuple[list[str], str | None]] = []
         self.updated: list[tuple[str, list[list[str]], str | None]] = []
+        self.formatted: list[tuple[str, dict]] = []
 
     def get(self, *_args, **_kwargs):
         return [["timestamp"]]
@@ -25,6 +26,9 @@ class FakeWorksheet:
 
     def append_row(self, row, value_input_option=None):
         self.appended.append((row, value_input_option))
+
+    def format(self, range_name, cell_format):
+        self.formatted.append((range_name, cell_format))
 
 
 class FakeSpreadsheet:
@@ -68,8 +72,22 @@ def test_habit_entries_are_written_raw_to_prevent_formula_execution():
 
     row, value_input_option = spreadsheet.worksheet("Habits").appended[0]
     assert value_input_option == "RAW"
+    assert row[1] == 46175
     assert row[2].startswith("=")
     assert row[3].startswith("+")
+    assert spreadsheet.worksheet("Habits").formatted == [
+        ("B:B", {"numberFormat": {"type": "DATE", "pattern": "dd-mm-yyyy"}})
+    ]
+
+
+def test_habit_entry_sheet_row_uses_numeric_date_for_raw_writes():
+    entry = HabitEntry(
+        date=date(2026, 6, 2),
+        raw_record="record",
+        created_at=datetime(2026, 6, 2, 12, 0),
+    )
+
+    assert entry.to_sheet_row([])[0] == 46175
 
 
 def test_other_entry_types_are_written_raw_to_prevent_formula_execution():
