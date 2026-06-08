@@ -93,7 +93,7 @@ async def test_route_text_sheet_id_routes_to_config(monkeypatch):
     session_repo = FakeSessionRepo()
     user_id = 456
     context = _build_context(FakeDeps(session_repo))
-    update = FakeUpdate("abc1234567890", user_id=user_id)
+    update = FakeUpdate("1AbCDefGh1234567890xYz987654321", user_id=user_id)
 
     config_mock = AsyncMock(return_value=True)
     monkeypatch.setattr(router_module, "handle_config_text", config_mock)
@@ -104,3 +104,25 @@ async def test_route_text_sheet_id_routes_to_config(monkeypatch):
     assert session is not None
     assert session.state == ConversationState.CONFIG_AWAITING_SHEET_URL
     assert config_mock.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_route_text_custom_iso_date_is_not_treated_as_sheet_id(monkeypatch):
+    session_repo = FakeSessionRepo()
+    user_id = 789
+    session_repo.sessions[user_id] = SessionData(
+        user_id=user_id,
+        state=ConversationState.HABITS_AWAITING_DATE,
+    )
+    context = _build_context(FakeDeps(session_repo))
+    update = FakeUpdate("2026-06-06", user_id=user_id)
+
+    config_mock = AsyncMock(return_value=True)
+    date_mock = AsyncMock(return_value=True)
+    monkeypatch.setattr(router_module, "handle_config_text", config_mock)
+    monkeypatch.setattr(router_module, "handle_habits_date_text", date_mock)
+
+    await router_module.route_text(update, context)
+
+    config_mock.assert_not_awaited()
+    date_mock.assert_awaited_once()

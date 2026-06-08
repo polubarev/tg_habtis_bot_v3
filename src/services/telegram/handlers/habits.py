@@ -10,6 +10,7 @@ from telegram.ext import ContextTypes
 from src.config.constants import HABITS_SHEET_COLUMNS, MESSAGES_EN, MESSAGES_RU
 from src.config.settings import get_settings
 from src.core.analytics import log_event
+from src.core.logging import get_logger
 from src.models.habit import HabitSchema
 from src.models.session import ConversationState, SessionData
 from src.services.telegram.keyboards import (
@@ -22,6 +23,7 @@ from src.models.entry import HabitEntry
 from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.models.enums import InputType
 from src.services.llm.extractors.habit_extractor import HabitExtractor
+from src.services.telegram.handlers.config import looks_like_sheet_input
 from src.services.telegram.utils import (
     get_session_expired_message,
     get_llm_client,
@@ -40,6 +42,7 @@ from src.services.telegram.utils import (
 BASE_HABIT_FIELDS = set(HABITS_SHEET_COLUMNS)
 _OP_TIMEOUT = get_settings().operation_timeout_seconds
 _HABIT_EXTRACTION_MAX_ATTEMPTS = 2
+logger = get_logger(__name__)
 
 
 def _messages_for_lang(lang: str) -> Dict[str, str]:
@@ -426,11 +429,11 @@ def _parse_custom_date(text: str) -> date | None:
         return None
 
 
-def _safe_answer(query) -> None:
+async def _safe_answer(query) -> None:
     """Best-effort answer to avoid errors on stale callback queries."""
 
     try:
-        return query.answer()
+        await query.answer()
     except Exception:
         return None
 
@@ -455,7 +458,11 @@ async def _maybe_prompt_existing_entry(
     session_repo = _get_session_repo(context)
     profile = await resolve_user_profile(update, context)
     habit_schema = profile.habit_schema if profile else None
-    sheet_id = profile.sheet_id if profile else None
+    sheet_id = (
+        profile.sheet_id
+        if profile and profile.sheet_id and looks_like_sheet_input(profile.sheet_id)
+        else None
+    )
     if not sheet_id or not sheet_client:
         return False
     try:
@@ -486,7 +493,7 @@ async def _maybe_prompt_existing_entry(
     parse_mode = ParseMode.HTML if preview else None
     keyboard = build_existing_habits_keyboard(lang)
     if update.callback_query:
-        _safe_answer(update.callback_query)
+        await _safe_answer(update.callback_query)
         try:
             await update.callback_query.edit_message_text(
                 prompt,
@@ -539,7 +546,7 @@ async def handle_habits_date_callback(update: Update, context: ContextTypes.DEFA
     query = update.callback_query
     data = query.data or ""
     if data == "habits_cancel":
-        _safe_answer(query)
+        await _safe_answer(query)
         lang = resolve_language(await resolve_user_profile(update, context))
         await query.edit_message_text(_messages_for_lang(lang)["cancelled"])
         return
@@ -560,7 +567,7 @@ async def handle_habits_date_callback(update: Update, context: ContextTypes.DEFA
         session.state = ConversationState.HABITS_AWAITING_DATE
         if session_repo:
             await session_repo.save(session)
-        _safe_answer(query)
+        await _safe_answer(query)
         lang = resolve_language(await resolve_user_profile(update, context))
         await query.edit_message_text(_messages_for_lang(lang)["date_custom_prompt"])
         return
@@ -576,10 +583,7 @@ async def handle_habits_date_callback(update: Update, context: ContextTypes.DEFA
     if session_repo:
         await session_repo.save(session)
     msgs = _messages_for_lang(lang)
-    try:
-        _safe_answer(query)
-    except Exception:
-        pass
+    await _safe_answer(query)
     if update.effective_chat:
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -639,7 +643,7 @@ async def handle_habits_existing_choice(update: Update, context: ContextTypes.DE
     session_repo = _get_session_repo(context)
     session = await session_repo.get(update.effective_user.id) if session_repo else None
     if session is None or session.state != ConversationState.HABITS_AWAITING_EXISTING_CHOICE:
-        _safe_answer(query)
+        await _safe_answer(query)
         return
 
     if session.temp_data is None:
@@ -656,7 +660,7 @@ async def handle_habits_existing_choice(update: Update, context: ContextTypes.DE
         await query.edit_message_reply_markup(reply_markup=None)
     except Exception:
         pass
-    _safe_answer(query)
+    await _safe_answer(query)
     if update.effective_chat:
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -794,7 +798,7 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
     default_dynamic: list[str] = []
     session = await session_repo.get(update.effective_user.id) if session_repo else None
     if session is None or not session.pending_entry:
-        _safe_answer(query)
+        await _safe_answer(query)
         lang = resolve_language(await resolve_user_profile(update, context))
         await query.edit_message_text(get_session_expired_message(lang))
         return
@@ -804,7 +808,11 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
         profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
         lang = resolve_language(profile)
         habit_schema = profile.habit_schema if profile else None
-        sheet_id = profile.sheet_id if profile else None
+        sheet_id = (
+            profile.sheet_id
+            if profile and profile.sheet_id and looks_like_sheet_input(profile.sheet_id)
+            else None
+        )
         if sheet_id and sheets_client:
             field_order = (
                 [f for f in (profile.habit_schema.fields.keys()) if f not in base_fields]
@@ -859,13 +867,41 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
                         sheets_client.append_habit_entry(sheet_id, field_order, entry),
                         timeout=_OP_TIMEOUT,
                     )
-            except SheetAccessError:
+            except SheetAccessError as exc:
+                logger.warning(
+                    "habit_sheet_save_failed",
+                    user_id=update.effective_user.id,
+                    sheet_id_suffix=sheet_id[-6:],
+                    error_type=type(exc).__name__,
+                    error_key="sheet_permission_error",
+                )
                 error_key = "sheet_permission_error"
-            except asyncio.TimeoutError:
+            except asyncio.TimeoutError as exc:
+                logger.warning(
+                    "habit_sheet_save_failed",
+                    user_id=update.effective_user.id,
+                    sheet_id_suffix=sheet_id[-6:],
+                    error_type=type(exc).__name__,
+                    error_key="external_timeout_error",
+                )
                 error_key = "external_timeout_error"
-            except ExternalTimeoutError:
+            except ExternalTimeoutError as exc:
+                logger.warning(
+                    "habit_sheet_save_failed",
+                    user_id=update.effective_user.id,
+                    sheet_id_suffix=sheet_id[-6:],
+                    error_type=type(exc).__name__,
+                    error_key="external_timeout_error",
+                )
                 error_key = "external_timeout_error"
-            except SheetWriteError:
+            except SheetWriteError as exc:
+                logger.warning(
+                    "habit_sheet_save_failed",
+                    user_id=update.effective_user.id,
+                    sheet_id_suffix=sheet_id[-6:],
+                    error_type=type(exc).__name__,
+                    error_key="sheet_write_error",
+                )
                 error_key = "sheet_write_error"
             if error_key:
                 try:
@@ -879,7 +915,7 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
                 session.reset()
                 if session_repo:
                     await session_repo.save(session)
-                _safe_answer(query)
+                await _safe_answer(query)
                 return
             try:
                 await query.edit_message_reply_markup(reply_markup=None)
@@ -919,10 +955,10 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
             chat_id=update.effective_chat.id,
             text=_messages_for_lang(lang)["habits_update_prompt"],
         )
-        _safe_answer(query)
+        await _safe_answer(query)
         return
 
     session.reset()
     if session_repo:
         await session_repo.save(session)
-    _safe_answer(query)
+    await _safe_answer(query)

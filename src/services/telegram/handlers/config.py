@@ -19,6 +19,7 @@ from src.config.constants import DEFAULT_HABIT_SCHEMA, MESSAGES_EN, MESSAGES_RU
 from src.config.settings import get_settings
 from src.core.analytics import log_event
 from src.core.exceptions import ExternalTimeoutError, SheetAccessError, SheetWriteError
+from src.core.logging import get_logger
 from src.models.session import ConversationState, SessionData
 from src.models.user import UserProfile
 from zoneinfo import ZoneInfo
@@ -39,6 +40,8 @@ _OP_TIMEOUT = get_settings().operation_timeout_seconds
 _REMINDER_DISABLE_WORDS = {"off", "disable", "disabled", "выкл", "отключить", "выключить"}
 _SMART_NUDGES_DEFAULT_TIMES = ["09:00", "14:00", "20:00"]
 _SMART_NUDGES_DEFAULT_ROLLOVER = "12:00"
+_MIN_BARE_SHEET_ID_LENGTH = 20
+logger = get_logger(__name__)
 
 
 def _get_repos(context: ContextTypes.DEFAULT_TYPE):
@@ -67,7 +70,11 @@ def looks_like_sheet_input(text: str) -> bool:
         return False
     if re.search(r"spreadsheets/d/[A-Za-z0-9-_]{10,}", stripped):
         return True
-    return bool(re.fullmatch(r"[A-Za-z0-9-_]{10,}", stripped))
+    if not re.fullmatch(r"[A-Za-z0-9-_]+", stripped):
+        return False
+    if len(stripped) < _MIN_BARE_SHEET_ID_LENGTH:
+        return False
+    return any(ch.isalpha() for ch in stripped) and any(ch.isdigit() for ch in stripped)
 
 
 def _has_extra_sheet_params(text: str) -> bool:
@@ -106,7 +113,7 @@ async def config_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     service_email = getattr(sheets_client, "service_email", None)
     is_ru = lang == "ru"
 
-    if profile and profile.sheet_id:
+    if profile and profile.sheet_id and looks_like_sheet_input(profile.sheet_id):
         if is_ru:
             msg = "Таблица уже подключена. Хочешь заменить? Отправь новую ссылку или /cancel."
             msg += "\nТребуемый доступ: \"Общий доступ → Ограничен\" и дать редактора боту."
@@ -169,8 +176,57 @@ async def handle_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
     has_extra_params = _has_extra_sheet_params(sheet_text)
     cleaned_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}"
 
+    profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
+
+    if sheets_client:
+        progress_message = None
+        try:
+            if update.message:
+                progress_message = await update.message.reply_text(_messages_for_lang(lang)["processing"])
+            await asyncio.wait_for(sheets_client.ensure_tabs(sheet_id), timeout=_OP_TIMEOUT)
+        except SheetAccessError as exc:  # pragma: no cover - external dependency
+            logger.warning(
+                "sheet_config_validation_failed",
+                user_id=update.effective_user.id,
+                sheet_id_suffix=sheet_id[-6:],
+                error_type=type(exc).__name__,
+            )
+            await safe_delete_message(progress_message)
+            await update.message.reply_text(_messages_for_lang(lang)["sheet_permission_error"])
+            return True
+        except asyncio.TimeoutError as exc:  # pragma: no cover - external dependency
+            logger.warning(
+                "sheet_config_validation_timeout",
+                user_id=update.effective_user.id,
+                sheet_id_suffix=sheet_id[-6:],
+                error_type=type(exc).__name__,
+            )
+            await safe_delete_message(progress_message)
+            await update.message.reply_text(_messages_for_lang(lang)["external_timeout_error"])
+            return True
+        except ExternalTimeoutError as exc:  # pragma: no cover - external dependency
+            logger.warning(
+                "sheet_config_validation_timeout",
+                user_id=update.effective_user.id,
+                sheet_id_suffix=sheet_id[-6:],
+                error_type=type(exc).__name__,
+            )
+            await safe_delete_message(progress_message)
+            await update.message.reply_text(_messages_for_lang(lang)["external_timeout_error"])
+            return True
+        except SheetWriteError as exc:  # pragma: no cover - external dependency
+            logger.warning(
+                "sheet_config_validation_failed",
+                user_id=update.effective_user.id,
+                sheet_id_suffix=sheet_id[-6:],
+                error_type=type(exc).__name__,
+            )
+            await safe_delete_message(progress_message)
+            await update.message.reply_text(_messages_for_lang(lang)["sheet_write_error"])
+            return True
+        await safe_delete_message(progress_message)
+
     if user_repo:
-        profile = await user_repo.get_by_telegram_id(update.effective_user.id)
         if profile is None:
             profile = UserProfile(
                 telegram_user_id=update.effective_user.id,
@@ -179,35 +235,8 @@ async def handle_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
             )
         profile.sheet_id = sheet_id
         profile.sheet_url = cleaned_url
-        profile.sheets_validated = False
+        profile.sheets_validated = bool(sheets_client)
         await user_repo.update(profile)
-
-    if sheets_client:
-        progress_message = None
-        try:
-            if update.message:
-                progress_message = await update.message.reply_text(_messages_for_lang(lang)["processing"])
-            await asyncio.wait_for(sheets_client.ensure_tabs(sheet_id), timeout=_OP_TIMEOUT)
-        except SheetAccessError:  # pragma: no cover - external dependency
-            await safe_delete_message(progress_message)
-            await update.message.reply_text(_messages_for_lang(lang)["sheet_permission_error"])
-            return True
-        except asyncio.TimeoutError:  # pragma: no cover - external dependency
-            await safe_delete_message(progress_message)
-            await update.message.reply_text(_messages_for_lang(lang)["external_timeout_error"])
-            return True
-        except ExternalTimeoutError:  # pragma: no cover - external dependency
-            await safe_delete_message(progress_message)
-            await update.message.reply_text(_messages_for_lang(lang)["external_timeout_error"])
-            return True
-        except SheetWriteError:  # pragma: no cover - external dependency
-            await safe_delete_message(progress_message)
-            await update.message.reply_text(_messages_for_lang(lang)["sheet_write_error"])
-            return True
-        await safe_delete_message(progress_message)
-        if user_repo and profile:
-            profile.sheets_validated = True
-            await user_repo.update(profile)
 
     if session:
         session.state = ConversationState.IDLE

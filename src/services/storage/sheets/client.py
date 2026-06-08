@@ -130,6 +130,8 @@ class SheetsClient(ISheetsClient):
         return "timeout" in message or "timed out" in message
 
     def _raise_mapped_error(self, exc: Exception) -> None:
+        if isinstance(exc, (SheetAccessError, ExternalTimeoutError, SheetWriteError)):
+            raise exc
         if self._is_permission_error(exc):
             raise SheetAccessError("Google Sheet access denied") from exc
         if self._is_timeout_error(exc):

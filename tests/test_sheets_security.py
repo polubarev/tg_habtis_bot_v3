@@ -1,6 +1,9 @@
 from datetime import date, datetime
 from types import SimpleNamespace
 
+import pytest
+
+from src.core.exceptions import SheetAccessError
 from src.models.entry import DreamEntry, HabitEntry, ReflectionEntry, ThoughtEntry
 from src.services.storage.sheets.client import SheetsClient
 
@@ -109,3 +112,11 @@ def test_other_entry_types_are_written_raw_to_prevent_formula_execution():
     assert spreadsheet.worksheet("Dreams").appended[0][1] == "RAW"
     assert spreadsheet.worksheet("Thoughts").appended[0][1] == "RAW"
     assert spreadsheet.worksheet("Reflections").appended[0][1] == "RAW"
+
+
+def test_mapped_sheet_errors_are_not_reclassified_as_write_errors():
+    client, _spreadsheet = _client_with_fake_spreadsheet()
+    client._open = lambda _sheet_id: (_ for _ in ()).throw(SheetAccessError("denied"))
+
+    with pytest.raises(SheetAccessError):
+        client._ensure_tabs_sync("sheet")
