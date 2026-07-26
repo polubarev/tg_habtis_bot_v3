@@ -1,11 +1,11 @@
-from typing import Optional
+from typing import Any, Optional
 
 try:
-    from google.cloud import firestore
-    from google.oauth2 import service_account
+    import google.cloud.firestore as firestore_module  # type: ignore[import-untyped]
+    from google.oauth2 import service_account as service_account_module
 except Exception:  # pragma: no cover - optional dependency
-    firestore = None
-    service_account = None
+    firestore_module: Any = None  # type: ignore[no-redef]
+    service_account_module: Any = None  # type: ignore[no-redef]
 
 from src.core.logging import get_logger
 
@@ -20,16 +20,16 @@ class FirestoreClient:
         self.project_id = project_id
         self.credentials_path = credentials_path
         self.service_email: str | None = None
-        if firestore is None:
+        if firestore_module is None:
             logger.warning("google.cloud.firestore not available; falling back to in-memory stores")
             return
         try:
-            if credentials_path and service_account is not None:
-                creds = service_account.Credentials.from_service_account_file(credentials_path)
+            if credentials_path and service_account_module is not None:
+                creds = service_account_module.Credentials.from_service_account_file(credentials_path)
                 self.service_email = creds.service_account_email
-                self._client = firestore.Client(project=project_id, credentials=creds)
+                self._client = firestore_module.Client(project=project_id, credentials=creds)
             else:
-                self._client = firestore.Client(project=project_id)
+                self._client = firestore_module.Client(project=project_id)
             logger.info(
                 "Firestore client initialized",
                 project=project_id,

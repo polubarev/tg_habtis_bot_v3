@@ -69,7 +69,8 @@ async def reflect_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             return
         defaults = DEFAULT_REFLECTION_QUESTIONS_RU if lang == "ru" else DEFAULT_REFLECTION_QUESTIONS_EN
         profile.custom_questions = [
-            CustomQuestion(**q, language=lang) for q in defaults
+            CustomQuestion(id=q["id"], text=q["text"], language=lang)
+            for q in defaults
         ]
         await user_repo.update(profile)
         questions = [q for q in profile.custom_questions if q.active]
@@ -173,7 +174,7 @@ async def handle_reflect_text(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def handle_reflect_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.callback_query or not update.effective_user:
+    if not update.callback_query or not update.effective_user or not update.effective_chat:
         return
     query = update.callback_query
     data = query.data or ""

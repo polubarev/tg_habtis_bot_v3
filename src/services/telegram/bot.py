@@ -95,7 +95,7 @@ class TelegramBotService:
                 try:
                     await self.app.initialize()
                 except NetworkError as exc:
-                    logger.warning("Telegram init failed (network)", error=str(exc))
+                    logger.warning("Telegram init failed (network): %s", exc)
                     return
                 except Exception:
                     logger.exception("Telegram init failed")
@@ -186,7 +186,7 @@ class TelegramBotService:
         try:
             await self.app.initialize()
         except NetworkError as exc:
-            logger.warning("Telegram init failed (network)", error=str(exc))
+            logger.warning("Telegram init failed (network): %s", exc)
             self.app = None
             return
         except Exception:

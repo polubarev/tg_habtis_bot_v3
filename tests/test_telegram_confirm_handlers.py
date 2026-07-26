@@ -33,7 +33,11 @@ class _DummyContext:
 
 def _build_update(data: str):
     query = _DummyCallbackQuery(data)
-    update = SimpleNamespace(callback_query=query, effective_user=SimpleNamespace(id=1))
+    update = SimpleNamespace(
+        callback_query=query,
+        effective_user=SimpleNamespace(id=1),
+        effective_chat=SimpleNamespace(id=1),
+    )
     return update, query
 
 

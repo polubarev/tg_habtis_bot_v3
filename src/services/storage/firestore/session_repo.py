@@ -17,6 +17,7 @@ class SessionRepository(ISessionRepository):
         self.client = client
         settings = get_settings()
         self.collection_name = settings.firestore_collection_sessions
+        self.session_ttl_minutes = settings.session_ttl_minutes
         self._store: Dict[int, SessionData] = {}
 
     async def get(self, user_id: int) -> Optional[SessionData]:
@@ -33,9 +34,14 @@ class SessionRepository(ISessionRepository):
                 # Fall back to in-memory if Firestore is unavailable/disabled
                 logger.warning("Firestore unavailable for sessions; falling back to memory", error=str(exc))
                 self.client = None
-        return self._store.get(user_id)
+        memory_session = self._store.get(user_id)
+        if memory_session and memory_session.is_expired():
+            self._store.pop(user_id, None)
+            return None
+        return memory_session
 
     async def save(self, session: SessionData) -> None:
+        session.refresh_expiry(self.session_ttl_minutes)
         if self.client and self.client.is_ready:
             try:
                 data = session.model_dump(mode="json")

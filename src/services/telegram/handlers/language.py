@@ -48,7 +48,7 @@ async def language_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 async def handle_language_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle inline language selection."""
 
-    if not update.callback_query or not update.effective_user:
+    if not update.callback_query or not update.effective_user or not update.effective_chat:
         return
     query = update.callback_query
     data = query.data or ""
@@ -84,7 +84,10 @@ async def handle_language_select(update: Update, context: ContextTypes.DEFAULT_T
     profile.language = selected
     if not profile.custom_questions:
         defaults = DEFAULT_REFLECTION_QUESTIONS_RU if selected == "ru" else DEFAULT_REFLECTION_QUESTIONS_EN
-        profile.custom_questions = [CustomQuestion(**q, language=selected) for q in defaults]
+        profile.custom_questions = [
+            CustomQuestion(id=q["id"], text=q["text"], language=selected)
+            for q in defaults
+        ]
     profile.onboarding_completed = True
     if user_repo:
         await user_repo.update(profile)

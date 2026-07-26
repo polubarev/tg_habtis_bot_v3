@@ -1,13 +1,12 @@
+from typing import Any
 
-from typing import Optional
+from pydantic import SecretStr
 
 try:
-    from langchain_openai import ChatOpenAI
-    from langchain_core.language_models import BaseChatModel
+    from langchain_openai import ChatOpenAI as ChatOpenAIType
     _IMPORT_ERROR = None
 except Exception as exc:  # pragma: no cover - optional import path compatibility
-    ChatOpenAI = None
-    BaseChatModel = object
+    ChatOpenAIType: Any = None  # type: ignore[no-redef]
     _IMPORT_ERROR = exc
 
 from src.config.settings import get_settings
@@ -19,21 +18,25 @@ logger = get_logger(__name__)
 class LLMClient:
     """OpenRouter LLM client wrapper."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         settings = get_settings()
-        self._model: Optional[BaseChatModel] = None
-        if ChatOpenAI is None:
+        self._model: Any = None
+        if ChatOpenAIType is None:
             logger.warning(
                 "LangChain ChatOpenAI not available; LLM calls disabled",
                 error=str(_IMPORT_ERROR) if _IMPORT_ERROR else None,
             )
             return
-        self._model = ChatOpenAI(
+        self._model = ChatOpenAIType(
             model=settings.llm_model,
-            openai_api_key=settings.openrouter_api_key,
-            openai_api_base=settings.openrouter_base_url,
+            api_key=(
+                SecretStr(settings.openrouter_api_key)
+                if settings.openrouter_api_key is not None
+                else None
+            ),
+            base_url=settings.openrouter_base_url,
             temperature=settings.llm_temperature,
-            max_tokens=settings.llm_max_tokens,
+            max_completion_tokens=settings.llm_max_tokens,
             default_headers={
                 "HTTP-Referer": "https://habits-diary-bot.app",
                 "X-Title": "Habits Diary Bot",
@@ -46,12 +49,12 @@ class LLMClient:
         )
 
     @property
-    def model(self):
+    def model(self) -> Any:
         if self._model is None:
             raise RuntimeError("LLM client is not configured")
         return self._model
 
-    def with_structured_output(self, schema: type):
+    def with_structured_output(self, schema: type[Any]) -> Any:
         if self._model is None:
             raise RuntimeError("LLM client is not configured")
         return self._model.with_structured_output(schema)

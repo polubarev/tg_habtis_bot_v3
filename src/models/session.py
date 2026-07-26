@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Optional
 
@@ -47,13 +47,29 @@ class SessionData(BaseModel):
     current_question_index: Optional[int] = None
     reflection_answers: dict[str, str] = Field(default_factory=dict)
     temp_data: dict[str, Any] = Field(default_factory=dict)
-    last_activity: datetime = Field(default_factory=datetime.utcnow)
+    last_activity: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: Optional[datetime] = None
 
     def is_expired(self) -> bool:
         if self.expires_at is None:
             return False
-        return datetime.utcnow() > self.expires_at
+        now = (
+            datetime.now(self.expires_at.tzinfo)
+            if self.expires_at.tzinfo is not None
+            else datetime.now(timezone.utc).replace(tzinfo=None)
+        )
+        return now > self.expires_at
+
+    def refresh_expiry(self, ttl_minutes: int) -> None:
+        """Refresh activity and expiry timestamps before persisting the session."""
+
+        now = datetime.now(timezone.utc)
+        self.last_activity = now
+        self.expires_at = (
+            now + timedelta(minutes=ttl_minutes)
+            if ttl_minutes > 0
+            else None
+        )
 
     def reset(self) -> None:
         """Reset session to idle state."""

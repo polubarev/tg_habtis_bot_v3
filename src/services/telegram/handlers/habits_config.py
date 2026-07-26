@@ -322,28 +322,28 @@ def _parse_default_text(raw: str, cfg: HabitFieldConfig) -> tuple[object | None,
     if base_type == "string":
         return raw_value, None, None
     if base_type == "boolean":
-        parsed = _parse_bool_value(raw_value)
-        if parsed is None:
+        parsed_bool = _parse_bool_value(raw_value)
+        if parsed_bool is None:
             return None, "habit_default_error_bool", None
-        return parsed, None, None
+        return parsed_bool, None, None
     if base_type == "integer":
         try:
-            parsed = int(raw_value)
+            parsed_int = int(raw_value)
         except ValueError:
             return None, "habit_default_error_number", None
-        error_key, error_params = _range_error_for_default(parsed, cfg)
+        error_key, error_params = _range_error_for_default(parsed_int, cfg)
         if error_key:
             return None, error_key, error_params
-        return parsed, None, None
+        return parsed_int, None, None
     if base_type == "number":
         try:
-            parsed = float(raw_value)
+            parsed_float = float(raw_value)
         except ValueError:
             return None, "habit_default_error_number", None
-        error_key, error_params = _range_error_for_default(parsed, cfg)
+        error_key, error_params = _range_error_for_default(parsed_float, cfg)
         if error_key:
             return None, error_key, error_params
-        return parsed, None, None
+        return parsed_float, None, None
     return raw_value, None, None
 
 
@@ -382,44 +382,44 @@ def _normalize_default_value(value, cfg: HabitFieldConfig) -> tuple[object | Non
     if base_type == "string":
         return str(value), None, None
     if base_type == "boolean":
-        parsed = _parse_bool_value(value)
-        if parsed is None:
+        parsed_bool = _parse_bool_value(value)
+        if parsed_bool is None:
             return None, "habit_default_error_bool", None
-        return parsed, None, None
+        return parsed_bool, None, None
     if base_type == "integer":
         if isinstance(value, bool):
             return None, "habit_default_error_number", None
         if isinstance(value, int):
-            parsed = value
+            parsed_int = value
         elif isinstance(value, float) and value.is_integer():
-            parsed = int(value)
+            parsed_int = int(value)
         elif isinstance(value, str):
             try:
-                parsed = int(value)
+                parsed_int = int(value)
             except ValueError:
                 return None, "habit_default_error_number", None
         else:
             return None, "habit_default_error_number", None
-        error_key, error_params = _range_error_for_default(parsed, cfg)
+        error_key, error_params = _range_error_for_default(parsed_int, cfg)
         if error_key:
             return None, error_key, error_params
-        return parsed, None, None
+        return parsed_int, None, None
     if base_type == "number":
         if isinstance(value, bool):
             return None, "habit_default_error_number", None
         if isinstance(value, (int, float)):
-            parsed = float(value)
+            parsed_float = float(value)
         elif isinstance(value, str):
             try:
-                parsed = float(value)
+                parsed_float = float(value)
             except ValueError:
                 return None, "habit_default_error_number", None
         else:
             return None, "habit_default_error_number", None
-        error_key, error_params = _range_error_for_default(parsed, cfg)
+        error_key, error_params = _range_error_for_default(parsed_float, cfg)
         if error_key:
             return None, error_key, error_params
-        return parsed, None, None
+        return parsed_float, None, None
     return str(value), None, None
 
 
@@ -541,7 +541,7 @@ async def habits_config_command(update: Update, context: ContextTypes.DEFAULT_TY
 async def handle_habits_config_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle habit config inline buttons."""
 
-    if not update.callback_query or not update.effective_user:
+    if not update.callback_query or not update.effective_user or not update.effective_chat:
         return
     query = update.callback_query
     data = query.data or ""
@@ -718,6 +718,7 @@ async def handle_habit_edit_attr_callback(update: Update, context: ContextTypes.
             reply_markup=_keyboard(lang),
         )
         return
+    cfg: HabitFieldConfig = profile.habit_schema.fields[field_name]
     if field_name == "diary" and attr != "description":
         display_name = _display_field_name(field_name, lang, profile.habit_schema.fields)
         await query.edit_message_text(
@@ -730,7 +731,6 @@ async def handle_habit_edit_attr_callback(update: Update, context: ContextTypes.
         )
         return
 
-    cfg = profile.habit_schema.fields[field_name]
     base_type = _base_field_type(cfg.type)
     if attr in {"mode", "options"} and base_type != "list":
         await query.edit_message_text(
@@ -936,7 +936,7 @@ async def handle_habit_type_callback(update: Update, context: ContextTypes.DEFAU
 async def handle_habit_list_mode_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle list mode selection for list fields."""
 
-    if not update.callback_query or not update.effective_user:
+    if not update.callback_query or not update.effective_user or not update.effective_chat:
         return
     query = update.callback_query
     data = query.data or ""
@@ -1239,7 +1239,9 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
         custom_fields = _custom_field_names(profile)
         labels = _field_label_map(profile, lang)
 
-        async def _finish_and_reset(updated_name: str):
+        async def _finish_edit_and_reset(updated_name: str):
+            if update.message is None:
+                return
             session.state = ConversationState.IDLE
             session.temp_data = {}
             if session_repo:
@@ -1328,7 +1330,7 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                 cfg.allow_multiple = allow_multiple
                 profile.habit_schema.fields[field_name] = cfg
                 await user_repo.update(profile)
-                await _finish_and_reset(field_name)
+                await _finish_edit_and_reset(field_name)
                 return True
             session.temp_data = {
                 "habit_action": "edit",
@@ -1371,7 +1373,7 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                 cfg.default = None if error_key else normalized
             profile.habit_schema.fields[field_name] = cfg
             await user_repo.update(profile)
-            await _finish_and_reset(field_name)
+            await _finish_edit_and_reset(field_name)
             return True
 
         if stage == "value":
@@ -1422,7 +1424,7 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                 cfg = profile.habit_schema.fields.pop(field_name)
                 profile.habit_schema.fields[new_name] = cfg
                 await user_repo.update(profile)
-                await _finish_and_reset(new_name)
+                await _finish_edit_and_reset(new_name)
                 return True
 
             if attr == "description":
@@ -1432,7 +1434,7 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                 cfg.description = raw
                 profile.habit_schema.fields[field_name] = cfg
                 await user_repo.update(profile)
-                await _finish_and_reset(field_name)
+                await _finish_edit_and_reset(field_name)
                 return True
 
             if attr == "type":
@@ -1482,7 +1484,7 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                     cfg.default = None if error_key else normalized
                 profile.habit_schema.fields[field_name] = cfg
                 await user_repo.update(profile)
-                await _finish_and_reset(field_name)
+                await _finish_edit_and_reset(field_name)
                 return True
 
             if attr == "default":
@@ -1496,7 +1498,7 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                 cfg.default = parsed
                 profile.habit_schema.fields[field_name] = cfg
                 await user_repo.update(profile)
-                await _finish_and_reset(field_name)
+                await _finish_edit_and_reset(field_name)
                 return True
 
             if attr == "mode":
@@ -1516,7 +1518,7 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                     cfg.default = None if error_key else normalized
                 profile.habit_schema.fields[field_name] = cfg
                 await user_repo.update(profile)
-                await _finish_and_reset(field_name)
+                await _finish_edit_and_reset(field_name)
                 return True
 
             if attr == "options":
@@ -1532,7 +1534,7 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                     cfg.default = None if error_key else normalized
                 profile.habit_schema.fields[field_name] = cfg
                 await user_repo.update(profile)
-                await _finish_and_reset(field_name)
+                await _finish_edit_and_reset(field_name)
                 return True
 
             if attr in {"min", "max"}:
@@ -1567,7 +1569,7 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                     cfg.default = None if error_key else normalized
                 profile.habit_schema.fields[field_name] = cfg
                 await user_repo.update(profile)
-                await _finish_and_reset(field_name)
+                await _finish_edit_and_reset(field_name)
                 return True
 
     if action == "add":
@@ -1575,7 +1577,7 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
         stage = temp.get("habit_add_stage") or "name"
         new_field = temp.get("habit_new_field") or {}
 
-        async def _finish_and_reset():
+        async def _finish_add_and_reset():
             session.state = ConversationState.IDLE
             session.temp_data = {}
             if session_repo:
@@ -1624,7 +1626,7 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                     ),
                     reply_markup=_keyboard(lang),
                 )
-                await _finish_and_reset()
+                await _finish_add_and_reset()
                 return True
             session.temp_data = {"habit_action": "add", "habit_add_stage": "type", "habit_new_field": new_field}
             if session_repo:
@@ -1811,7 +1813,7 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
                 ),
                 reply_markup=_keyboard(lang),
             )
-            await _finish_and_reset()
+            await _finish_add_and_reset()
             return True
     else:
         await update.message.reply_text(

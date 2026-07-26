@@ -67,7 +67,7 @@ async def thought_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 async def handle_thought_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> bool:
     """Handle thought submission. Returns True if handled."""
 
-    if not update.effective_user:
+    if not update.effective_user or not update.message:
         return False
     session_repo, user_repo, sheets_client = _get_repos(context)
     session = await session_repo.get(update.effective_user.id) if session_repo else None
@@ -102,7 +102,7 @@ async def handle_thought_text(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def handle_thought_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.callback_query or not update.effective_user:
+    if not update.callback_query or not update.effective_user or not update.effective_chat:
         return
     query = update.callback_query
     data = query.data or ""

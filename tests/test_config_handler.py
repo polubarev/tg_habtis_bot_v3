@@ -7,7 +7,8 @@ from src.config.constants import MESSAGES_EN
 from src.core.exceptions import SheetAccessError
 from src.models.session import ConversationState, SessionData
 from src.models.user import UserProfile
-from src.services.telegram.handlers.config import handle_config_text
+from src.services.telegram.handlers import config as config_module
+from src.services.telegram.handlers.config import handle_config_text, handle_reset_confirm
 
 
 class FakeSessionRepo:
@@ -19,6 +20,10 @@ class FakeSessionRepo:
 
     async def save(self, session: SessionData) -> None:
         self._session = session
+
+    async def delete(self, user_id: int) -> None:
+        if self._session.user_id == user_id:
+            self._session = None
 
 
 class FakeDeps:
@@ -41,6 +46,7 @@ class FakeUserRepo:
     def __init__(self, profile: UserProfile | None = None):
         self.profile = profile
         self.updated: list[UserProfile] = []
+        self.deleted: list[int] = []
 
     async def get_by_telegram_id(self, _user_id: int):
         return self.profile
@@ -48,6 +54,11 @@ class FakeUserRepo:
     async def update(self, profile: UserProfile) -> None:
         self.profile = profile
         self.updated.append(profile.model_copy(deep=True))
+
+    async def delete(self, user_id: int) -> bool:
+        self.deleted.append(user_id)
+        self.profile = None
+        return True
 
 
 class FailingSheetsClient:
@@ -103,3 +114,46 @@ async def test_handle_config_text_does_not_persist_sheet_before_validation_succe
     assert user_repo.profile.sheets_validated is True
     assert user_repo.updated == []
     message.reply_text.assert_any_await(MESSAGES_EN["sheet_permission_error"])
+
+
+@pytest.mark.asyncio
+async def test_reset_cancels_all_reminder_tasks_before_deleting_user(monkeypatch):
+    user_id = 123
+    profile = UserProfile(
+        telegram_user_id=user_id,
+        language="en",
+        reminder_task_name="tasks/daily",
+        smart_nudges_task_name="tasks/smart",
+        on_this_day_task_name="tasks/on-this-day",
+    )
+    session_repo = FakeSessionRepo(SessionData(user_id=user_id))
+    user_repo = FakeUserRepo(profile)
+    context = SimpleNamespace(
+        application=SimpleNamespace(
+            bot_data={"deps": FakeDeps(session_repo, user_repo)}
+        )
+    )
+    deleted_tasks: list[str | None] = []
+    monkeypatch.setattr(
+        config_module,
+        "delete_reminder_task",
+        lambda _settings, task_name: deleted_tasks.append(task_name),
+    )
+    message = SimpleNamespace(reply_text=AsyncMock())
+    query = SimpleNamespace(
+        data="reset_confirm:yes",
+        from_user=SimpleNamespace(id=user_id),
+        message=message,
+        answer=AsyncMock(),
+    )
+    update = SimpleNamespace(
+        effective_user=SimpleNamespace(id=user_id, username="user"),
+        callback_query=query,
+    )
+
+    await handle_reset_confirm(update, context)
+
+    assert deleted_tasks == ["tasks/daily", "tasks/smart", "tasks/on-this-day"]
+    assert user_repo.deleted == [user_id]
+    assert user_repo.profile is None
+    assert session_repo._session is None

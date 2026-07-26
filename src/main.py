@@ -13,7 +13,7 @@ from src.core.dependencies import UserRepoDep, SettingsDep, verify_reminder_disp
 from src.core.exceptions import ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.core.logging import setup_logging
 from functools import lru_cache
-from datetime import datetime
+from datetime import datetime, time
 from zoneinfo import ZoneInfo
 
 from src.services.on_this_day import (
@@ -167,7 +167,7 @@ async def reminders_dispatch(
     if kind == "smart_nudge":
         if not profile.smart_nudges_enabled or not profile.smart_nudges_times:
             return JSONResponse({"ok": True, "skipped": "smart_nudges_disabled"})
-        rollover = parse_time_text(profile.smart_nudges_rollover_time) or parse_time_text("12:00")
+        rollover = parse_time_text(profile.smart_nudges_rollover_time) or time(12, 0)
         due = compute_due_date(now_local, rollover)
         due_iso = due.isoformat()
         if profile.last_habits_logged_for_date == due_iso:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from telegram import Update
 from telegram.error import TelegramError
@@ -165,8 +166,11 @@ async def handle_admin_broadcast_callback(update: Update, context: ContextTypes.
     if not query or not update.effective_user:
         return
     await query.answer()
+    message: Any = query.message
+    if message is None or not hasattr(message, "reply_text"):
+        return
     if not is_admin_user(update.effective_user.id, context):
-        await query.message.reply_text(MESSAGES_EN["admin_denied"])
+        await message.reply_text(MESSAGES_EN["admin_denied"])
         return
 
     profile = await resolve_user_profile(update, context)
@@ -181,18 +185,18 @@ async def handle_admin_broadcast_callback(update: Update, context: ContextTypes.
             session.reset()
             if session_repo:
                 await session_repo.save(session)
-        await query.message.reply_text(
+        await message.reply_text(
             msgs["admin_broadcast_cancelled"],
             reply_markup=build_admin_keyboard(lang),
         )
         return
 
     if session is None or session.state != ConversationState.ADMIN_AWAITING_BROADCAST:
-        await query.message.reply_text(msgs["session_expired"], reply_markup=build_admin_keyboard(lang))
+        await message.reply_text(msgs["session_expired"], reply_markup=build_admin_keyboard(lang))
         return
     text = str(session.temp_data.get("broadcast_text") or "").strip()
     if not text:
-        await query.message.reply_text(msgs["admin_broadcast_empty"])
+        await message.reply_text(msgs["admin_broadcast_empty"])
         return
 
     sent, failed = await _broadcast_to_users(context, text)
@@ -206,13 +210,15 @@ async def handle_admin_broadcast_callback(update: Update, context: ContextTypes.
     session.reset()
     if session_repo:
         await session_repo.save(session)
-    await query.message.reply_text(
+    await message.reply_text(
         msgs["admin_broadcast_done"].format(sent=sent, failed=failed),
         reply_markup=build_admin_keyboard(lang),
     )
 
 
 async def _send_admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message is None:
+        return
     lang = await _admin_language(update, context)
     msgs = _messages_for_lang(lang)
     user_repo = get_user_repo(context)
@@ -232,6 +238,8 @@ async def _send_admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
 
 async def _send_recent_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message is None:
+        return
     lang = await _admin_language(update, context)
     msgs = _messages_for_lang(lang)
     feedback_repo = get_feedback_repo(context)
@@ -253,6 +261,8 @@ async def _send_period_stats(
     context: ContextTypes.DEFAULT_TYPE,
     period_key: str,
 ) -> None:
+    if update.message is None:
+        return
     lang = await _admin_language(update, context)
     msgs = _messages_for_lang(lang)
     usage_repo = get_usage_event_repo(context)
@@ -278,6 +288,8 @@ async def _send_period_stats(
 
 
 async def _send_user_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message is None:
+        return
     lang = await _admin_language(update, context)
     msgs = _messages_for_lang(lang)
     user_repo = get_user_repo(context)
@@ -306,6 +318,8 @@ async def _send_user_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 
 async def _start_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message is None or update.effective_user is None:
+        return
     lang = await _admin_language(update, context)
     session_repo = get_session_repo(context)
     if session_repo:

@@ -2,11 +2,18 @@ from functools import lru_cache
 from typing import Optional
 
 from pydantic import Field
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Application configuration loaded from environment variables."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
 
     # Application
     app_name: str = "Habits Diary Bot"
@@ -56,12 +63,6 @@ class Settings(BaseSettings):
 
     # External operation timeouts
     operation_timeout_seconds: int = 25
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
-        extra = "ignore"
 
     def get_telegram_bot_token(self) -> Optional[str]:
         if self.debug and self.telegram_bot_token_debug:

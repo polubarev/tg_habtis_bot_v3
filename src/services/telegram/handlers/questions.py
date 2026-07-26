@@ -78,7 +78,7 @@ async def questions_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 async def handle_questions_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle question config inline buttons."""
 
-    if not update.callback_query or not update.effective_user:
+    if not update.callback_query or not update.effective_user or not update.effective_chat:
         return
     query = update.callback_query
     data = query.data or ""
@@ -114,7 +114,10 @@ async def handle_questions_callback(update: Update, context: ContextTypes.DEFAUL
     elif action == "reset":
         if profile and user_repo:
             defaults = DEFAULT_REFLECTION_QUESTIONS_RU if lang == "ru" else DEFAULT_REFLECTION_QUESTIONS_EN
-            profile.custom_questions = [CustomQuestion(**q, language=lang) for q in defaults]
+            profile.custom_questions = [
+                CustomQuestion(id=q["id"], text=q["text"], language=lang)
+                for q in defaults
+            ]
             await user_repo.update(profile)
         await query.edit_message_text(_messages_for_lang(lang)["question_reset"])
         if session_repo and session:
@@ -182,6 +185,7 @@ async def handle_questions_text(update: Update, context: ContextTypes.DEFAULT_TY
 
     if not update.effective_user or not update.message:
         return False
+    message = update.message
     session_repo, user_repo = _get_repos(context)
     session = await session_repo.get(update.effective_user.id) if session_repo else None
     if session is None or session.state != ConversationState.CONFIG_ADDING_QUESTION:
@@ -193,20 +197,20 @@ async def handle_questions_text(update: Update, context: ContextTypes.DEFAULT_TY
         return False
     lang = resolve_language(profile)
 
-    text = update.message.text or ""
+    text = message.text or ""
     if action == "add":
         temp = session.temp_data or {}
         stage = temp.get("q_add_stage") or "id"
         q_new = temp.get("q_new") or {}
 
-        async def _return_to_questions_overview():
+        async def _return_to_questions_overview() -> None:
             if session:
                 session.state = ConversationState.CONFIG_ADDING_QUESTION
                 session.temp_data = {"q_action": None}
                 if session_repo:
                     await session_repo.save(session)
             msg = _messages_for_lang(lang)["question_intro"].format(questions=_format_questions(profile, lang))
-            await update.message.reply_text(msg, reply_markup=_keyboard(lang))
+            await message.reply_text(msg, reply_markup=_keyboard(lang))
 
         def _try_parse_json(raw: str):
             import json
@@ -288,10 +292,17 @@ async def handle_questions_text(update: Update, context: ContextTypes.DEFAULT_TY
                 await update.message.reply_text(_messages_for_lang(lang)["question_add_active_prompt"], parse_mode=ParseMode.MARKDOWN)
                 return True
             q_new["active"] = active
+            question_id = q_new.get("id")
+            question_text = q_new.get("text")
+            if not isinstance(question_id, str) or not isinstance(question_text, str):
+                await update.message.reply_text(
+                    _messages_for_lang(lang)["error_occurred"]
+                )
+                return True
             profile.custom_questions.append(
                 CustomQuestion(
-                    id=q_new.get("id"),
-                    text=q_new.get("text"),
+                    id=question_id,
+                    text=question_text,
                     language=q_new.get("language", profile.language),
                     active=active,
                 )

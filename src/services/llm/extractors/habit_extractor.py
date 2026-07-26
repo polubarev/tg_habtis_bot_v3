@@ -1,7 +1,7 @@
 
 import asyncio
 import time
-from typing import Any, Dict, Optional, Literal
+from typing import Any, Dict, Literal, Optional
 import json
 
 import httpx
@@ -13,7 +13,7 @@ from src.config.settings import get_settings
 from src.core.analytics import log_event
 from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, ExtractionError
 from src.core.logging import get_logger
-from src.models.habit import HabitSchema
+from src.models.habit import HabitFieldConfig, HabitSchema
 from src.services.llm.client import LLMClient
 from src.services.llm.prompts.habits import HABIT_EXTRACTION_SYSTEM_PROMPT
 
@@ -26,7 +26,7 @@ class HabitExtractor:
     def __init__(self, client: LLMClient):
         self.client = client
 
-    def _type_annotation(self, field_config: Dict[str, Any]) -> Any:
+    def _type_annotation(self, field_config: HabitFieldConfig | Dict[str, Any]) -> Any:
         """Resolve type annotation based on field configuration.
         Maps field type strings to Python types for Pydantic model creation.
         """
@@ -34,7 +34,7 @@ class HabitExtractor:
             return str
         
         # Handle both dict and HabitFieldConfig objects
-        if hasattr(field_config, "type"):
+        if isinstance(field_config, HabitFieldConfig):
             field_type = field_config.type
             options = getattr(field_config, "options", None)
             allow_multiple = bool(getattr(field_config, "allow_multiple", False))
@@ -61,8 +61,8 @@ class HabitExtractor:
         elif ft in {"list"}:
             cleaned = [str(opt) for opt in (options or []) if str(opt).strip()]
             if cleaned:
-                literal = Literal[tuple(cleaned)]
-                return list[literal] if allow_multiple else literal
+                literal_type: Any = Literal.__getitem__(tuple(cleaned))
+                return list[literal_type] if allow_multiple else literal_type
             return list[str] if allow_multiple else str
         else:
             return str  # Default fallback
@@ -101,7 +101,7 @@ class HabitExtractor:
         # always include raw_record as optional in structured output
         fields.setdefault("raw_record", (Optional[str], None))
         try:
-            return create_model("HabitExtraction", **fields)  # type: ignore[arg-type]
+            return create_model("HabitExtraction", **fields)  # type: ignore[call-overload]
         except Exception:
             return None
 

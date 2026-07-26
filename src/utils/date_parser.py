@@ -1,11 +1,11 @@
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 
 def parse_relative_date(label: str) -> date:
     """Convert simple labels like 'today'/'yesterday' into a date."""
 
-    now = datetime.utcnow().date()
+    now = datetime.now(timezone.utc).date()
     normalized = label.lower()
     if normalized in {"today", "сегодня"}:
         return now

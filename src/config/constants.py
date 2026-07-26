@@ -597,10 +597,14 @@ MESSAGES_RU = {
         "Новые за 30 дней: {new_last_30}"
     ),
     "reset_prompt": (
-        "⚠️ Сбросит все данные в боте: подключённую таблицу, поля привычек, вопросы, часовой пояс и сессию. "
-        "Твои записи в Google Sheet не трогаю.\n\nПродолжить?"
+        "⚠️ Удалит профиль и настройки бота, завершит сессию и отключит напоминания. "
+        "Записи в Google Sheets, ранее отправленные отзывы и статистика "
+        "использования сохранятся.\n\nПродолжить?"
     ),
-    "reset_done": "✅ Готово. Всё очищено. Нажми /start, чтобы настроиться заново.",
+    "reset_done": (
+        "✅ Профиль, настройки и сессия удалены, напоминания отключены. "
+        "Нажми /start, чтобы настроиться заново."
+    ),
     "reset_cancelled": "✖ Сброс отменён.",
 }
 
@@ -1007,9 +1011,13 @@ MESSAGES_EN = {
         "New last 30 days: {new_last_30}"
     ),
     "reset_prompt": (
-        "⚠️ This will wipe your bot data: connected Sheet, habit fields, questions, timezone, and session. "
-        "Your existing rows in Google Sheets stay untouched.\n\nProceed?"
+        "⚠️ This removes your bot profile and settings, ends the session, and cancels reminders. "
+        "Existing Google Sheets rows, previously submitted feedback, and usage analytics "
+        "are retained.\n\nProceed?"
     ),
-    "reset_done": "✅ Reset complete. Use /start to set up again.",
+    "reset_done": (
+        "✅ Bot profile, settings, and session removed, and reminders cancelled. "
+        "Use /start to set up again."
+    ),
     "reset_cancelled": "✖ Reset cancelled.",
 }

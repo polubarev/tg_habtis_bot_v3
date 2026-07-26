@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 import html
 import asyncio
 from typing import Any, Dict
@@ -201,7 +201,7 @@ def _coerce_entry_for_sheet(entry_data: Dict[str, Any], habit_schema: HabitSchem
     for field_name, config in habit_schema.fields.items():
         if field_name not in coerced:
             continue
-        field_type = config.type if hasattr(config, "type") else config.get("type")
+        field_type = config.type
         base_type = _base_field_type(field_type)
         types = _normalize_field_types(field_type)
         if "bool" in types or "boolean" in types:
@@ -225,7 +225,7 @@ def _apply_defaults(entry_data: Dict[str, Any], habit_schema: HabitSchema | None
             continue
         if entry_data.get(field_name) is not None:
             continue
-        default_value = config.default if hasattr(config, "default") else config.get("default")
+        default_value = config.default
         if default_value is None:
             continue
         entry_data[field_name] = default_value
@@ -355,7 +355,7 @@ def _normalize_list_fields(entry_data: Dict[str, Any], habit_schema: HabitSchema
     if not habit_schema or not habit_schema.fields:
         return
     for field_name, config in habit_schema.fields.items():
-        field_type = config.type if hasattr(config, "type") else config.get("type")
+        field_type = config.type
         if _base_field_type(field_type) != "list":
             continue
         if field_name not in entry_data:
@@ -596,7 +596,7 @@ async def handle_habits_date_callback(update: Update, context: ContextTypes.DEFA
 async def handle_habits_date_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> bool:
     """Handle manual date input when awaiting date selection."""
 
-    if not update.effective_user or not text:
+    if not update.effective_user or not update.message or not text:
         return False
     session_repo = _get_session_repo(context)
     session = await session_repo.get(update.effective_user.id) if session_repo else None
@@ -630,7 +630,7 @@ async def handle_habits_date_text(update: Update, context: ContextTypes.DEFAULT_
 async def handle_habits_existing_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle append/rewrite choice for existing habits entries."""
 
-    if not update.callback_query or not update.effective_user:
+    if not update.callback_query or not update.effective_user or not update.effective_chat:
         return
     query = update.callback_query
     data = query.data or ""
@@ -783,7 +783,7 @@ async def handle_habits_text(
 async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle confirmation callback for habits entry."""
 
-    if not update.callback_query or not update.effective_user:
+    if not update.callback_query or not update.effective_user or not update.effective_chat:
         return
     query = update.callback_query
     data = query.data or ""
@@ -833,10 +833,22 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
                 and k not in field_order
             ]
             field_order = field_order + extra_pending_fields
-            created_at = datetime.fromisoformat(session.pending_entry.get("timestamp")) if session.pending_entry.get("timestamp") else datetime.utcnow()
+            created_at = (
+                datetime.fromisoformat(session.pending_entry.get("timestamp"))
+                if session.pending_entry.get("timestamp")
+                else datetime.now(timezone.utc)
+            )
             coerced_entry = _coerce_entry_for_sheet(session.pending_entry, habit_schema)
+            raw_entry_date = coerced_entry.get("date")
+            if not isinstance(raw_entry_date, str):
+                await query.edit_message_text(get_session_expired_message(lang))
+                session.reset()
+                if session_repo:
+                    await session_repo.save(session)
+                await _safe_answer(query)
+                return
             entry = HabitEntry(
-                date=date.fromisoformat(coerced_entry.get("date")),
+                date=date.fromisoformat(raw_entry_date),
                 raw_record=coerced_entry.get("raw_record", ""),
                 diary=coerced_entry.get("diary"),
                 extra_fields={

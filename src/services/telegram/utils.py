@@ -106,7 +106,7 @@ async def increment_usage_stat(profile: Optional[UserProfile], user_repo, field:
     current = getattr(stats, field, 0) or 0
     setattr(stats, field, current + 1)
     profile.usage_stats = stats
-    profile.updated_at = datetime.utcnow()
+    profile.updated_at = datetime.now(timezone.utc)
     await user_repo.update(profile)
 
 

@@ -2,17 +2,19 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, time, timedelta, timezone
+from typing import Any
 from zoneinfo import ZoneInfo
 
 try:
-    from google.api_core.exceptions import GoogleAPIError, NotFound
-    from google.cloud import tasks_v2
-    from google.protobuf import timestamp_pb2
+    from google.api_core.exceptions import GoogleAPIError as GoogleAPIErrorType
+    from google.api_core.exceptions import NotFound as NotFoundType
+    from google.cloud import tasks_v2 as tasks_v2_module
+    from google.protobuf import timestamp_pb2 as timestamp_pb2_module  # type: ignore[import-untyped]
 except Exception:  # pragma: no cover - optional dependency
-    GoogleAPIError = None
-    NotFound = None
-    tasks_v2 = None
-    timestamp_pb2 = None
+    GoogleAPIErrorType: Any = None  # type: ignore[no-redef]
+    NotFoundType: Any = None  # type: ignore[no-redef]
+    tasks_v2_module: Any = None  # type: ignore[no-redef]
+    timestamp_pb2_module: Any = None  # type: ignore[no-redef]
 
 from src.config.settings import Settings
 from src.core.logging import get_logger
@@ -77,14 +79,14 @@ def build_dispatch_url(base_url: str) -> str:
 def delete_reminder_task(settings: Settings, task_name: str | None) -> None:
     if not task_name:
         return
-    if tasks_v2 is None:
+    if tasks_v2_module is None:
         logger.warning("google-cloud-tasks not available; cannot delete reminder task")
         return
     try:
-        client = tasks_v2.CloudTasksClient()
+        client = tasks_v2_module.CloudTasksClient()
         client.delete_task(name=task_name)
     except Exception as exc:
-        if NotFound and isinstance(exc, NotFound):
+        if NotFoundType is not None and isinstance(exc, NotFoundType):
             return
         logger.warning("Failed to delete reminder task", error=str(exc))
         return
@@ -143,7 +145,7 @@ def schedule_reminders_task_at(
 ) -> str:
     """Schedule a reminders dispatch task at an explicit UTC datetime."""
 
-    if tasks_v2 is None or timestamp_pb2 is None:
+    if tasks_v2_module is None or timestamp_pb2_module is None:
         raise ReminderScheduleError("google-cloud-tasks not available")
     if schedule_time_utc.tzinfo is None:
         raise ReminderScheduleError("schedule_time_utc must be timezone-aware")
@@ -159,17 +161,17 @@ def schedule_reminders_task_at(
     location = settings.gcp_region
     dispatch_url = build_dispatch_url(dispatch_base)
 
-    schedule_timestamp = timestamp_pb2.Timestamp()
+    schedule_timestamp = timestamp_pb2_module.Timestamp()
     schedule_timestamp.FromDatetime(schedule_time_utc.astimezone(timezone.utc))
 
-    client = tasks_v2.CloudTasksClient()
+    client = tasks_v2_module.CloudTasksClient()
     parent = client.queue_path(settings.gcp_project_id, location, queue_name)
 
     body = json.dumps(payload).encode("utf-8")
     task = {
         "schedule_time": schedule_timestamp,
         "http_request": {
-            "http_method": tasks_v2.HttpMethod.POST,
+            "http_method": tasks_v2_module.HttpMethod.POST,
             "url": dispatch_url,
             "headers": {
                 "Content-Type": "application/json",
@@ -180,9 +182,9 @@ def schedule_reminders_task_at(
     }
 
     try:
-        response = client.create_task(parent=parent, task=task)
+        response = client.create_task(parent=parent, task=task)  # type: ignore[arg-type]
     except Exception as exc:
-        if GoogleAPIError and isinstance(exc, GoogleAPIError):
+        if GoogleAPIErrorType is not None and isinstance(exc, GoogleAPIErrorType):
             logger.warning("Failed to schedule reminder", error=str(exc))
         else:
             logger.warning("Failed to schedule reminder (unexpected)", error=str(exc))

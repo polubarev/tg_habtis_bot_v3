@@ -141,7 +141,8 @@ For Google Sheets writes in production, share each target spreadsheet with the r
 - Feedback — send feedback to maintainers
 - Timezone — set timezone used for reminders and weekly analysis
 - Reminders — configure daily reminder and smart nudges (or disable)
-- Reset — wipe stored user profile/session data
+- Reset — delete the bot profile/settings/session and cancel reminders. Existing Google Sheets
+  rows, submitted feedback, and usage analytics are retained.
 
 ## Next steps
 - Add tests (unit + integration) per the technical description.

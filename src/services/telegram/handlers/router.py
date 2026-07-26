@@ -1,4 +1,5 @@
 import asyncio
+from datetime import timedelta
 
 from telegram import Update
 from telegram.constants import ParseMode
@@ -56,7 +57,9 @@ def _messages_for_lang(lang: str):
 async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_override: str | None = None) -> None:
     """Route plain text messages based on conversation state."""
 
-    text = text_override or (update.message.text if update.message else None)
+    if not update.message or not update.effective_user:
+        return
+    text = text_override or update.message.text
     if not text:
         return
     profile = await resolve_user_profile(update, context)
@@ -167,28 +170,46 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
         if await handle_config_text(update, context):
             return
 
+    session_repo = get_session_repo(context)
+    session = (
+        await session_repo.get(update.effective_user.id)
+        if session_repo and update.effective_user
+        else None
+    )
+
     handled = False
-    # Order matters: config first, then active flows.
-    for handler in (
-        handle_timezone_text,
-        handle_reminder_text,
-        handle_on_this_day_text,
-        handle_smart_nudges_times_text,
-        handle_smart_nudges_rollover_text,
-        handle_config_text,
-        handle_feedback_text,
-        handle_habits_config_text,
-        handle_habits_config_text,
-        handle_questions_text,
-        lambda u, c: handle_habits_date_text(u, c, text),
-        lambda u, c: handle_habits_text(u, c, text),
-        lambda u, c: handle_dream_text(u, c, text),
-        lambda u, c: handle_thought_text(u, c, text),
-        lambda u, c: handle_reflect_text(u, c, text),
-    ):
-        if await handler(update, context):
-            handled = True
-            break
+    # Route active conversations by their persisted state. This prevents unrelated
+    # handlers (for example Sheet configuration) from consuming habit dates.
+    if session:
+        state = session.state
+        if state == ConversationState.CONFIG_TIMEZONE:
+            handled = await handle_timezone_text(update, context)
+        elif state == ConversationState.CONFIG_REMINDER_TIME:
+            handled = await handle_reminder_text(update, context)
+        elif state == ConversationState.CONFIG_ON_THIS_DAY_TIME:
+            handled = await handle_on_this_day_text(update, context)
+        elif state == ConversationState.CONFIG_SMART_NUDGES_TIMES:
+            handled = await handle_smart_nudges_times_text(update, context)
+        elif state == ConversationState.CONFIG_SMART_NUDGES_ROLLOVER:
+            handled = await handle_smart_nudges_rollover_text(update, context)
+        elif state == ConversationState.CONFIG_AWAITING_SHEET_URL:
+            handled = await handle_config_text(update, context)
+        elif state == ConversationState.CONFIG_FEEDBACK:
+            handled = await handle_feedback_text(update, context)
+        elif state == ConversationState.CONFIG_EDITING_HABITS:
+            handled = await handle_habits_config_text(update, context)
+        elif state == ConversationState.CONFIG_ADDING_QUESTION:
+            handled = await handle_questions_text(update, context)
+        elif state == ConversationState.HABITS_AWAITING_DATE:
+            handled = await handle_habits_date_text(update, context, text)
+        elif state == ConversationState.HABITS_AWAITING_CONTENT:
+            handled = await handle_habits_text(update, context, text)
+        elif state == ConversationState.DREAM_AWAITING_CONTENT:
+            handled = await handle_dream_text(update, context, text)
+        elif state == ConversationState.THOUGHT_AWAITING_CONTENT:
+            handled = await handle_thought_text(update, context, text)
+        elif state == ConversationState.REFLECT_ANSWERING_QUESTIONS:
+            handled = await handle_reflect_text(update, context, text)
 
     if not handled and update.message:
         await update.message.reply_text(
@@ -203,17 +224,24 @@ async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     if not update.message or not update.message.voice:
         return
+    voice = update.message.voice
+    duration = voice.duration
+    duration_seconds = (
+        int(duration.total_seconds())
+        if isinstance(duration, timedelta)
+        else duration
+    )
     log_event(
         "voice.received",
         user_id=update.effective_user.id if update.effective_user else None,
-        duration_s=update.message.voice.duration,
-        file_size=update.message.voice.file_size,
+        duration_s=duration_seconds,
+        file_size=voice.file_size,
     )
     await record_usage_event(
         context,
         "voice.received",
         user_id=update.effective_user.id if update.effective_user else None,
-        metadata={"duration_s": update.message.voice.duration},
+        metadata={"duration_s": duration_seconds},
     )
     profile = await resolve_user_profile(update, context)
     lang = resolve_language(profile)
@@ -224,7 +252,6 @@ async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
 
     # Download audio bytes from Telegram.
-    voice = update.message.voice
     tg_file = await context.bot.get_file(voice.file_id)
     data = await tg_file.download_as_bytearray()
     progress_message = await update.message.reply_text(msgs["processing"])
@@ -257,6 +284,6 @@ async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     session_repo = get_session_repo(context)
     session = await session_repo.get(update.effective_user.id) if session_repo and update.effective_user else None
     if session and session.state == ConversationState.HABITS_AWAITING_CONTENT:
-        await handle_habits_text(update, context, result.text, input_type=InputType.VOICE)  # type: ignore[arg-type]
+        await handle_habits_text(update, context, result.text, input_type=InputType.VOICE)
         return
     await route_text(update, context, text_override=result.text)

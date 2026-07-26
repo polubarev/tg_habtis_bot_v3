@@ -1,5 +1,6 @@
 import asyncio
 import re
+from typing import Any
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
@@ -42,6 +43,15 @@ _SMART_NUDGES_DEFAULT_TIMES = ["09:00", "14:00", "20:00"]
 _SMART_NUDGES_DEFAULT_ROLLOVER = "12:00"
 _MIN_BARE_SHEET_ID_LENGTH = 20
 logger = get_logger(__name__)
+
+
+async def _reply_to_callback(query: Any, text: str, **kwargs: Any) -> None:
+    """Reply only when Telegram supplied an accessible callback message."""
+
+    message: Any = query.message
+    if message is None or not hasattr(message, "reply_text"):
+        return
+    await message.reply_text(text, **kwargs)
 
 
 def _get_repos(context: ContextTypes.DEFAULT_TYPE):
@@ -410,7 +420,8 @@ async def handle_reminders_menu_callback(update: Update, context: ContextTypes.D
 
     if action == "back":
         if query.message:
-            await query.message.reply_text(
+            await _reply_to_callback(
+                query,
                 msgs["config_menu"],
                 reply_markup=build_config_keyboard(lang),
             )
@@ -420,7 +431,7 @@ async def handle_reminders_menu_callback(update: Update, context: ContextTypes.D
         current_time = profile.reminder_time if profile and profile.reminder_enabled else None
         time_label = current_time or msgs["empty_value"]
         if query.message:
-            await query.message.reply_text(msgs["reminder_prompt"].format(time=time_label))
+            await _reply_to_callback(query, msgs["reminder_prompt"].format(time=time_label))
         if session_repo:
             session = await session_repo.get(update.effective_user.id) or SessionData(user_id=update.effective_user.id)
             session.state = ConversationState.CONFIG_REMINDER_TIME
@@ -435,7 +446,7 @@ async def handle_reminders_menu_callback(update: Update, context: ContextTypes.D
         current_time = profile.on_this_day_time if profile and profile.on_this_day_enabled else None
         time_label = current_time or msgs["empty_value"]
         if query.message:
-            await query.message.reply_text(msgs["on_this_day_prompt"].format(time=time_label))
+            await _reply_to_callback(query, msgs["on_this_day_prompt"].format(time=time_label))
         if session_repo:
             session = await session_repo.get(update.effective_user.id) or SessionData(user_id=update.effective_user.id)
             session.state = ConversationState.CONFIG_ON_THIS_DAY_TIME
@@ -458,7 +469,11 @@ async def handle_reminders_menu_callback(update: Update, context: ContextTypes.D
         profile.on_this_day_task_name = None
         await user_repo.update(profile)
         if query.message:
-            await query.message.reply_text(msgs["reminders_disabled_all"], reply_markup=build_main_menu_keyboard(lang))
+            await _reply_to_callback(
+                query,
+                msgs["reminders_disabled_all"],
+                reply_markup=build_main_menu_keyboard(lang),
+            )
         return
 
 
@@ -499,7 +514,7 @@ async def _show_smart_nudges_menu(update: Update, context: ContextTypes.DEFAULT_
         try:
             await query.edit_message_text(text, reply_markup=keyboard)
         except Exception:
-            await query.message.reply_text(text, reply_markup=keyboard)
+            await _reply_to_callback(query, text, reply_markup=keyboard)
 
     if session_repo:
         session = await session_repo.get(update.effective_user.id) or SessionData(user_id=update.effective_user.id)
@@ -542,7 +557,11 @@ async def handle_smart_nudges_callback(update: Update, context: ContextTypes.DEF
         profile.smart_nudges_task_name = None
         await user_repo.update(profile)
         if query.message:
-            await query.message.reply_text(msgs["smart_nudges_disabled"], reply_markup=build_main_menu_keyboard(lang))
+            await _reply_to_callback(
+                query,
+                msgs["smart_nudges_disabled"],
+                reply_markup=build_main_menu_keyboard(lang),
+            )
         return
 
     if action == "enable":
@@ -565,15 +584,19 @@ async def handle_smart_nudges_callback(update: Update, context: ContextTypes.DEF
         except ReminderScheduleError:
             await user_repo.update(profile)
             if query.message:
-                await query.message.reply_text(msgs["smart_nudges_schedule_error"])
+                await _reply_to_callback(query, msgs["smart_nudges_schedule_error"])
             return
         if query.message:
-            await query.message.reply_text(msgs["smart_nudges_enabled"], reply_markup=build_main_menu_keyboard(lang))
+            await _reply_to_callback(
+                query,
+                msgs["smart_nudges_enabled"],
+                reply_markup=build_main_menu_keyboard(lang),
+            )
         return
 
     if action == "edit_times":
         if query.message:
-            await query.message.reply_text(msgs["smart_nudges_times_prompt"])
+            await _reply_to_callback(query, msgs["smart_nudges_times_prompt"])
         if session_repo:
             session = await session_repo.get(update.effective_user.id) or SessionData(user_id=update.effective_user.id)
             session.state = ConversationState.CONFIG_SMART_NUDGES_TIMES
@@ -582,7 +605,12 @@ async def handle_smart_nudges_callback(update: Update, context: ContextTypes.DEF
 
     if action == "edit_rollover":
         if query.message:
-            await query.message.reply_text(msgs["smart_nudges_rollover_prompt"].format(default=_SMART_NUDGES_DEFAULT_ROLLOVER))
+            await _reply_to_callback(
+                query,
+                msgs["smart_nudges_rollover_prompt"].format(
+                    default=_SMART_NUDGES_DEFAULT_ROLLOVER
+                ),
+            )
         if session_repo:
             session = await session_repo.get(update.effective_user.id) or SessionData(user_id=update.effective_user.id)
             session.state = ConversationState.CONFIG_SMART_NUDGES_ROLLOVER
@@ -631,7 +659,7 @@ async def _show_reminders_menu(update: Update, context: ContextTypes.DEFAULT_TYP
         await query.edit_message_text(text, reply_markup=keyboard)
     except Exception:
         if query.message:
-            await query.message.reply_text(text, reply_markup=keyboard)
+            await _reply_to_callback(query, text, reply_markup=keyboard)
 
     if session_repo:
         session = await session_repo.get(update.effective_user.id) or SessionData(user_id=update.effective_user.id)
@@ -966,16 +994,23 @@ async def handle_reset_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
 
     session_repo, user_repo, _ = _get_repos(context)
     if choice == "yes" and user_id:
+        profile = await user_repo.get_by_telegram_id(user_id) if user_repo else None
+        if profile:
+            delete_reminder_task(get_settings(), profile.reminder_task_name)
+            delete_reminder_task(get_settings(), profile.smart_nudges_task_name)
+            delete_reminder_task(get_settings(), profile.on_this_day_task_name)
         if user_repo:
             await user_repo.delete(user_id)
         if session_repo:
             await session_repo.delete(user_id)
-        await query.message.reply_text(
+        await _reply_to_callback(
+            query,
             _messages_for_lang(lang)["reset_done"],
             reply_markup=build_main_menu_keyboard(lang),
         )
     else:
-        await query.message.reply_text(
+        await _reply_to_callback(
+            query,
             _messages_for_lang(lang)["reset_cancelled"],
             reply_markup=build_main_menu_keyboard(lang),
         )

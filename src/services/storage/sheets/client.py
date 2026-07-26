@@ -1,18 +1,18 @@
 
 import asyncio
 from datetime import date, datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import gspread
 import json
-import requests
+import requests  # type: ignore[import-untyped]
 import google.auth
 from google.auth.transport.requests import AuthorizedSession
 from google.oauth2.service_account import Credentials
+from gspread.utils import ValueInputOption, ValueRenderOption
 
 from src.config.constants import (
     DREAMS_SHEET_COLUMNS,
-    HABITS_SHEET_COLUMNS,
     THOUGHTS_SHEET_COLUMNS,
 )
 from src.core.exceptions import ExternalTimeoutError, SheetAccessError, SheetWriteError
@@ -24,7 +24,7 @@ class SheetsClient(ISheetsClient):
     """Google Sheets client using a service account."""
 
     _SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-    _WRITE_INPUT_OPTION = "RAW"
+    _WRITE_INPUT_OPTION = ValueInputOption.raw
     _SHEETS_DATE_BASE = date(1899, 12, 30)
 
     def __init__(self, credentials_path: Optional[str] = None):
@@ -151,9 +151,16 @@ class SheetsClient(ISheetsClient):
 
     def _ensure_write_access(self, worksheet: gspread.Worksheet) -> None:
         try:
-            values = worksheet.get("A1", value_render_option="FORMULA")
+            values = worksheet.get(
+                "A1",
+                value_render_option=ValueRenderOption.formula,
+            )
             value = self._safe_cell_value(values)
-            worksheet.update("A1", [[value]], value_input_option=self._WRITE_INPUT_OPTION)
+            worksheet.update(
+                values=[[value]],
+                range_name="A1",
+                value_input_option=self._WRITE_INPUT_OPTION,
+            )
         except Exception as exc:
             self._raise_mapped_error(exc)
             raise
@@ -229,7 +236,7 @@ class SheetsClient(ISheetsClient):
             if field not in canonical_header:
                 canonical_header.append(field)
 
-        row = []
+        row: list[Any] = []
         for col in canonical_header:
             if col == "timestamp":
                 row.append(entry.created_at.isoformat())

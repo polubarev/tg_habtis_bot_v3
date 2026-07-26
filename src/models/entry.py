@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field
@@ -16,7 +16,7 @@ class HabitEntry(BaseModel):
     raw_record: str
     diary: Optional[str] = None
     extra_fields: dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     source: str = "telegram"
     input_type: InputType = InputType.TEXT
 
