@@ -37,7 +37,7 @@ def _messages_for_lang(lang: str):
     return MESSAGES_RU if lang == "ru" else MESSAGES_EN
 
 
-_OP_TIMEOUT = get_settings().operation_timeout_seconds
+_SHEETS_TIMEOUT = get_settings().sheets_timeout_seconds
 _REMINDER_DISABLE_WORDS = {"off", "disable", "disabled", "выкл", "отключить", "выключить"}
 _SMART_NUDGES_DEFAULT_TIMES = ["09:00", "14:00", "20:00"]
 _SMART_NUDGES_DEFAULT_ROLLOVER = "12:00"
@@ -193,7 +193,10 @@ async def handle_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
         try:
             if update.message:
                 progress_message = await update.message.reply_text(_messages_for_lang(lang)["processing"])
-            await asyncio.wait_for(sheets_client.ensure_tabs(sheet_id), timeout=_OP_TIMEOUT)
+            await asyncio.wait_for(
+                sheets_client.ensure_tabs(sheet_id),
+                timeout=_SHEETS_TIMEOUT,
+            )
         except SheetAccessError as exc:  # pragma: no cover - external dependency
             logger.warning(
                 "sheet_config_validation_failed",

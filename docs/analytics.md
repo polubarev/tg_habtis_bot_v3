@@ -44,6 +44,7 @@ Top-level fields you can rely on in BigQuery (under `jsonPayload`):
 | `command.habits_config` | —                                                                      |
 | `command.reflect_config`| —                                                                      |
 | `voice.received`        | `duration_s`, `file_size`                                              |
+| `voice.download`        | `latency_ms`, `audio_bytes`, `ok`, `error`                             |
 | `transcription.call`    | `model`, `latency_ms`, `audio_bytes`, `language`, `text_length`, `ok`, `error` |
 | `llm.call`              | `extractor` (`habit`/`reflection`/`week_analysis`), `model`, `latency_ms`, `tokens_in`, `tokens_out`, `ok`, `error` |
 

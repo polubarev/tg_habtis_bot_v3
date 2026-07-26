@@ -87,6 +87,11 @@ Shell scripts are tracked with LF line endings via `.gitattributes`, so the same
    SET_TELEGRAM_WEBHOOK=true
    ```
 
+   Long-running operation budgets are independently configurable:
+   `TELEGRAM_DOWNLOAD_TIMEOUT_SECONDS`, `TRANSCRIPTION_TIMEOUT_SECONDS`,
+   `LLM_TIMEOUT_SECONDS`, and `SHEETS_TIMEOUT_SECONDS`. The legacy
+   `OPERATION_TIMEOUT_SECONDS` remains available as a shared fallback.
+
 6. Recommended: create Secret Manager secrets for sensitive values. Secret names must exactly match the env var names:
    ```bash
    printf '%s' "$TELEGRAM_BOT_TOKEN" | gcloud secrets create TELEGRAM_BOT_TOKEN --data-file=-

@@ -20,6 +20,7 @@ class WhisperClient(ITranscriber):
         settings = get_settings()
         self._api_key = settings.openai_api_key
         self._model = settings.whisper_model
+        self._timeout_seconds = settings.transcription_timeout_seconds
         self._base_url = "https://api.openai.com/v1/audio/transcriptions"
 
     async def transcribe(
@@ -40,7 +41,7 @@ class WhisperClient(ITranscriber):
         started = time.monotonic()
         audio_bytes = len(audio_data)
         try:
-            async with httpx.AsyncClient(timeout=60) as client:
+            async with httpx.AsyncClient(timeout=self._timeout_seconds) as client:
                 response = await client.post(self._base_url, headers=headers, data=data, files=files)
                 response.raise_for_status()
                 try:

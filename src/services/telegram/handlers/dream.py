@@ -19,13 +19,14 @@ from src.services.telegram.utils import (
     get_user_repo,
     increment_usage_stat,
     record_usage_event,
+    reply_confirmation_preview,
     resolve_language,
     resolve_user_profile,
     resolve_user_timezone,
 )
 
 
-_OP_TIMEOUT = get_settings().operation_timeout_seconds
+_SHEETS_TIMEOUT = get_settings().sheets_timeout_seconds
 
 
 def _messages_for_lang(lang: str):
@@ -94,10 +95,11 @@ async def handle_dream_text(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         await session_repo.save(session)
 
     preview = json.dumps(entry.model_dump(), ensure_ascii=False, indent=2, default=str)
-    await update.message.reply_text(
-        _messages_for_lang(lang)["confirm_generic"].format(preview=preview),
+    await reply_confirmation_preview(
+        update.message,
+        _messages_for_lang(lang)["confirm_generic"],
+        preview,
         reply_markup=build_confirmation_keyboard(prefix="dream", language=lang),
-        parse_mode="Markdown",
     )
     return True
 
@@ -129,7 +131,7 @@ async def handle_dream_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
             try:
                 await asyncio.wait_for(
                     sheets_client.append_dream_entry(sheet_id, entry),
-                    timeout=_OP_TIMEOUT,
+                    timeout=_SHEETS_TIMEOUT,
                 )
             except SheetAccessError:
                 error_key = "sheet_permission_error"

@@ -22,6 +22,7 @@ from src.services.telegram.utils import (
     get_user_repo,
     increment_usage_stat,
     record_usage_event,
+    reply_confirmation_preview,
     resolve_language,
     resolve_user_profile,
     resolve_user_timezone,
@@ -30,7 +31,8 @@ from src.services.telegram.utils import (
 import json
 
 
-_OP_TIMEOUT = get_settings().operation_timeout_seconds
+_LLM_TIMEOUT = get_settings().llm_timeout_seconds
+_SHEETS_TIMEOUT = get_settings().sheets_timeout_seconds
 
 
 def _messages_for_lang(lang: str):
@@ -121,7 +123,7 @@ async def handle_reflect_text(update: Update, context: ContextTypes.DEFAULT_TYPE
             progress_message = await update.message.reply_text(_messages_for_lang(lang)["processing"])
             answers = await asyncio.wait_for(
                 extractor.extract(text, questions, language=lang),
-                timeout=_OP_TIMEOUT,
+                timeout=_LLM_TIMEOUT,
             )
         except asyncio.TimeoutError:
             await update.message.reply_text(_messages_for_lang(lang)["external_timeout_error"])
@@ -165,10 +167,11 @@ async def handle_reflect_text(update: Update, context: ContextTypes.DEFAULT_TYPE
     if session_repo:
         await session_repo.save(session)
     preview = json.dumps(entry.model_dump(), ensure_ascii=False, indent=2, default=str)
-    await update.message.reply_text(
-        _messages_for_lang(lang)["confirm_generic"].format(preview=preview),
+    await reply_confirmation_preview(
+        update.message,
+        _messages_for_lang(lang)["confirm_generic"],
+        preview,
         reply_markup=build_confirmation_keyboard(prefix="reflect", language=lang),
-        parse_mode="Markdown",
     )
     return True
 
@@ -200,7 +203,7 @@ async def handle_reflect_confirm(update: Update, context: ContextTypes.DEFAULT_T
             try:
                 await asyncio.wait_for(
                     sheets_client.append_reflection_entry(sheet_id, entry),
-                    timeout=_OP_TIMEOUT,
+                    timeout=_SHEETS_TIMEOUT,
                 )
             except SheetAccessError:
                 error_key = "sheet_permission_error"

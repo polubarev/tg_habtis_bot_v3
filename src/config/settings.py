@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Optional
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -63,6 +63,27 @@ class Settings(BaseSettings):
 
     # External operation timeouts
     operation_timeout_seconds: int = 25
+    telegram_download_timeout_seconds: int = 30
+    transcription_timeout_seconds: int = 60
+    llm_timeout_seconds: int = 45
+    sheets_timeout_seconds: int = 25
+
+    @model_validator(mode="after")
+    def apply_legacy_operation_timeout(self) -> "Settings":
+        """Use the legacy shared timeout for stages without explicit overrides."""
+
+        configured_fields = self.model_fields_set
+        if "operation_timeout_seconds" not in configured_fields:
+            return self
+        for field_name in (
+            "telegram_download_timeout_seconds",
+            "transcription_timeout_seconds",
+            "llm_timeout_seconds",
+            "sheets_timeout_seconds",
+        ):
+            if field_name not in configured_fields:
+                setattr(self, field_name, self.operation_timeout_seconds)
+        return self
 
     def get_telegram_bot_token(self) -> Optional[str]:
         if self.debug and self.telegram_bot_token_debug:

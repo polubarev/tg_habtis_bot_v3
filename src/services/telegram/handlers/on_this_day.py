@@ -31,7 +31,7 @@ from src.services.telegram.utils import (
 )
 
 
-_OP_TIMEOUT = get_settings().operation_timeout_seconds
+_SHEETS_TIMEOUT = get_settings().sheets_timeout_seconds
 
 
 def _messages_for_lang(lang: str) -> dict[str, str]:
@@ -63,7 +63,7 @@ async def collect_on_this_day_payloads(
             sheets_client.get_thought_entries_for_dates(sheet_id, target_dates),
             sheets_client.get_reflection_entries_for_dates(sheet_id, target_dates),
         ),
-        timeout=_OP_TIMEOUT,
+        timeout=_SHEETS_TIMEOUT,
     )
     payloads = assemble_payloads(
         target_dates,

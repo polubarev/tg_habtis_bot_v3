@@ -1,11 +1,12 @@
 import asyncio
+import time
 from datetime import timedelta
 
 from telegram import Update
-from telegram.constants import ParseMode
+from telegram.constants import FileSizeLimit, ParseMode
+from telegram.error import TelegramError
 from telegram.ext import ContextTypes
 
-from src.config.settings import get_settings
 from src.services.telegram.handlers.config import (
     handle_config_text,
     config_command,
@@ -36,18 +37,21 @@ from src.models.enums import InputType
 from src.config.constants import MESSAGES_EN, MESSAGES_RU, BUTTONS_RU, BUTTONS_EN
 from src.core.analytics import log_event
 from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, TranscriptionError
+from src.core.logging import get_logger
 from src.services.telegram.handlers.language import language_command
 from src.services.telegram.utils import (
+    get_settings_from_context,
     get_session_repo,
     get_whisper_client,
     record_usage_event,
+    reply_text_chunked,
     resolve_language,
     resolve_user_profile,
     safe_delete_message,
 )
 
 
-_OP_TIMEOUT = get_settings().operation_timeout_seconds
+logger = get_logger(__name__)
 
 
 def _messages_for_lang(lang: str):
@@ -222,7 +226,7 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
 async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Route voice messages: transcribe then reuse text handlers."""
 
-    if not update.message or not update.message.voice:
+    if not update.message or not update.message.voice or not update.effective_user:
         return
     voice = update.message.voice
     duration = voice.duration
@@ -241,24 +245,111 @@ async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         context,
         "voice.received",
         user_id=update.effective_user.id if update.effective_user else None,
-        metadata={"duration_s": duration_seconds},
+        metadata={
+            "duration_s": duration_seconds,
+            **({"file_size": voice.file_size} if voice.file_size is not None else {}),
+        },
     )
     profile = await resolve_user_profile(update, context)
     lang = resolve_language(profile)
     msgs = _messages_for_lang(lang)
+    settings = get_settings_from_context(context)
     whisper_client: WhisperClient | None = get_whisper_client(context)
     if whisper_client is None:
         await update.message.reply_text(msgs["voice_disabled"])
         return
 
-    # Download audio bytes from Telegram.
-    tg_file = await context.bot.get_file(voice.file_id)
-    data = await tg_file.download_as_bytearray()
     progress_message = await update.message.reply_text(msgs["processing"])
+    if voice.file_size and voice.file_size > int(FileSizeLimit.FILESIZE_DOWNLOAD):
+        await safe_delete_message(progress_message)
+        await update.message.reply_text(msgs["voice_too_large"])
+        return
+
+    async def download_voice() -> bytearray:
+        timeout = settings.telegram_download_timeout_seconds
+        tg_file = await context.bot.get_file(
+            voice.file_id,
+            read_timeout=timeout,
+            write_timeout=timeout,
+            connect_timeout=timeout,
+            pool_timeout=timeout,
+        )
+        return await tg_file.download_as_bytearray(
+            read_timeout=timeout,
+            write_timeout=timeout,
+            connect_timeout=timeout,
+            pool_timeout=timeout,
+        )
+
+    download_started = time.monotonic()
+    try:
+        data = await asyncio.wait_for(
+            download_voice(),
+            timeout=settings.telegram_download_timeout_seconds,
+        )
+        log_event(
+            "voice.download",
+            user_id=update.effective_user.id,
+            latency_ms=int((time.monotonic() - download_started) * 1000),
+            audio_bytes=len(data),
+            ok=True,
+        )
+    except asyncio.TimeoutError:
+        logger.warning(
+            "Voice download timed out",
+            user_id=update.effective_user.id,
+            file_size=voice.file_size,
+        )
+        log_event(
+            "voice.download",
+            user_id=update.effective_user.id,
+            latency_ms=int((time.monotonic() - download_started) * 1000),
+            audio_bytes=voice.file_size,
+            ok=False,
+            error="timeout",
+        )
+        await safe_delete_message(progress_message)
+        await update.message.reply_text(msgs["external_timeout_error"])
+        return
+    except TelegramError as exc:
+        logger.warning(
+            "Voice download failed",
+            user_id=update.effective_user.id,
+            error=type(exc).__name__,
+        )
+        log_event(
+            "voice.download",
+            user_id=update.effective_user.id,
+            latency_ms=int((time.monotonic() - download_started) * 1000),
+            audio_bytes=voice.file_size,
+            ok=False,
+            error=type(exc).__name__,
+        )
+        await safe_delete_message(progress_message)
+        await update.message.reply_text(msgs["voice_download_error"])
+        return
+    except Exception as exc:
+        logger.exception(
+            "Unexpected voice download failure",
+            user_id=update.effective_user.id,
+            error=type(exc).__name__,
+        )
+        log_event(
+            "voice.download",
+            user_id=update.effective_user.id,
+            latency_ms=int((time.monotonic() - download_started) * 1000),
+            audio_bytes=voice.file_size,
+            ok=False,
+            error=type(exc).__name__,
+        )
+        await safe_delete_message(progress_message)
+        await update.message.reply_text(msgs["voice_download_error"])
+        return
+
     try:
         result = await asyncio.wait_for(
             whisper_client.transcribe(bytes(data), format="ogg"),
-            timeout=_OP_TIMEOUT,
+            timeout=settings.transcription_timeout_seconds,
         )
     except asyncio.TimeoutError:
         await safe_delete_message(progress_message)
@@ -277,12 +368,21 @@ async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text(msgs["voice_transcription_error"])
         return
     await safe_delete_message(progress_message)
-    # Echo transcription to user
-    await update.message.reply_text(msgs["voice_transcribed"].format(text=result.text))
+    try:
+        await reply_text_chunked(
+            update.message,
+            msgs["voice_transcribed"].format(text=result.text),
+        )
+    except Exception as exc:
+        logger.warning(
+            "Failed to display voice transcription; continuing routing",
+            user_id=update.effective_user.id,
+            error=type(exc).__name__,
+        )
 
     # Route with preference: habits voice handling first.
     session_repo = get_session_repo(context)
-    session = await session_repo.get(update.effective_user.id) if session_repo and update.effective_user else None
+    session = await session_repo.get(update.effective_user.id) if session_repo else None
     if session and session.state == ConversationState.HABITS_AWAITING_CONTENT:
         await handle_habits_text(update, context, result.text, input_type=InputType.VOICE)
         return

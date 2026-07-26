@@ -27,7 +27,8 @@ from src.services.telegram.utils import (
 )
 
 
-_OP_TIMEOUT = get_settings().operation_timeout_seconds
+_LLM_TIMEOUT = get_settings().llm_timeout_seconds
+_SHEETS_TIMEOUT = get_settings().sheets_timeout_seconds
 
 
 def _messages_for_lang(lang: str):
@@ -76,7 +77,7 @@ async def week_analysis_command(update: Update, context: ContextTypes.DEFAULT_TY
                 sheets_client.get_thought_entries_for_dates(sheet_id, target_dates),
                 sheets_client.get_reflection_entries_for_dates(sheet_id, target_dates),
             ),
-            timeout=_OP_TIMEOUT,
+            timeout=_SHEETS_TIMEOUT,
         )
     except SheetAccessError:
         await safe_delete_message(progress_message)
@@ -142,7 +143,10 @@ async def week_analysis_command(update: Update, context: ContextTypes.DEFAULT_TY
             SystemMessage(content=_weekly_prompt(lang)),
             HumanMessage(content=user_content),
         ]
-        result = await asyncio.wait_for(llm_client.model.ainvoke(messages), timeout=_OP_TIMEOUT)
+        result = await asyncio.wait_for(
+            llm_client.model.ainvoke(messages),
+            timeout=_LLM_TIMEOUT,
+        )
     except asyncio.TimeoutError:
         log_event(
             "llm.call",

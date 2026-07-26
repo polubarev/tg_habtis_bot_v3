@@ -219,7 +219,7 @@ MESSAGES_RU = {
     "habits_update_prompt": "✏️ Отправь правки или новый текст. Я пересоберу черновик с учётом предыдущего сообщения.",
     "week_analysis_title": "📊 Анализ недели",
     "week_analysis_not_enough": "Недостаточно данных за последние 7 завершённых дней. Есть {count} дней.",
-    "confirm_generic": "Проверь и подтверди:\n```json\n{preview}\n```",
+    "confirm_generic": "Проверь и подтверди:",
     "error_occurred": "⚠ Произошла ошибка. Попробуй ещё раз.",
     "session_expired": "Сессия истекла — перезапусти /start или повтори команду.",
     "sheet_not_configured": "⚠ Сначала подключи Google Sheet.",
@@ -242,6 +242,11 @@ MESSAGES_RU = {
         "⚠ Получен некорректный ответ от сервиса. Попробуй ещё раз."
     ),
     "voice_transcription_error": "⚠ Не удалось распознать голос. Отправь текст.",
+    "voice_download_error": "⚠ Не удалось скачать голосовое сообщение. Попробуй ещё раз или отправь текст.",
+    "voice_too_large": (
+        "⚠ Голосовое сообщение слишком большое. "
+        "Telegram позволяет боту скачать не более 20 МБ. Отправь более короткую запись."
+    ),
     "sheet_saved": "✅ Гугл-таблица сохранена.",
     "sheet_url_invalid": "Это не похоже на ссылку или ID таблицы.",
     "sheet_base_url_notice": "Использую базовую ссылку: {url}",
@@ -645,7 +650,7 @@ MESSAGES_EN = {
     "habits_update_prompt": "✏️ Send corrections or a new message. I’ll rebuild the draft using the previous text as context.",
     "week_analysis_title": "📊 Week Analysis",
     "week_analysis_not_enough": "Not enough data for the last 7 completed days. Only {count} days found.",
-    "confirm_generic": "Review and confirm:\n```json\n{preview}\n```",
+    "confirm_generic": "Review and confirm:",
     "error_occurred": "⚠ An error occurred. Please try again.",
     "session_expired": "Session expired — please restart with /start or retry the command.",
     "sheet_not_configured": "⚠ Please configure Google Sheet first.",
@@ -662,6 +667,11 @@ MESSAGES_EN = {
     "external_timeout_error": "⚠ The service timed out. Please try again in a minute.",
     "external_response_error": "⚠ The service returned an invalid response. Please try again.",
     "voice_transcription_error": "⚠ Couldn't transcribe the audio. Please send text.",
+    "voice_download_error": "⚠ Couldn't download the voice message. Please retry or send text.",
+    "voice_too_large": (
+        "⚠ This voice message is too large. "
+        "Telegram lets bots download up to 20 MB. Please send a shorter recording."
+    ),
     "sheet_saved": "✅ Google Sheet saved.",
     "sheet_url_invalid": "That doesn’t look like a Sheet link or ID.",
     "sheet_base_url_notice": "Using base link: {url}",

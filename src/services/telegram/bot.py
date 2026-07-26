@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -10,10 +11,12 @@ from telegram.ext import (
     ApplicationBuilder,
     CallbackQueryHandler,
     CommandHandler,
+    ContextTypes,
     MessageHandler,
     filters,
 )
 
+from src.config.constants import MESSAGES_EN, MESSAGES_RU
 from src.config.settings import Settings
 from src.core.rate_limit import SlidingWindowRateLimiter
 from src.models.usage_event import UsageEvent
@@ -48,6 +51,7 @@ from src.services.telegram.handlers.questions import (
 )
 from src.services.telegram.deps import DependencyProvider
 from src.services.telegram.handlers.start import start_command
+from src.services.telegram.utils import resolve_language, resolve_user_profile
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +79,41 @@ def _extract_update_user_id(update_payload: dict[str, Any]) -> int | None:
         if isinstance(user, dict) and isinstance(user.get("id"), int):
             return user["id"]
     return None
+
+
+async def handle_telegram_error(
+    update: object,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+    """Log unhandled handler exceptions and give the user visible feedback."""
+
+    error = context.error
+    if error is not None:
+        logger.error(
+            "Unhandled exception while processing Telegram update",
+            exc_info=(type(error), error, error.__traceback__),
+        )
+    else:
+        logger.error("Unknown error while processing Telegram update")
+
+    if not isinstance(update, Update) or update.effective_message is None:
+        return
+
+    lang = "en"
+    try:
+        profile = await asyncio.wait_for(
+            resolve_user_profile(update, context),
+            timeout=2,
+        )
+        lang = resolve_language(profile)
+    except Exception:
+        logger.debug("Failed to resolve language in Telegram error handler", exc_info=True)
+
+    messages = MESSAGES_RU if lang == "ru" else MESSAGES_EN
+    try:
+        await update.effective_message.reply_text(messages["error_occurred"])
+    except Exception:
+        logger.exception("Failed to send Telegram error feedback")
 
 
 class TelegramBotService:
@@ -112,6 +151,7 @@ class TelegramBotService:
         )
         # share services with handlers via bot_data
         self.app.bot_data["deps"] = self.deps
+        self.app.add_error_handler(handle_telegram_error)
         self.app.add_handler(CommandHandler("start", start_command))
         self.app.add_handler(CommandHandler("habits", habits_command))
         self.app.add_handler(CommandHandler("dream", dream_command))

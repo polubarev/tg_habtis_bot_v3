@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import html
+import re
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
-from typing import Optional
+from typing import Any, Optional
 
 from telegram import Message, Update
+from telegram.constants import MessageLimit, ParseMode
 from telegram.ext import ContextTypes
 
 from src.config.constants import MESSAGES_EN, MESSAGES_RU
@@ -12,6 +15,112 @@ from src.config.settings import Settings, get_settings
 from src.models.user import UserProfile
 from src.models.usage_event import MetadataValue, UsageEvent
 from src.services.telegram.deps import DependencyProvider
+
+
+TELEGRAM_TEXT_CHUNK_SIZE = int(MessageLimit.MAX_TEXT_LENGTH) - 96
+_HTML_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def telegram_text_length(text: str) -> int:
+    """Return Telegram's UTF-16 text length."""
+
+    return len(text.encode("utf-16-le")) // 2
+
+
+def split_telegram_text(
+    text: str,
+    *,
+    max_length: int = TELEGRAM_TEXT_CHUNK_SIZE,
+) -> list[str]:
+    """Split text into Telegram-safe chunks without dropping content."""
+
+    if max_length <= 0:
+        raise ValueError("max_length must be positive")
+    if not text:
+        return []
+
+    chunks: list[str] = []
+    current: list[str] = []
+    current_length = 0
+    last_break_at = -1
+
+    for character in text:
+        character_length = 2 if ord(character) > 0xFFFF else 1
+        while current and current_length + character_length > max_length:
+            if last_break_at >= len(current) // 2:
+                split_at = last_break_at + 1
+                chunks.append("".join(current[:split_at]))
+                current = current[split_at:]
+                current_length = telegram_text_length("".join(current))
+            else:
+                chunks.append("".join(current))
+                current = []
+                current_length = 0
+            last_break_at = max(
+                (index for index, char in enumerate(current) if char.isspace()),
+                default=-1,
+            )
+        current.append(character)
+        current_length += character_length
+        if character.isspace():
+            last_break_at = len(current) - 1
+
+    if current:
+        chunks.append("".join(current))
+    return chunks
+
+
+def _html_to_plain_text(text: str) -> str:
+    """Convert the small Telegram HTML subset used by this project to text."""
+
+    return html.unescape(_HTML_TAG_RE.sub("", text))
+
+
+async def reply_text_chunked(
+    message: Message,
+    text: str,
+    **kwargs: Any,
+) -> list[Message]:
+    """Reply in safe-sized chunks, placing reply markup on the final chunk."""
+
+    options = dict(kwargs)
+    parse_mode = options.get("parse_mode")
+    if telegram_text_length(text) > TELEGRAM_TEXT_CHUNK_SIZE and parse_mode in {
+        ParseMode.HTML,
+        "HTML",
+        "html",
+    }:
+        text = _html_to_plain_text(text)
+        options.pop("parse_mode", None)
+
+    chunks = split_telegram_text(text)
+    if not chunks:
+        return []
+
+    reply_markup = options.pop("reply_markup", None)
+    sent: list[Message] = []
+    for index, chunk in enumerate(chunks):
+        chunk_options = dict(options)
+        if index == len(chunks) - 1 and reply_markup is not None:
+            chunk_options["reply_markup"] = reply_markup
+        sent.append(await message.reply_text(chunk, **chunk_options))
+    return sent
+
+
+async def reply_confirmation_preview(
+    message: Message,
+    heading: str,
+    preview: str,
+    *,
+    reply_markup: Any,
+) -> list[Message]:
+    """Send a full confirmation preview, with controls on the last chunk."""
+
+    return await reply_text_chunked(
+        message,
+        f"{heading}\n{preview}",
+        reply_markup=reply_markup,
+    )
 
 
 def resolve_user_timezone(profile: Optional[UserProfile]):

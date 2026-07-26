@@ -6,4 +6,4 @@
 - [x] Ensure success paths still send confirmation and error paths never hang.
 
 ## 2. Tests
-- [ ] Add handler tests to verify loading and timeout messages are sent.
+- [x] Add handler tests to verify loading and timeout messages are sent.

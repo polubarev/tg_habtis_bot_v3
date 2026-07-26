@@ -118,7 +118,7 @@ async def reminders_dispatch(
                             sheets_client.get_thought_entries_for_dates(profile.sheet_id, target_dates),
                             sheets_client.get_reflection_entries_for_dates(profile.sheet_id, target_dates),
                         ),
-                        timeout=settings.operation_timeout_seconds,
+                        timeout=settings.sheets_timeout_seconds,
                     )
                 except (SheetAccessError, SheetWriteError, ExternalTimeoutError, asyncio.TimeoutError):
                     habits_entries = dreams_entries = thoughts_entries = reflection_entries = []

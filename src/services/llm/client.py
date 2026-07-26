@@ -37,6 +37,7 @@ class LLMClient:
             base_url=settings.openrouter_base_url,
             temperature=settings.llm_temperature,
             max_completion_tokens=settings.llm_max_tokens,
+            timeout=settings.llm_timeout_seconds,
             default_headers={
                 "HTTP-Referer": "https://habits-diary-bot.app",
                 "X-Title": "Habits Diary Bot",

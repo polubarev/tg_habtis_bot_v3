@@ -32,6 +32,7 @@ from src.services.telegram.utils import (
     get_user_repo,
     increment_usage_stat,
     record_usage_event,
+    reply_text_chunked,
     resolve_language,
     resolve_user_profile,
     resolve_user_timezone,
@@ -40,7 +41,8 @@ from src.services.telegram.utils import (
 
 
 BASE_HABIT_FIELDS = set(HABITS_SHEET_COLUMNS)
-_OP_TIMEOUT = get_settings().operation_timeout_seconds
+_LLM_TIMEOUT = get_settings().llm_timeout_seconds
+_SHEETS_TIMEOUT = get_settings().sheets_timeout_seconds
 _HABIT_EXTRACTION_MAX_ATTEMPTS = 2
 logger = get_logger(__name__)
 
@@ -60,7 +62,7 @@ async def _extract_habit_with_retry(
         try:
             payload = await asyncio.wait_for(
                 extractor.extract(raw_text, language=language, schema=schema),
-                timeout=_OP_TIMEOUT,
+                timeout=_LLM_TIMEOUT,
             )
             return payload, None
         except (asyncio.TimeoutError, ExternalTimeoutError):
@@ -468,7 +470,7 @@ async def _maybe_prompt_existing_entry(
     try:
         existing = await asyncio.wait_for(
             sheet_client.find_latest_habit_entry(sheet_id, selected),
-            timeout=_OP_TIMEOUT,
+            timeout=_SHEETS_TIMEOUT,
         )
     except (SheetAccessError, ExternalTimeoutError, SheetWriteError, asyncio.TimeoutError):
         return False
@@ -509,7 +511,12 @@ async def _maybe_prompt_existing_entry(
                     parse_mode=parse_mode,
                 )
     elif update.message:
-        await update.message.reply_text(prompt, reply_markup=keyboard, parse_mode=parse_mode)
+        await reply_text_chunked(
+            update.message,
+            prompt,
+            reply_markup=keyboard,
+            parse_mode=parse_mode,
+        )
     return True
 
 
@@ -770,7 +777,8 @@ async def handle_habits_text(
     msgs = _messages_for_lang(lang)
     preview = _format_habit_preview(entry_data, habit_schema, lang)
     if update.message:
-        await update.message.reply_text(
+        await reply_text_chunked(
+            update.message,
             msgs["confirm_entry"]
             + "\n\n"
             + preview,
@@ -872,12 +880,12 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
                             field_order,
                             entry,
                         ),
-                        timeout=_OP_TIMEOUT,
+                        timeout=_SHEETS_TIMEOUT,
                     )
                 else:
                     await asyncio.wait_for(
                         sheets_client.append_habit_entry(sheet_id, field_order, entry),
-                        timeout=_OP_TIMEOUT,
+                        timeout=_SHEETS_TIMEOUT,
                     )
             except SheetAccessError as exc:
                 logger.warning(
