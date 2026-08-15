@@ -11,7 +11,8 @@ from src.config.settings import Settings, get_settings
 from src.config.constants import MESSAGES_EN, MESSAGES_RU
 from src.core.dependencies import UserRepoDep, SettingsDep, verify_reminder_dispatch, verify_telegram_webhook
 from src.core.exceptions import ExternalTimeoutError, SheetAccessError, SheetWriteError
-from src.core.logging import setup_logging
+from src.core.logging import get_logger, setup_logging
+from src.core.rate_limit import SlidingWindowRateLimiter
 from functools import lru_cache
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
@@ -36,6 +37,22 @@ from src.services.reminders import (
 
 app = FastAPI(title="Habits & Diary Bot", version="0.1.0")
 setup_logging()
+logger = get_logger(__name__)
+
+
+@lru_cache()
+def get_dispatch_rate_limiter() -> SlidingWindowRateLimiter:
+    """SEC-5: per-user limiter for /reminders/dispatch.
+
+    Cloud Tasks schedules at most a handful of dispatches per user per day, so a
+    low ceiling is generous for legitimate traffic while capping the damage from
+    a replayed or leaked task request.
+    """
+
+    return SlidingWindowRateLimiter(
+        get_settings().reminders_dispatch_rate_limit_per_minute,
+        window_seconds=60,
+    )
 
 
 @lru_cache()
@@ -79,6 +96,9 @@ async def reminders_dispatch(
         user_id = int(user_id)
     if not isinstance(user_id, int):
         return JSONResponse({"ok": False, "error": "user_id_missing"}, status_code=400)
+    if not get_dispatch_rate_limiter().allow(user_id):
+        logger.warning("reminder_dispatch_rate_limited", user_id=user_id, kind=kind)
+        return JSONResponse({"ok": False, "error": "rate_limited"}, status_code=429)
     profile = await user_repo.get_by_telegram_id(user_id)
     if not profile:
         return JSONResponse({"ok": True, "skipped": "no_profile"})

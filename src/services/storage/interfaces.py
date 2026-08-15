@@ -16,6 +16,12 @@ class IUserRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def find_by_sheet_id(self, sheet_id: str) -> Optional[UserProfile]:
+        """Return the profile that already owns this sheet, if any."""
+
+        raise NotImplementedError
+
+    @abstractmethod
     async def list_all(self) -> list[UserProfile]:
         raise NotImplementedError
 

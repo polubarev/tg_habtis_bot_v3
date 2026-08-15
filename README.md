@@ -129,6 +129,24 @@ For Google Sheets writes in production, share each target spreadsheet with the r
 - Session/user state can persist across restarts if Firestore is available. Set `gcp_project_id` in `.env` and `google_credentials_path` to a service account with Firestore access. If Firestore API is disabled or unreachable, the bot automatically falls back to in-memory stores (state resets on restarts).
 - Collections used: `users`, `sessions` (see `src/config/settings.py` for names).
 
+### Session TTL (required)
+In-progress sessions hold raw diary text in `pending_entry` / `temp_data`. Application code
+only deletes an expired session the next time that same user is seen, so an abandoned
+session would otherwise keep its content forever. Create the TTL policy once per project:
+
+```bash
+gcloud firestore fields ttls update expires_at --collection-group=sessions --enable-ttl --project="$GCP_PROJECT_ID"
+```
+
+Verify it is active (`state: ACTIVE`, may take a few minutes):
+
+```bash
+gcloud firestore fields ttls list --collection-group=sessions --project="$GCP_PROJECT_ID"
+```
+
+Firestore TTL only acts on native timestamp fields; `SessionRepository.save` writes
+`expires_at` as a timestamp specifically for this, so don't change it back to a string.
+
 ## Commands
 - `/start` — welcome, shows keyboard
 - `/config` — set/change Google Sheet (prompts to share with service account)

@@ -188,6 +188,33 @@ async def handle_config_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
 
+    # SEC-1: the shared service account can write to every user's sheet, so a
+    # successful ensure_tabs() proves nothing about ownership. Refuse a sheet
+    # already bound to a different account, and check it *before* ensure_tabs so
+    # we never create tabs in a sheet the caller isn't allowed to claim.
+    if user_repo:
+        try:
+            existing_owner = await user_repo.find_by_sheet_id(sheet_id)
+        except Exception as exc:
+            # Fail closed: without a definitive answer we must not bind.
+            logger.warning(
+                "sheet_ownership_check_failed",
+                user_id=update.effective_user.id,
+                sheet_id_suffix=sheet_id[-6:],
+                error_type=type(exc).__name__,
+            )
+            await update.message.reply_text(_messages_for_lang(lang)["error_occurred"])
+            return True
+        if existing_owner is not None and existing_owner.telegram_user_id != update.effective_user.id:
+            logger.warning(
+                "sheet_claim_rejected",
+                user_id=update.effective_user.id,
+                owner_user_id=existing_owner.telegram_user_id,
+                sheet_id_suffix=sheet_id[-6:],
+            )
+            await update.message.reply_text(_messages_for_lang(lang)["sheet_already_claimed"])
+            return True
+
     if sheets_client:
         progress_message = None
         try:

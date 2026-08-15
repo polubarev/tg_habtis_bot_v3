@@ -1,7 +1,7 @@
 from typing import Any, Optional
 
 try:
-    import google.cloud.firestore as firestore_module  # type: ignore[import-untyped]
+    import google.cloud.firestore as firestore_module
     from google.oauth2 import service_account as service_account_module
 except Exception:  # pragma: no cover - optional dependency
     firestore_module: Any = None  # type: ignore[no-redef]

@@ -25,3 +25,7 @@ jobs:
         run: uv run mypy src
       - name: Test
         run: uv run pytest -m "not integration"
+      # Not --strict: that also fails on the local project package, which has no
+      # PyPI entry to audit. Vulnerabilities alone still exit non-zero.
+      - name: Audit dependencies
+        run: uv run pip-audit --progress-spinner off

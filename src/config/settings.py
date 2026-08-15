@@ -60,6 +60,9 @@ class Settings(BaseSettings):
 
     # Rate limiting
     rate_limit_requests_per_minute: int = 30
+    # Cloud Tasks fires a handful of dispatches per user per day; this only needs
+    # to be high enough to absorb legitimate retries.
+    reminders_dispatch_rate_limit_per_minute: int = 10
 
     # External operation timeouts
     operation_timeout_seconds: int = 25

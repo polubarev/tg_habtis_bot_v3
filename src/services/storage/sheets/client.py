@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 
 import gspread
 import json
-import requests  # type: ignore[import-untyped]
+import requests
 import google.auth
 from google.auth.transport.requests import AuthorizedSession
 from google.oauth2.service_account import Credentials

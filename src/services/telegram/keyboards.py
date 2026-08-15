@@ -56,7 +56,7 @@ def build_main_menu_keyboard(language: str = "en") -> ReplyKeyboardMarkup:
         [btns["config"], btns["help"]],
         [btns["cancel"]],
     ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=True)
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=False)
 
 
 def build_config_keyboard(language: str = "en") -> ReplyKeyboardMarkup:
@@ -72,7 +72,7 @@ def build_config_keyboard(language: str = "en") -> ReplyKeyboardMarkup:
         [btns["reset"]],
         [btns["back"], btns["cancel"]]
     ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=True)
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=False)
 
 
 def build_admin_keyboard(language: str = "en") -> ReplyKeyboardMarkup:
@@ -87,7 +87,7 @@ def build_admin_keyboard(language: str = "en") -> ReplyKeyboardMarkup:
         [btns["admin_broadcast"]],
         [btns["back"], btns["cancel"]],
     ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=True)
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=False)
 
 
 def build_admin_broadcast_confirm_keyboard(language: str = "en") -> InlineKeyboardMarkup:

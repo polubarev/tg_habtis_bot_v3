@@ -43,7 +43,13 @@ class ReflectionExtractor:
                 )
             ),
         ]
-        logger.info(messages)
+        # Never log `messages` — it carries the user's raw reflection text.
+        logger.info(
+            "Reflection LLM request",
+            language=language,
+            question_count=len(questions),
+            text_length=len(raw_text or ""),
+        )
         _started = time.monotonic()
         try:
             # Use raw model call to avoid structured-output schema issues with dict
@@ -103,9 +109,10 @@ class ReflectionExtractor:
                         raise ExternalResponseError("Invalid reflection response") from exc
                 else:
                     raise ExternalResponseError("Invalid reflection response")
+            # Keys are the user's own reflection questions — log the count, not the text.
             logger.info(
                 "Reflection LLM response",
-                extra={"keys": list(payload.keys()) if isinstance(payload, dict) else None},
+                answer_count=len(payload) if isinstance(payload, dict) else None,
             )
             if not isinstance(payload, dict):
                 raise ExternalResponseError("Reflection response was not a JSON object")

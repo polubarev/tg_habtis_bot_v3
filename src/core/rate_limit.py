@@ -6,7 +6,13 @@ from collections.abc import Callable
 
 
 class SlidingWindowRateLimiter:
-    """In-memory per-key sliding window rate limiter."""
+    """In-memory per-key sliding window rate limiter.
+
+    State is process-local: counters reset on cold start and are not shared
+    between instances. That is only sound while Cloud Run runs a single
+    instance (see ``--max-instances 1`` in scripts/deploy_cloud_run.sh). Move
+    this to Firestore or Redis before scaling out.
+    """
 
     def __init__(
         self,

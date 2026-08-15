@@ -249,6 +249,10 @@ MESSAGES_RU = {
     ),
     "sheet_saved": "✅ Гугл-таблица сохранена.",
     "sheet_url_invalid": "Это не похоже на ссылку или ID таблицы.",
+    "sheet_already_claimed": (
+        "⚠ Эта таблица уже подключена к другому аккаунту.\n"
+        "Если это твоя таблица, отключи её в том аккаунте или создай новую."
+    ),
     "sheet_base_url_notice": "Использую базовую ссылку: {url}",
     "config_cancelled": "Настройка отменена.",
     "language_prompt": "Выбери язык интерфейса.",
@@ -674,6 +678,10 @@ MESSAGES_EN = {
     ),
     "sheet_saved": "✅ Google Sheet saved.",
     "sheet_url_invalid": "That doesn’t look like a Sheet link or ID.",
+    "sheet_already_claimed": (
+        "⚠ This sheet is already connected to another account.\n"
+        "If it's yours, disconnect it there first or create a new sheet."
+    ),
     "sheet_base_url_notice": "Using base link: {url}",
     "config_cancelled": "Setup cancelled.",
     "language_prompt": "Choose your language.",

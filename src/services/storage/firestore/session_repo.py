@@ -45,6 +45,12 @@ class SessionRepository(ISessionRepository):
         if self.client and self.client.is_ready:
             try:
                 data = session.model_dump(mode="json")
+                # SEC-4: sessions hold raw diary text in pending_entry/temp_data.
+                # A Firestore TTL policy is what reaps abandoned ones, and TTL only
+                # acts on native timestamp fields — model_dump(mode="json") would
+                # write an ISO string, which Firestore silently ignores.
+                if session.expires_at is not None:
+                    data["expires_at"] = session.expires_at
                 self.client.collection(self.collection_name).document(str(session.user_id)).set(data)
             except Exception as exc:
                 logger.warning("Firestore unavailable for sessions; falling back to memory", error=str(exc))

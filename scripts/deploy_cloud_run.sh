@@ -91,6 +91,7 @@ CONFIG_APP_ENV_KEYS=(
   FIRESTORE_COLLECTION_USAGE_EVENTS
   SESSION_TTL_MINUTES
   RATE_LIMIT_REQUESTS_PER_MINUTE
+  REMINDERS_DISPATCH_RATE_LIMIT_PER_MINUTE
   OPERATION_TIMEOUT_SECONDS
   TELEGRAM_DOWNLOAD_TIMEOUT_SECONDS
   TRANSCRIPTION_TIMEOUT_SECONDS
@@ -243,6 +244,9 @@ if [[ -n "${SERVICE_ACCOUNT}" ]]; then
 fi
 
 echo "Deploying to Cloud Run..."
+# SEC-5: rate limiting is in-process (src/core/rate_limit.py), so per-user limits
+# only hold globally while --max-instances stays at 1. Raising it requires moving
+# the limiter to shared storage (Firestore/Redis) first.
 gcloud run deploy "${SERVICE_NAME}" \
   --image "${IMAGE}" \
   --region "${REGION}" \
