@@ -3071,6 +3071,25 @@ async def convert_audio_format(
 
 ---
 
+### 10.3 Batched Telegram Transcription
+
+The main menu exposes `🎙 Расшифровка / 🎙 Transcription`. In this mode the bot collects
+one to ten Telegram voice notes, audio files, videos, or round video notes, including
+forwarded messages. Collection is capped at 20 MB per item and 60 minutes per batch.
+
+Batch metadata is stored in `transcription_batches/{telegram_user_id}`. Firestore
+transactions append and order media safely when several forwarded updates arrive at once.
+Only Telegram file identifiers are retained before processing; media bytes are downloaded
+one item at a time.
+
+Submitting the batch creates an idempotently named task in the dedicated `transcriptions`
+Cloud Tasks queue. The authenticated `/transcriptions/dispatch` endpoint processes items
+sequentially, checkpoints each transcript, resumes after transient failures, and returns
+successful partial results when an item fails permanently. After Telegram delivery, file
+identifiers and transcript text are purged from the batch document.
+
+The existing single-voice diary behavior is unchanged outside Transcription mode.
+
 ## 11. Error Handling & Resilience
 
 ### 11.1 Retry Decorator
@@ -3544,6 +3563,18 @@ LLM_TEMPERATURE=0.1
 
 # OpenAI (for Whisper)
 OPENAI_API_KEY=your-openai-key
+WHISPER_MODEL=whisper-1
+
+# Batched transcription
+TRANSCRIPTION_DISPATCH_URL=https://your-service-url.run.app
+TRANSCRIPTION_DISPATCH_SECRET=stored-in-secret-manager
+TRANSCRIPTION_QUEUE_NAME=transcriptions
+TRANSCRIPTION_MAX_ITEMS=10
+TRANSCRIPTION_MAX_FILE_BYTES=20971520
+TRANSCRIPTION_MAX_DURATION_SECONDS=3600
+TRANSCRIPTION_TASK_DEADLINE_SECONDS=1800
+TRANSCRIPTION_TASK_MAX_ATTEMPTS=5
+FIRESTORE_COLLECTION_TRANSCRIPTION_BATCHES=transcription_batches
 
 # Firestore
 FIRESTORE_COLLECTION_USERS=users
@@ -4888,6 +4919,9 @@ pytest tests/e2e/ -m e2e
 - [ ] Webhook URL updated after deployment
 - [ ] Health check endpoint responding
 - [ ] Logging configured and visible in Cloud Logging
+- [ ] `transcriptions` Cloud Tasks queue is running in the configured region
+- [ ] `TRANSCRIPTION_DISPATCH_SECRET` is bound from Secret Manager
+- [ ] `/transcriptions/dispatch` is reachable from Cloud Tasks
 
 ---
 

@@ -29,6 +29,12 @@ structured data with an LLM, and writes everything to user-managed Google Sheets
 Deployment is handled by `scripts/deploy_cloud_run.sh`. Run it from Git Bash, WSL, Linux, macOS, or Google Cloud Shell.
 Shell scripts are tracked with LF line endings via `.gitattributes`, so the same checkout works from macOS and WSL.
 
+On Windows PowerShell, use the native equivalent:
+
+```powershell
+.\scripts\deploy_cloud_run.ps1 -ProjectId tg-bot-sso -Region europe-west1
+```
+
 1. Install and authenticate the Google Cloud CLI:
    ```bash
    gcloud auth login
@@ -174,3 +180,13 @@ Firestore TTL only acts on native timestamp fields; `SessionRepository.save` wri
 # TODOs
 - update habit feature
 - option to choose habit for deletion using buttons
+# Batched transcription
+
+The main menu includes `🎙 Расшифровка / 🎙 Transcription`. It collects up to ten
+Telegram voice notes, audio files, videos, or video notes and processes them through a
+dedicated Cloud Tasks queue.
+
+Production configuration requires `TRANSCRIPTION_DISPATCH_SECRET` plus a Cloud Tasks queue
+named by `TRANSCRIPTION_QUEUE_NAME` (default: `transcriptions`). The deployment script prints
+the recommended `gcloud tasks queues create` command. The worker endpoint is
+`/transcriptions/dispatch`; `TRANSCRIPTION_DISPATCH_URL` may override its public base URL.

@@ -51,6 +51,9 @@ BUTTONS_RU = {
     "reflect": "🤔 Рефлексия",
     "week_analysis": "📊 Анализ недели",
     "on_this_day": "🕰 В этот день",
+    "transcription": "🎙 Расшифровка",
+    "transcription_finish": "✅ Расшифровать",
+    "transcription_clear": "🗑 Очистить",
     "config": "⚙️ Настройки",
     "help": "ℹ️ Помощь",
     "cancel": "❌ Отмена",
@@ -80,6 +83,9 @@ BUTTONS_EN = {
     "reflect": "🤔 Reflection",
     "week_analysis": "📊 Week Analysis",
     "on_this_day": "🕰 On this day",
+    "transcription": "🎙 Transcription",
+    "transcription_finish": "✅ Transcribe",
+    "transcription_clear": "🗑 Clear",
     "config": "⚙️ Config",
     "help": "ℹ️ Help",
     "cancel": "❌ Cancel",
@@ -184,6 +190,30 @@ INLINE_BUTTONS_EN = {
 
 # Message templates (Russian)
 MESSAGES_RU = {
+    "transcription_prompt": (
+        "🎙 Отправь или перешли до 10 голосовых сообщений, аудиофайлов или видео. "
+        "Общая длительность — до 60 минут. Когда закончишь, нажми «Расшифровать»."
+    ),
+    "transcription_resumed": "Продолжаем сбор: добавлено {count} из {max_items}.",
+    "transcription_processing": "Эта подборка уже расшифровывается. Я пришлю результат сюда.",
+    "transcription_retry_ready": (
+        "Подборка из {count} сообщений сохранена, но задача ещё не запущена. "
+        "Нажми «Расшифровать», чтобы повторить запуск."
+    ),
+    "transcription_added": "✅ Добавлено {count} из {max_items} · всего {duration}.",
+    "transcription_duplicate": "Это сообщение уже добавлено.",
+    "transcription_too_large": "Файл слишком большой. Максимум — 20 МБ.",
+    "transcription_duration_limit": "Общая длительность превысит 60 минут. Этот файл не добавлен.",
+    "transcription_full": "Уже добавлено 10 сообщений.",
+    "transcription_empty": "Сначала отправь хотя бы одно голосовое сообщение, аудио или видео.",
+    "transcription_cleared": "Подборка очищена. Можно отправлять новые сообщения.",
+    "transcription_cancelled": "Расшифровка отменена.",
+    "transcription_queued": "⏳ Начинаю расшифровку {count} сообщений. Результат придёт сюда.",
+    "transcription_enqueue_error": "Не удалось запустить расшифровку. Подборка сохранена — попробуй ещё раз.",
+    "transcription_collecting_only": "Сейчас я собираю медиа для расшифровки. Отправь голос, аудио или видео либо нажми кнопку ниже.",
+    "transcription_result_title": "🎙 Расшифровка",
+    "transcription_item_failed": "Не удалось расшифровать этот файл.",
+    "transcription_result_file": "Расшифровка готова и приложена текстовым файлом.",
     "welcome": (
         "Привет! Я помогу вести дневник и отслеживать привычки.\n\n"
         "Сначала подключи Google Sheet, чтобы я мог сохранять записи:\n"
@@ -619,6 +649,30 @@ MESSAGES_RU = {
 
 # Message templates (English)
 MESSAGES_EN = {
+    "transcription_prompt": (
+        "🎙 Send or forward up to 10 voice messages, audio files, or videos. "
+        "The combined duration can be up to 60 minutes. Press Transcribe when finished."
+    ),
+    "transcription_resumed": "Collection resumed: {count} of {max_items} added.",
+    "transcription_processing": "This batch is already being transcribed. I will send the result here.",
+    "transcription_retry_ready": (
+        "Your {count}-item batch is saved, but its job has not started yet. "
+        "Press Transcribe to retry."
+    ),
+    "transcription_added": "✅ Added {count} of {max_items} · {duration} total.",
+    "transcription_duplicate": "That message is already in this batch.",
+    "transcription_too_large": "That file is too large. The maximum is 20 MB.",
+    "transcription_duration_limit": "That would exceed the 60-minute batch limit, so it was not added.",
+    "transcription_full": "This batch already contains 10 messages.",
+    "transcription_empty": "Send at least one voice message, audio file, or video first.",
+    "transcription_cleared": "The batch is clear. You can send new messages.",
+    "transcription_cancelled": "Transcription cancelled.",
+    "transcription_queued": "⏳ Transcribing {count} messages in the background. I will send the result here.",
+    "transcription_enqueue_error": "I could not start transcription. Your batch is saved—please try again.",
+    "transcription_collecting_only": "I am currently collecting media for transcription. Send voice, audio, or video, or use a button below.",
+    "transcription_result_title": "🎙 Transcription",
+    "transcription_item_failed": "This file could not be transcribed.",
+    "transcription_result_file": "The transcription is ready and attached as a text file.",
     "welcome": (
         "Hello! I help you keep a diary and track habits.\n\n"
         "Start by connecting your Google Sheet so I can save entries:\n"

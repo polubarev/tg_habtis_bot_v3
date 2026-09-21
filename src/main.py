@@ -9,7 +9,13 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from src.config.settings import Settings, get_settings
 from src.config.constants import MESSAGES_EN, MESSAGES_RU
-from src.core.dependencies import UserRepoDep, SettingsDep, verify_reminder_dispatch, verify_telegram_webhook
+from src.core.dependencies import (
+    UserRepoDep,
+    SettingsDep,
+    verify_reminder_dispatch,
+    verify_telegram_webhook,
+    verify_transcription_dispatch,
+)
 from src.core.exceptions import ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.core.logging import get_logger, setup_logging
 from src.core.rate_limit import SlidingWindowRateLimiter
@@ -26,6 +32,7 @@ from src.services.on_this_day import (
 from src.services.storage.sheets.client import SheetsClient
 from src.services.telegram.bot import TelegramBotService
 from src.services.telegram.utils import resolve_language
+from src.services.transcription.processor import RetryableBatchError, TranscriptionBatchProcessor
 from src.services.reminders import (
     ReminderScheduleError,
     compute_due_date,
@@ -64,6 +71,37 @@ def get_bot_service_cached() -> TelegramBotService:
 
 def get_bot_service(_: Settings = Depends(get_settings)) -> TelegramBotService:
     return get_bot_service_cached()
+
+
+@app.post("/transcriptions/dispatch")
+async def transcriptions_dispatch(
+    request: Request,
+    bot_service: TelegramBotService = Depends(get_bot_service),
+    _: bool = Depends(verify_transcription_dispatch),
+) -> JSONResponse:
+    payload = await request.json()
+    user_id = payload.get("user_id")
+    batch_id = payload.get("batch_id")
+    if isinstance(user_id, str) and user_id.isdigit():
+        user_id = int(user_id)
+    if not isinstance(user_id, int) or not isinstance(batch_id, str) or not batch_id:
+        return JSONResponse({"ok": False, "error": "invalid_payload"}, status_code=400)
+    retry_header = request.headers.get("X-CloudTasks-TaskRetryCount", "0")
+    retry_count = int(retry_header) if retry_header.isdigit() else 0
+    transcriber = bot_service.deps.whisper_client()
+    if transcriber is None:
+        return JSONResponse({"ok": False, "error": "transcriber_unavailable"}, status_code=503)
+    processor = TranscriptionBatchProcessor(
+        bot_service.settings,
+        bot_service.deps.transcription_batch_repo(),
+        transcriber,
+        bot_service.deps.user_repo(),
+    )
+    try:
+        result = await processor.process(user_id, batch_id, retry_count)
+    except RetryableBatchError:
+        return JSONResponse({"ok": False, "error": "retryable"}, status_code=503)
+    return JSONResponse({"ok": True, "result": result})
 
 
 @app.get("/health")

@@ -35,7 +35,8 @@ from src.services.telegram.handlers.admin import admin_command, handle_admin_bro
 from src.services.telegram.handlers.config import config_command, handle_reset_confirm
 from src.services.telegram.handlers.config import handle_reminders_menu_callback, handle_smart_nudges_callback
 from src.services.telegram.handlers.language import handle_language_select
-from src.services.telegram.handlers.router import route_text, route_voice
+from src.services.telegram.handlers.router import route_media, route_text
+from src.services.telegram.handlers.transcription import transcription_command
 from src.services.telegram.handlers.habits_config import (
     habits_config_command,
     handle_habits_config_callback,
@@ -161,6 +162,7 @@ class TelegramBotService:
         self.app.add_handler(CommandHandler("habits_config", habits_config_command))
         self.app.add_handler(CommandHandler("reflect_config", questions_command))
         self.app.add_handler(CommandHandler("on_this_day", on_this_day_command))
+        self.app.add_handler(CommandHandler("transcription", transcription_command))
         self.app.add_handler(CommandHandler("help", help_command))
         self.app.add_handler(CommandHandler("admin", admin_command))
         self.app.add_handler(
@@ -221,7 +223,10 @@ class TelegramBotService:
             MessageHandler(filters.TEXT & ~filters.COMMAND, route_text)
         )
         self.app.add_handler(
-            MessageHandler(filters.VOICE, route_voice)
+            MessageHandler(filters.VOICE | filters.AUDIO | filters.VIDEO | filters.VIDEO_NOTE, route_media)
+        )
+        self.app.add_handler(
+            MessageHandler(filters.Document.ALL | filters.PHOTO | filters.ANIMATION, route_media)
         )
         try:
             await self.app.initialize()

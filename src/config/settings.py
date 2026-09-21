@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     reminders_dispatch_url_debug: Optional[str] = None
     reminders_queue_name: str = "reminders"
     reminders_dispatch_secret: str = Field(default="")
+    transcription_dispatch_url: Optional[str] = None
+    transcription_dispatch_url_debug: Optional[str] = None
+    transcription_queue_name: str = "transcriptions"
+    transcription_dispatch_secret: str = Field(default="")
 
     # OpenRouter / LLM
     openrouter_api_key: str | None = None
@@ -54,6 +58,7 @@ class Settings(BaseSettings):
     firestore_collection_sessions: str = "sessions"
     firestore_collection_feedback: str = "feedback"
     firestore_collection_usage_events: str = "usage_events"
+    firestore_collection_transcription_batches: str = "transcription_batches"
 
     # Session
     session_ttl_minutes: int = 60
@@ -70,6 +75,13 @@ class Settings(BaseSettings):
     transcription_timeout_seconds: int = 60
     llm_timeout_seconds: int = 45
     sheets_timeout_seconds: int = 25
+
+    # Batch transcription
+    transcription_max_items: int = 10
+    transcription_max_file_bytes: int = 20 * 1024 * 1024
+    transcription_max_duration_seconds: int = 3600
+    transcription_task_deadline_seconds: int = 1800
+    transcription_task_max_attempts: int = 5
 
     @model_validator(mode="after")
     def apply_legacy_operation_timeout(self) -> "Settings":
@@ -102,6 +114,11 @@ class Settings(BaseSettings):
         if self.debug and self.reminders_dispatch_url_debug:
             return self.reminders_dispatch_url_debug
         return self.reminders_dispatch_url
+
+    def get_transcription_dispatch_url(self) -> Optional[str]:
+        if self.debug and self.transcription_dispatch_url_debug:
+            return self.transcription_dispatch_url_debug
+        return self.transcription_dispatch_url
 
     def get_admin_telegram_ids(self) -> set[int]:
         ids: set[int] = set()

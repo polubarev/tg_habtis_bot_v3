@@ -69,6 +69,17 @@ async def verify_reminder_dispatch(
     return True
 
 
+async def verify_transcription_dispatch(
+    x_transcription_secret: Annotated[str | None, Header()] = None,
+) -> bool:
+    settings = get_settings()
+    if not settings.transcription_dispatch_secret:
+        raise HTTPException(status_code=500, detail="Service misconfigured")
+    if x_transcription_secret != settings.transcription_dispatch_secret:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return True
+
+
 UserRepoDep = Annotated[UserRepository, Depends(get_user_repo)]
 SessionRepoDep = Annotated[SessionRepository, Depends(get_session_repo)]
 LLMClientDep = Annotated[LLMClient, Depends(get_llm_client)]

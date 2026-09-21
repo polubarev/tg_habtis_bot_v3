@@ -39,6 +39,11 @@ from src.core.analytics import log_event
 from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, TranscriptionError
 from src.core.logging import get_logger
 from src.services.telegram.handlers.language import language_command
+from src.services.telegram.handlers.transcription import (
+    handle_transcription_media,
+    handle_transcription_text,
+    transcription_command,
+)
 from src.services.telegram.utils import (
     get_settings_from_context,
     get_session_repo,
@@ -73,6 +78,9 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
     # Helper to check against all languages
     def matched(key: str) -> bool:
         return text in (BUTTONS_RU.get(key), BUTTONS_EN.get(key))
+
+    if await handle_transcription_text(update, context, text):
+        return
 
     # 1. Global Cancel
     if matched("cancel"):
@@ -114,6 +122,9 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
         return
     if matched("on_this_day"):
         await on_this_day_command(update, context)
+        return
+    if matched("transcription"):
+        await transcription_command(update, context)
         return
     if matched("help"):
         await help_command(update, context)
@@ -387,3 +398,11 @@ async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await handle_habits_text(update, context, result.text, input_type=InputType.VOICE)
         return
     await route_text(update, context, text_override=result.text)
+
+
+async def route_media(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Collect supported media in transcription mode; preserve legacy voice routing otherwise."""
+    if await handle_transcription_media(update, context):
+        return
+    if update.message and update.message.voice:
+        await route_voice(update, context)

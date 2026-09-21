@@ -13,6 +13,8 @@ if TYPE_CHECKING:
     from src.services.storage.firestore.user_repo import UserRepository
     from src.services.storage.sheets.client import SheetsClient
     from src.services.transcription.whisper import WhisperClient
+    from src.services.transcription.scheduler import TranscriptionTaskScheduler
+    from src.services.storage.firestore.transcription_batch_repo import TranscriptionBatchRepository
 
 
 class DependencyProvider:
@@ -30,6 +32,8 @@ class DependencyProvider:
         self._whisper_client: WhisperClient | None = None
         self._llm_initialized = False
         self._whisper_initialized = False
+        self._transcription_batch_repo: TranscriptionBatchRepository | None = None
+        self._transcription_scheduler: TranscriptionTaskScheduler | None = None
 
     @property
     def settings(self) -> Settings:
@@ -101,3 +105,19 @@ class DependencyProvider:
             except Exception:
                 self._whisper_client = None
         return self._whisper_client
+
+    def transcription_batch_repo(self) -> TranscriptionBatchRepository:
+        if self._transcription_batch_repo is None:
+            from src.services.storage.firestore.transcription_batch_repo import (
+                TranscriptionBatchRepository,
+            )
+
+            self._transcription_batch_repo = TranscriptionBatchRepository(self.firestore_client())
+        return self._transcription_batch_repo
+
+    def transcription_scheduler(self) -> TranscriptionTaskScheduler:
+        if self._transcription_scheduler is None:
+            from src.services.transcription.scheduler import TranscriptionTaskScheduler
+
+            self._transcription_scheduler = TranscriptionTaskScheduler(self._settings)
+        return self._transcription_scheduler

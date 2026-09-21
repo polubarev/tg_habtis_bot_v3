@@ -206,6 +206,16 @@ def get_whisper_client(context: ContextTypes.DEFAULT_TYPE):
     return deps.whisper_client() if deps else None
 
 
+def get_transcription_batch_repo(context: ContextTypes.DEFAULT_TYPE):
+    deps = _get_deps(context)
+    return deps.transcription_batch_repo() if deps and hasattr(deps, "transcription_batch_repo") else None
+
+
+def get_transcription_scheduler(context: ContextTypes.DEFAULT_TYPE):
+    deps = _get_deps(context)
+    return deps.transcription_scheduler() if deps and hasattr(deps, "transcription_scheduler") else None
+
+
 async def increment_usage_stat(profile: Optional[UserProfile], user_repo, field: str) -> None:
     if profile is None or user_repo is None:
         return

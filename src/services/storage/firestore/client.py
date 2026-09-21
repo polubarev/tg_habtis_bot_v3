@@ -53,3 +53,10 @@ class FirestoreClient:
         if not self._client:
             raise RuntimeError("Firestore client is not configured")
         return self._client.collection(name)
+
+    @property
+    def raw_client(self):
+        """Expose the configured client for repository-level transactions."""
+        if not self._client:
+            raise RuntimeError("Firestore client is not configured")
+        return self._client

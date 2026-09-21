@@ -35,6 +35,7 @@ class ConversationState(str, Enum):
     ONBOARDING_LANGUAGE = "onboarding_language"
     ONBOARDING_SHEET_SETUP = "onboarding_sheet_setup"
     ONBOARDING_HABIT_REVIEW = "onboarding_habit_review"
+    TRANSCRIPTION_COLLECTING = "transcription_collecting"
 
 
 class SessionData(BaseModel):

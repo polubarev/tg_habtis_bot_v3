@@ -53,6 +53,7 @@ def build_main_menu_keyboard(language: str = "en") -> ReplyKeyboardMarkup:
         [btns["habits"], btns["dream"]],
         [btns["thought"], btns["reflect"]],
         [btns["week_analysis"], btns["on_this_day"]],
+        [btns["transcription"]],
         [btns["config"], btns["help"]],
         [btns["cancel"]],
     ]
@@ -73,6 +74,18 @@ def build_config_keyboard(language: str = "en") -> ReplyKeyboardMarkup:
         [btns["back"], btns["cancel"]]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=False)
+
+
+def build_transcription_keyboard(language: str = "en") -> ReplyKeyboardMarkup:
+    btns = BUTTONS_RU if language == "ru" else BUTTONS_EN
+    return ReplyKeyboardMarkup(
+        [
+            [btns["transcription_finish"], btns["transcription_clear"]],
+            [btns["cancel"]],
+        ],
+        resize_keyboard=True,
+        is_persistent=True,
+    )
 
 
 def build_admin_keyboard(language: str = "en") -> ReplyKeyboardMarkup:

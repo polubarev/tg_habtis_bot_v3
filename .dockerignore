@@ -1,4 +1,6 @@
 .venv
+.test-venv
+.uv-cache
 __pycache__
 *.pyc
 *.pyo
