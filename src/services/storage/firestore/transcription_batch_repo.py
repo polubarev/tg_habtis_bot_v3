@@ -3,12 +3,12 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Callable
+from typing import Any, Callable
 
 try:
-    from google.cloud import firestore
+    from google.cloud import firestore as firestore_module
 except Exception:  # pragma: no cover - optional dependency
-    firestore = None
+    firestore_module: Any = None  # type: ignore[no-redef]
 
 from src.config.settings import get_settings
 from src.models.transcription_batch import (
@@ -53,13 +53,14 @@ class TranscriptionBatchRepository:
         user_id: int,
         mutation: Callable[[TranscriptionBatch | None], TranscriptionBatch],
     ) -> TranscriptionBatch:
-        if self.client and self.client.is_ready and firestore is not None:
-            doc_ref = self.client.collection(self.collection_name).document(str(user_id))
+        client = self.client
+        if client is not None and client.is_ready and firestore_module is not None:
+            doc_ref = client.collection(self.collection_name).document(str(user_id))
 
             def run() -> TranscriptionBatch:
-                transaction = self.client.raw_client.transaction()
+                transaction = client.raw_client.transaction()
 
-                @firestore.transactional
+                @firestore_module.transactional
                 def apply(transaction):
                     snapshot = doc_ref.get(transaction=transaction)
                     current = TranscriptionBatch(**snapshot.to_dict()) if snapshot.exists else None

@@ -96,6 +96,12 @@ class TranscriptionBatchProcessor:
         self.transcriber = transcriber
         self.user_repo = user_repo
 
+    def _bot(self) -> Bot:
+        token = self.settings.get_telegram_bot_token()
+        if not token:
+            raise RuntimeError("Telegram bot token is not configured")
+        return Bot(token=token)
+
     async def process(self, user_id: int, batch_id: str, retry_count: int = 0) -> str:
         batch = await self.repo.claim(user_id, batch_id)
         if batch is None:
@@ -108,7 +114,7 @@ class TranscriptionBatchProcessor:
             TranscriptionBatchStatus.QUEUED,
             TranscriptionBatchStatus.PROCESSING,
         }:
-            bot = Bot(token=self.settings.get_telegram_bot_token())
+            bot = self._bot()
             for item in sorted(batch.items, key=lambda value: value.index):
                 if item.status != TranscriptionItemStatus.PENDING:
                     continue
@@ -184,7 +190,7 @@ class TranscriptionBatchProcessor:
         return "delivered"
 
     async def _deliver(self, batch: TranscriptionBatch, lang: str) -> None:
-        bot = Bot(token=self.settings.get_telegram_bot_token())
+        bot = self._bot()
         msgs = MESSAGES_RU if lang == "ru" else MESSAGES_EN
         text = format_batch_result(batch, lang)
         chunks = split_result_text(text)
