@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
 try:
@@ -87,7 +87,7 @@ class TranscriptionBatchRepository:
                 TranscriptionBatchStatus.PROCESSING,
             }:
                 return current
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             return TranscriptionBatch(
                 user_id=user_id,
                 chat_id=chat_id,
@@ -134,7 +134,7 @@ class TranscriptionBatchRepository:
             for index, current_item in enumerate(current.items, start=1):
                 current_item.index = index
             current.total_duration_seconds += item.duration_seconds
-            current.updated_at = datetime.utcnow()
+            current.updated_at = datetime.now(timezone.utc)
             current.expires_at = current.updated_at + timedelta(minutes=ttl_minutes)
             return current
 
@@ -148,7 +148,7 @@ class TranscriptionBatchRepository:
             if current.status == TranscriptionBatchStatus.COLLECTING:
                 current.items = []
                 current.total_duration_seconds = 0
-                current.updated_at = datetime.utcnow()
+                current.updated_at = datetime.now(timezone.utc)
                 current.expires_at = current.updated_at + timedelta(minutes=ttl_minutes)
             return current
 
@@ -162,7 +162,7 @@ class TranscriptionBatchRepository:
                 current.status = TranscriptionBatchStatus.CANCELLED
                 current.items = []
                 current.total_duration_seconds = 0
-                current.updated_at = datetime.utcnow()
+                current.updated_at = datetime.now(timezone.utc)
             return current
 
         return await self._mutate(user_id, mutation)
@@ -173,7 +173,7 @@ class TranscriptionBatchRepository:
                 raise ValueError("batch_not_found")
             if current.status == TranscriptionBatchStatus.COLLECTING and current.items:
                 current.status = TranscriptionBatchStatus.QUEUED
-                current.queued_at = datetime.utcnow()
+                current.queued_at = datetime.now(timezone.utc)
                 current.updated_at = current.queued_at
             return current
 
@@ -186,7 +186,7 @@ class TranscriptionBatchRepository:
             if current.status == TranscriptionBatchStatus.QUEUED:
                 current.status = TranscriptionBatchStatus.COLLECTING
                 current.queued_at = None
-                current.updated_at = datetime.utcnow()
+                current.updated_at = datetime.now(timezone.utc)
             return current
 
         return await self._mutate(user_id, mutation)
@@ -201,7 +201,7 @@ class TranscriptionBatchRepository:
                 raise ValueError("batch_not_found")
             if batch.status == TranscriptionBatchStatus.QUEUED:
                 batch.status = TranscriptionBatchStatus.PROCESSING
-                batch.updated_at = datetime.utcnow()
+                batch.updated_at = datetime.now(timezone.utc)
             return batch
 
         return await self._mutate(user_id, mutation)
@@ -228,7 +228,7 @@ class TranscriptionBatchRepository:
                     item.transcript = transcript
                     item.error_code = error_code
                     break
-            current.updated_at = datetime.utcnow()
+            current.updated_at = datetime.now(timezone.utc)
             return current
 
         return await self._mutate(user_id, mutation)
@@ -245,7 +245,7 @@ class TranscriptionBatchRepository:
                 current.status = TranscriptionBatchStatus.COMPLETED_WITH_ERRORS
             else:
                 current.status = TranscriptionBatchStatus.COMPLETED
-            current.completed_at = datetime.utcnow()
+            current.completed_at = datetime.now(timezone.utc)
             current.updated_at = current.completed_at
             return current
 
@@ -257,7 +257,7 @@ class TranscriptionBatchRepository:
         def mutation(current: TranscriptionBatch | None) -> TranscriptionBatch:
             if current is None or current.batch_id != batch_id:
                 raise ValueError("batch_not_found")
-            current.delivered_at = datetime.utcnow()
+            current.delivered_at = datetime.now(timezone.utc)
             current.updated_at = current.delivered_at
             for item in current.items:
                 item.file_id = ""

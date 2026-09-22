@@ -51,10 +51,10 @@ class TranscriptionBatch(BaseModel):
     status: TranscriptionBatchStatus = TranscriptionBatchStatus.COLLECTING
     items: list[TranscriptionBatchItem] = Field(default_factory=list)
     total_duration_seconds: int = 0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: datetime = Field(
-        default_factory=lambda: datetime.utcnow() + timedelta(minutes=60)
+        default_factory=lambda: datetime.now(timezone.utc) + timedelta(minutes=60)
     )
     queued_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
@@ -64,5 +64,7 @@ class TranscriptionBatch(BaseModel):
     def is_collecting_expired(self) -> bool:
         if self.status != TranscriptionBatchStatus.COLLECTING:
             return False
-        now = datetime.utcnow() if self.expires_at.tzinfo is None else datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
+        if self.expires_at.tzinfo is None:
+            now = now.replace(tzinfo=None)
         return now > self.expires_at
