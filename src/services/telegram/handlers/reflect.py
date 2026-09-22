@@ -12,6 +12,8 @@ from src.models.entry import ReflectionEntry
 from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.models.user import CustomQuestion
 from src.models.session import ConversationState, SessionData
+from src.models.enums import EntryType
+from src.services.telegram.handlers.entry_collection import start_entry_collection
 from src.services.telegram.keyboards import build_confirmation_keyboard
 from src.services.llm.extractors.reflection_extractor import ReflectionExtractor
 from src.services.telegram.utils import (
@@ -20,6 +22,7 @@ from src.services.telegram.utils import (
     get_sheets_client,
     get_session_expired_message,
     get_user_repo,
+    get_entry_collection_manager,
     increment_usage_stat,
     record_usage_event,
     reply_confirmation_preview,
@@ -91,7 +94,13 @@ async def reflect_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     session.temp_data["reflect_questions"] = [q.text for q in questions]
     await session_repo.save(session)
     question_lines = "\n".join(f"{idx+1}. {q.text}" for idx, q in enumerate(questions))
-    await update.message.reply_text(_messages_for_lang(lang)["reflect_intro"].format(questions=question_lines))
+    await start_entry_collection(
+        update,
+        context,
+        EntryType.REFLECTION,
+        flow_context={"questions": [q.text for q in questions]},
+        intro=_messages_for_lang(lang)["reflect_intro"].format(questions=question_lines),
+    )
 
 
 async def handle_reflect_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> bool:
@@ -113,14 +122,17 @@ async def handle_reflect_text(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text(_messages_for_lang(lang)["error_occurred"])
         return True
     answers = {}
+    progress_message = None
     llm_available = llm_client is not None and getattr(llm_client, "_model", None) is not None
     if not llm_available:
         await update.message.reply_text(_messages_for_lang(lang)["llm_disabled"])
     if llm_available:
-        progress_message = None
         try:
             extractor = ReflectionExtractor(llm_client)
-            progress_message = await update.message.reply_text(_messages_for_lang(lang)["processing"])
+            if not getattr(update, "entry_collection_processing", False):
+                progress_message = await update.message.reply_text(
+                    _messages_for_lang(lang)["processing"]
+                )
             answers = await asyncio.wait_for(
                 extractor.extract(text, questions, language=lang),
                 timeout=_LLM_TIMEOUT,
@@ -136,8 +148,6 @@ async def handle_reflect_text(update: Update, context: ContextTypes.DEFAULT_TYPE
             answers = {}
         except Exception:
             answers = {}
-        finally:
-            await safe_delete_message(progress_message)
 
     normalized: dict[str, str] = {}
     for q in questions:
@@ -166,13 +176,16 @@ async def handle_reflect_text(update: Update, context: ContextTypes.DEFAULT_TYPE
     session.reflection_answers = answers
     if session_repo:
         await session_repo.save(session)
-    preview = json.dumps(entry.model_dump(), ensure_ascii=False, indent=2, default=str)
+    preview = json.dumps(
+        entry.model_dump(exclude={"entry_id"}), ensure_ascii=False, indent=2, default=str
+    )
     await reply_confirmation_preview(
         update.message,
         _messages_for_lang(lang)["confirm_generic"],
         preview,
         reply_markup=build_confirmation_keyboard(prefix="reflect", language=lang),
     )
+    await safe_delete_message(progress_message)
     return True
 
 
@@ -218,14 +231,10 @@ async def handle_reflect_confirm(update: Update, context: ContextTypes.DEFAULT_T
                     await query.edit_message_reply_markup(reply_markup=None)
                 except Exception:
                     pass
-                session.state = ConversationState.IDLE
-                session.pending_entry = None
-                session.reflection_answers = {}
-                if session_repo:
-                    await session_repo.save(session)
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
                     text=_messages_for_lang(lang)[error_key],
+                    reply_markup=build_confirmation_keyboard(prefix="reflect", language=lang),
                 )
                 await query.answer()
                 return
@@ -248,11 +257,27 @@ async def handle_reflect_confirm(update: Update, context: ContextTypes.DEFAULT_T
             await query.edit_message_text(_messages_for_lang(lang)["sheet_not_configured"])
     else:
         lang = resolve_language(await resolve_user_profile(update, context))
-        await query.edit_message_text(_messages_for_lang(lang)["cancelled"])
+        session.pending_entry = None
+        session.reflection_answers = {}
+        if session_repo:
+            await session_repo.save(session)
+        questions = (session.temp_data or {}).get("reflect_questions") or []
+        await start_entry_collection(
+            update,
+            context,
+            EntryType.REFLECTION,
+            flow_context={"questions": questions},
+            intro=_messages_for_lang(lang)["entry_collect_intro"],
+        )
+        await query.answer()
+        return
 
     session.state = ConversationState.IDLE
     session.pending_entry = None
     session.reflection_answers = {}
     if session_repo:
         await session_repo.save(session)
+    collection_manager = get_entry_collection_manager(context)
+    if collection_manager:
+        await collection_manager.discard(update.effective_user.id)
     await query.answer()

@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
@@ -120,3 +121,55 @@ def test_mapped_sheet_errors_are_not_reclassified_as_write_errors():
 
     with pytest.raises(SheetAccessError):
         client._ensure_tabs_sync("sheet")
+
+
+def test_existing_sheet_headers_append_entry_id_without_reordering():
+    client, spreadsheet = _client_with_fake_spreadsheet()
+
+    client._ensure_tabs_sync("sheet")
+
+    assert spreadsheet.worksheet("Habits").header == [
+        "timestamp",
+        "date",
+        "raw_record",
+        "diary",
+        "entry_id",
+    ]
+    assert spreadsheet.worksheet("Dreams").header == ["timestamp", "record", "entry_id"]
+    assert spreadsheet.worksheet("Thoughts").header == ["timestamp", "record", "entry_id"]
+    assert spreadsheet.worksheet("Reflections").header == [
+        "timestamp",
+        "reflections",
+        "entry_id",
+    ]
+
+
+def test_existing_entry_id_makes_append_idempotent(monkeypatch):
+    client, spreadsheet = _client_with_fake_spreadsheet()
+    entry = ThoughtEntry(
+        timestamp=datetime(2026, 6, 2, 12, 0),
+        record="only once",
+        entry_id="stable-id",
+    )
+    monkeypatch.setattr(client, "_find_entry_id_in_worksheet", lambda _ws, _id: True)
+
+    client._append_thought_entry_sync("sheet", entry)
+
+    assert spreadsheet.worksheet("Thoughts").appended == []
+
+
+def test_retry_reconciles_in_flight_append_before_writing_again(monkeypatch):
+    client, spreadsheet = _client_with_fake_spreadsheet()
+    entry = ThoughtEntry(
+        timestamp=datetime(2026, 6, 2, 12, 0),
+        record="only once",
+        entry_id="stable-id",
+    )
+    lookup = Mock(side_effect=[False, False, True])
+    monkeypatch.setattr(client, "_find_entry_id_in_worksheet", lookup)
+    monkeypatch.setattr("src.services.storage.sheets.client.time.sleep", lambda _seconds: None)
+
+    client._append_thought_entry_sync("sheet", entry)
+    client._append_thought_entry_sync("sheet", entry)
+
+    assert len(spreadsheet.worksheet("Thoughts").appended) == 1

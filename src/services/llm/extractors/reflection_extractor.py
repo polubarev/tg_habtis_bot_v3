@@ -122,7 +122,7 @@ class ReflectionExtractor:
         except ExternalResponseError:
             raise
         except Exception as exc:
-            logger.warning("Reflection extraction failed", error=str(exc))
+            logger.warning("Reflection extraction failed", error_type=type(exc).__name__)
             if self._is_timeout_error(exc):
                 raise ExternalTimeoutError("Reflection request timed out") from exc
             raise ExternalResponseError("Reflection request failed") from exc

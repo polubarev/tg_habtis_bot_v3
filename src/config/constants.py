@@ -31,16 +31,19 @@ HABITS_SHEET_COLUMNS = [
     "date",
     "raw_record",
     "diary",
+    "entry_id",
 ]
 
 DREAMS_SHEET_COLUMNS = [
     "timestamp",
     "record",
+    "entry_id",
 ]
 
 THOUGHTS_SHEET_COLUMNS = [
     "timestamp",
     "record",
+    "entry_id",
 ]
 
 # Button labels
@@ -146,6 +149,10 @@ INLINE_BUTTONS_RU = {
     "language_ru": "Русский",
     "admin_broadcast_send": "✅ Отправить",
     "admin_broadcast_cancel": "✖ Отмена",
+    "entry_done": "✅ Готово",
+    "entry_undo": "↩️ Убрать последнее",
+    "entry_retry": "🔄 Повторить",
+    "entry_edit": "✏️ Начать заново",
 }
 
 INLINE_BUTTONS_EN = {
@@ -186,6 +193,10 @@ INLINE_BUTTONS_EN = {
     "language_ru": "Русский",
     "admin_broadcast_send": "✅ Send",
     "admin_broadcast_cancel": "✖ Cancel",
+    "entry_done": "✅ Done",
+    "entry_undo": "↩️ Undo last",
+    "entry_retry": "🔄 Retry",
+    "entry_edit": "✏️ Start over",
 }
 
 # Message templates (Russian)
@@ -246,7 +257,7 @@ MESSAGES_RU = {
     "confirm_entry": "📝 Черновик\nПосмотри черновик ниже и подтверди.",
     "saved_success": "✅ Сохранено!",
     "cancelled": "✖ Отменено.",
-    "habits_update_prompt": "✏️ Отправь правки или новый текст. Я пересоберу черновик с учётом предыдущего сообщения.",
+    "habits_update_prompt": "✏️ Отправь новый текст записи. Предыдущий черновик заменён.",
     "week_analysis_title": "📊 Анализ недели",
     "week_analysis_not_enough": "Недостаточно данных за последние 7 завершённых дней. Есть {count} дней.",
     "confirm_generic": "Проверь и подтверди:",
@@ -293,12 +304,19 @@ MESSAGES_RU = {
     "thought_prompt": "Окей, напиши мысль или заметку (текст/голос).",
     "thought_saved": "✅ Мысль сохранена.",
     "no_reflection_questions": "Нет вопросов для размышлений. Добавь их в /config.",
-    "reflect_intro": "Ответь на вопросы одним сообщением (текст или голос). Список вопросов:\n{questions}\n\nОтправь один ответ — я разберу его и заполню ответы.",
+    "reflect_intro": "Ответь на вопросы текстом или голосом, при необходимости несколькими сообщениями. Список вопросов:\n{questions}",
     "reflect_done": "✅ Ответы сохранены.",
     "reflect_seeded": "Добавил вопросы по умолчанию.",
     "llm_disabled": "LLM отключена — использую сырые ответы, где возможно.",
     "voice_disabled": "Голос пока недоступен (нет ключа для STT). Отправь текст.",
     "voice_transcribed": "Расшифровка голоса: {text}",
+    "entry_collect_intro": "Отправь одну или несколько частей текстом или голосом. Когда закончишь, нажми «Готово».",
+    "entry_collect_status": "🧩 Собираю запись\nЧастей: {count}\nОбъём: {length} / {limit}",
+    "entry_collect_too_large": "⚠ Эта часть превышает общий лимит {limit}. Предыдущие части сохранены.",
+    "entry_collect_empty": "Сначала отправь хотя бы одну часть записи.",
+    "entry_collect_undo_empty": "Пока нечего удалять.",
+    "entry_collect_processing": "⏳ Обрабатываю собранную запись...",
+    "entry_collect_failed": "⚠ Не удалось обработать запись. Текст сохранён — можно повторить, начать заново или отменить.",
     "help": (
         "🤖 *Помощь*\n\n"
         "Я умею вести дневник и трекать привычки в Google Sheet.\n\n"
@@ -705,7 +723,7 @@ MESSAGES_EN = {
     "confirm_entry": "📝 Draft\nReview the draft below and confirm.",
     "saved_success": "✅ Saved!",
     "cancelled": "✖ Cancelled.",
-    "habits_update_prompt": "✏️ Send corrections or a new message. I’ll rebuild the draft using the previous text as context.",
+    "habits_update_prompt": "✏️ Send the replacement entry. The previous draft has been discarded.",
     "week_analysis_title": "📊 Week Analysis",
     "week_analysis_not_enough": "Not enough data for the last 7 completed days. Only {count} days found.",
     "confirm_generic": "Review and confirm:",
@@ -746,12 +764,19 @@ MESSAGES_EN = {
     "thought_prompt": "Share your thought or note (text/voice).",
     "thought_saved": "✅ Thought saved.",
     "no_reflection_questions": "No reflection questions yet. Add them in /config.",
-    "reflect_intro": "Answer all questions in one message (text or voice). Questions:\n{questions}\n\nSend a single reply — I'll parse it into answers.",
+    "reflect_intro": "Answer the questions with text or voice, using multiple messages if needed. Questions:\n{questions}",
     "reflect_done": "✅ Answers saved.",
     "reflect_seeded": "Added default questions.",
     "llm_disabled": "LLM disabled — using raw answers where possible.",
     "voice_disabled": "Voice not available (no STT key). Please send text.",
     "voice_transcribed": "Voice transcription: {text}",
+    "entry_collect_intro": "Send one or more parts as text or voice. Press Done when the entry is complete.",
+    "entry_collect_status": "🧩 Collecting entry\nParts: {count}\nSize: {length} / {limit}",
+    "entry_collect_too_large": "⚠ This part exceeds the combined limit of {limit}. Earlier parts are still saved.",
+    "entry_collect_empty": "Send at least one entry part first.",
+    "entry_collect_undo_empty": "There is nothing to undo yet.",
+    "entry_collect_processing": "⏳ Processing the collected entry...",
+    "entry_collect_failed": "⚠ I couldn't process the entry. Its text is saved; retry, start over, or cancel.",
     "help": (
         "🤖 *Help*\n\n"
         "I help track habits and diary entries in Google Sheets.\n\n"

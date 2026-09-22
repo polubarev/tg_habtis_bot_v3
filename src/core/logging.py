@@ -41,6 +41,15 @@ def setup_logging(log_level: Optional[str] = None) -> None:
     logging.getLogger("google").setLevel(logging.WARNING)
     logging.getLogger("telegram").setLevel(logging.WARNING)
     logging.getLogger("telegram.ext").setLevel(logging.WARNING)
+    # SDK DEBUG output may contain request bodies and private diary content.
+    for logger_name in (
+        "openai",
+        "openai._base_client",
+        "langchain",
+        "langchain_core",
+        "urllib3",
+    ):
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
 
 
 def get_logger(name: str) -> structlog.BoundLogger:

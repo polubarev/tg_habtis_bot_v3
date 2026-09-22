@@ -6,7 +6,12 @@ from src.core.analytics import log_event
 from src.models.session import ConversationState, SessionData
 from src.models.user import UserProfile
 from src.services.telegram.keyboards import build_language_keyboard, build_main_menu_keyboard
-from src.services.telegram.utils import get_session_repo, get_user_repo, resolve_language
+from src.services.telegram.utils import (
+    get_entry_collection_manager,
+    get_session_repo,
+    get_user_repo,
+    resolve_language,
+)
 
 
 def _get_user_repo(context: ContextTypes.DEFAULT_TYPE):
@@ -30,6 +35,15 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     user_repo = _get_user_repo(context)
     session_repo = _get_session_repo(context)
+    if update.effective_user:
+        collection_manager = get_entry_collection_manager(context)
+        if collection_manager:
+            await collection_manager.discard(update.effective_user.id)
+        if session_repo:
+            existing_session = await session_repo.get(update.effective_user.id)
+            if existing_session:
+                existing_session.reset()
+                await session_repo.save(existing_session)
     sheet_missing = True
     profile = None
     if user_repo and update.effective_user:

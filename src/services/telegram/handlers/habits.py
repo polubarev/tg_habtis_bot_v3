@@ -2,6 +2,7 @@ from datetime import date, datetime, timezone
 import html
 import asyncio
 from typing import Any, Dict
+from uuid import uuid4
 
 from telegram import Update
 from telegram.constants import ParseMode
@@ -21,7 +22,8 @@ from src.services.telegram.keyboards import (
 from src.utils.date_parser import parse_relative_date
 from src.models.entry import HabitEntry
 from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, SheetAccessError, SheetWriteError
-from src.models.enums import InputType
+from src.models.enums import EntryType, InputType
+from src.services.telegram.handlers.entry_collection import start_entry_collection
 from src.services.llm.extractors.habit_extractor import HabitExtractor
 from src.services.telegram.handlers.config import looks_like_sheet_input
 from src.services.telegram.utils import (
@@ -30,6 +32,7 @@ from src.services.telegram.utils import (
     get_session_repo,
     get_sheets_client,
     get_user_repo,
+    get_entry_collection_manager,
     increment_usage_stat,
     record_usage_event,
     reply_text_chunked,
@@ -236,7 +239,7 @@ def _apply_defaults(entry_data: Dict[str, Any], habit_schema: HabitSchema | None
 
 
 def _format_habit_preview(entry_data: Dict[str, Any], habit_schema: HabitSchema | None, lang: str) -> str:
-    exclude = {"input_type", "field_order", "timestamp", "raw_record", "defaulted_fields"}
+    exclude = {"input_type", "field_order", "timestamp", "raw_record", "defaulted_fields", "entry_id"}
     field_order = entry_data.get("field_order") or []
     keys: list[str] = []
     defaulted_fields = set(entry_data.get("defaulted_fields") or [])
@@ -586,9 +589,6 @@ async def handle_habits_date_callback(update: Update, context: ContextTypes.DEFA
     if await _maybe_prompt_existing_entry(update, context, session, selected, lang):
         return
 
-    session.state = ConversationState.HABITS_AWAITING_CONTENT
-    if session_repo:
-        await session_repo.save(session)
     msgs = _messages_for_lang(lang)
     await _safe_answer(query)
     if update.effective_chat:
@@ -597,7 +597,13 @@ async def handle_habits_date_callback(update: Update, context: ContextTypes.DEFA
             text=_habit_fields_hint(profile, lang),
             parse_mode=ParseMode.HTML,
         )
-    await query.edit_message_text(msgs["describe_day"].format(date=_format_date_display(selected)))
+    await start_entry_collection(
+        update,
+        context,
+        EntryType.HABIT,
+        flow_context={"selected_date": selected.isoformat()},
+        intro=msgs["describe_day"].format(date=_format_date_display(selected)),
+    )
 
 
 async def handle_habits_date_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> bool:
@@ -622,15 +628,18 @@ async def handle_habits_date_text(update: Update, context: ContextTypes.DEFAULT_
     if await _maybe_prompt_existing_entry(update, context, session, parsed, lang):
         return True
 
-    session.state = ConversationState.HABITS_AWAITING_CONTENT
-    if session_repo:
-        await session_repo.save(session)
     msgs = _messages_for_lang(lang)
     await update.message.reply_text(
         _habit_fields_hint(profile, lang),
         parse_mode=ParseMode.HTML,
     )
-    await update.message.reply_text(msgs["describe_day"].format(date=_format_date_display(parsed)))
+    await start_entry_collection(
+        update,
+        context,
+        EntryType.HABIT,
+        flow_context={"selected_date": parsed.isoformat()},
+        intro=msgs["describe_day"].format(date=_format_date_display(parsed)),
+    )
     return True
 
 
@@ -656,7 +665,6 @@ async def handle_habits_existing_choice(update: Update, context: ContextTypes.DE
     if session.temp_data is None:
         session.temp_data = {}
     session.temp_data["existing_entry_action"] = action
-    session.state = ConversationState.HABITS_AWAITING_CONTENT
     if session_repo:
         await session_repo.save(session)
 
@@ -674,9 +682,17 @@ async def handle_habits_existing_choice(update: Update, context: ContextTypes.DE
             text=_habit_fields_hint(profile, lang),
             parse_mode=ParseMode.HTML,
         )
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=_messages_for_lang(lang)["describe_day"].format(date=_format_date_display(selected_date)),
+        await start_entry_collection(
+            update,
+            context,
+            EntryType.HABIT,
+            flow_context={
+                "selected_date": selected_date.isoformat(),
+                "existing_entry_action": action,
+            },
+            intro=_messages_for_lang(lang)["describe_day"].format(
+                date=_format_date_display(selected_date)
+            ),
         )
 
 
@@ -726,11 +742,11 @@ async def handle_habits_text(
     field_order = [f for f in schema_fields if f not in BASE_HABIT_FIELDS]
     if not llm_available and update.message:
         await update.message.reply_text(_messages_for_lang(lang)["llm_disabled"])
+    progress_message = None
     if llm_available:
-        progress_message = None
         extraction_error_key = None
         try:
-            if update.message:
+            if update.message and not getattr(update, "entry_collection_processing", False):
                 progress_message = await update.message.reply_text(_messages_for_lang(lang)["processing"])
             extractor = HabitExtractor(llm_client)
             extraction, extraction_error_key = await _extract_habit_with_retry(
@@ -742,8 +758,6 @@ async def handle_habits_text(
         except Exception:
             extraction = {}
             extraction_error_key = None
-        finally:
-            await safe_delete_message(progress_message)
         if extraction_error_key and update.message:
             await update.message.reply_text(_messages_for_lang(lang)[extraction_error_key])
     else:
@@ -759,11 +773,12 @@ async def handle_habits_text(
         "raw_record": combined_text,
         "input_type": input_type.value,
         "field_order": field_order,
+        "entry_id": str(uuid4()),
     }
     if include_diary:
         entry_data["diary"] = diary_text
     for k, v in extraction.items():
-        if k not in {"timestamp", "date", "raw_record", "diary", "input_type"}:
+        if k not in {"timestamp", "date", "raw_record", "diary", "input_type", "entry_id"}:
             entry_data[k] = v
     _normalize_list_fields(entry_data, habit_schema)
     defaulted_fields = _apply_defaults(entry_data, habit_schema)
@@ -785,6 +800,7 @@ async def handle_habits_text(
             reply_markup=build_confirmation_keyboard(prefix="habits", language=lang),
             parse_mode=ParseMode.HTML,
         )
+        await safe_delete_message(progress_message)
     return True
 
 
@@ -837,7 +853,7 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
                 k
                 for k in session.pending_entry.keys()
                 if k not in base_fields
-                and k not in {"input_type", "field_order"}
+                and k not in {"input_type", "field_order", "entry_id"}
                 and k not in field_order
             ]
             field_order = field_order + extra_pending_fields
@@ -862,10 +878,11 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
                 extra_fields={
                     k: v
                     for k, v in coerced_entry.items()
-                    if k not in base_fields | {"input_type", "field_order", "defaulted_fields"}
+                    if k not in base_fields | {"input_type", "field_order", "defaulted_fields", "entry_id"}
                     and v is not None
                 },
                 input_type=InputType(coerced_entry.get("input_type") or InputType.TEXT),
+                entry_id=coerced_entry.get("entry_id") or str(uuid4()),
                 created_at=created_at,
             )
             error_key = None
@@ -931,10 +948,8 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
                     text=_messages_for_lang(lang)[error_key],
+                    reply_markup=build_confirmation_keyboard(prefix="habits", language=lang),
                 )
-                session.reset()
-                if session_repo:
-                    await session_repo.save(session)
                 await _safe_answer(query)
                 return
             try:
@@ -957,23 +972,20 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
         else:
             await query.edit_message_text(_messages_for_lang(lang)["sheet_not_configured"])
     else:
-        # allow user to resend/correct; keep previous raw for context
-        if session.pending_entry:
-            if session.temp_data is None:
-                session.temp_data = {}
-            session.temp_data["previous_raw_record"] = session.pending_entry.get("raw_record", "")
-        session.pending_entry = {}
-        session.state = ConversationState.HABITS_AWAITING_CONTENT
+        # Editing starts a fresh collection so replacement semantics are predictable.
+        session.pending_entry = None
         if session_repo:
             await session_repo.save(session)
         lang = resolve_language(await resolve_user_profile(update, context))
-        try:
-            await query.edit_message_reply_markup(reply_markup=None)
-        except Exception:
-            pass
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=_messages_for_lang(lang)["habits_update_prompt"],
+        await start_entry_collection(
+            update,
+            context,
+            EntryType.HABIT,
+            flow_context={
+                "selected_date": (session.selected_date or date.today()).isoformat(),
+                "existing_entry_action": (session.temp_data or {}).get("existing_entry_action"),
+            },
+            intro=_messages_for_lang(lang)["habits_update_prompt"],
         )
         await _safe_answer(query)
         return
@@ -981,4 +993,7 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
     session.reset()
     if session_repo:
         await session_repo.save(session)
+    collection_manager = get_entry_collection_manager(context)
+    if collection_manager:
+        await collection_manager.discard(update.effective_user.id)
     await _safe_answer(query)

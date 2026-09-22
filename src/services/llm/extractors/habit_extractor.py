@@ -131,7 +131,7 @@ class HabitExtractor:
             "Habit LLM request",
             extra={
                 "language": language,
-                "schema_fields": list(schema_dict.get("fields", {}).keys()),
+                "schema_field_count": len(schema_dict.get("fields", {})),
                 "text_length": len(raw_text or ""),
             },
         )
@@ -177,7 +177,7 @@ class HabitExtractor:
             logger.info(
                 "Habit LLM response",
                 extra={
-                    "keys": list(payload.keys()) if isinstance(payload, dict) else None,
+                    "field_count": len(payload) if isinstance(payload, dict) else None,
                 },
             )
             if not isinstance(payload, dict):
@@ -188,7 +188,7 @@ class HabitExtractor:
         except ExternalResponseError:
             raise
         except Exception as exc:
-            logger.warning("Habit extraction failed", error=str(exc))
+            logger.warning("Habit extraction failed", error_type=type(exc).__name__)
             if self._is_timeout_error(exc):
                 raise ExternalTimeoutError("LLM request timed out") from exc
             raise ExternalResponseError("LLM request failed") from exc

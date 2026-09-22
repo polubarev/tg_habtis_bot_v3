@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     # Application
     app_name: str = "Habits Diary Bot"
     app_version: str = "2.0.0"
+    app_commit_sha: str = "unknown"
     debug: bool = False
     log_level: str = "INFO"
 
@@ -59,9 +60,11 @@ class Settings(BaseSettings):
     firestore_collection_feedback: str = "feedback"
     firestore_collection_usage_events: str = "usage_events"
     firestore_collection_transcription_batches: str = "transcription_batches"
+    firestore_collection_text_entry_collections: str = "text_entry_collections"
 
     # Session
     session_ttl_minutes: int = 60
+    text_entry_max_utf16_units: int = 30_000
 
     # Rate limiting
     rate_limit_requests_per_minute: int = 30

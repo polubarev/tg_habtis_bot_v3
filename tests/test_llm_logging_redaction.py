@@ -6,6 +6,9 @@ import pytest
 
 from src.services.llm.extractors import reflection_extractor as reflection_module
 from src.services.llm.extractors.reflection_extractor import ReflectionExtractor
+from src.services.llm.extractors import habit_extractor as habit_module
+from src.services.llm.extractors.habit_extractor import HabitExtractor
+from src.models.habit import HabitFieldConfig, HabitSchema
 
 SECRET_TEXT = "today I relapsed and told nobody about it"
 
@@ -31,6 +34,16 @@ class RecordingLogger:
 class FakeModel:
     async def ainvoke(self, _messages):
         return SimpleNamespace(content='{"How was today?": "fine"}', usage_metadata={})
+
+
+class FakeStructuredClient:
+    _model = object()
+
+    def with_structured_output(self, _schema):
+        return self
+
+    async def ainvoke(self, _messages):
+        return {"private_field_name": "private value", "diary": "fine"}
 
 
 @pytest.mark.asyncio
@@ -63,3 +76,25 @@ async def test_reflection_extract_does_not_log_question_text(monkeypatch):
     assert not recorder.contains("How was today?"), (
         "user-configured reflection questions leaked into a log record"
     )
+
+
+@pytest.mark.asyncio
+async def test_habit_extract_logs_counts_not_content_or_custom_field_names(monkeypatch):
+    recorder = RecordingLogger()
+    monkeypatch.setattr(habit_module, "logger", recorder)
+    extractor = HabitExtractor(FakeStructuredClient())
+    schema = HabitSchema(
+        fields={
+            "private_field_name": HabitFieldConfig(
+                type="string", description="a private custom description"
+            )
+        }
+    )
+
+    result = await extractor.extract(SECRET_TEXT, schema=schema)
+
+    assert result["private_field_name"] == "private value"
+    assert not recorder.contains(SECRET_TEXT)
+    assert not recorder.contains("private_field_name")
+    assert not recorder.contains("private value")
+    assert not recorder.contains("a private custom description")

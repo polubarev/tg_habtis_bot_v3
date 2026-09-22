@@ -122,6 +122,29 @@ def build_admin_broadcast_confirm_keyboard(language: str = "en") -> InlineKeyboa
     return InlineKeyboardMarkup(buttons)
 
 
+def build_entry_collection_keyboard(language: str = "en", *, failed: bool = False) -> InlineKeyboardMarkup:
+    btns = INLINE_BUTTONS_RU if language == "ru" else INLINE_BUTTONS_EN
+    if failed:
+        return InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(btns["entry_retry"], callback_data="entry_collect:retry"),
+                    InlineKeyboardButton(btns["entry_edit"], callback_data="entry_collect:edit"),
+                ],
+                [InlineKeyboardButton(btns["cancel"], callback_data="entry_collect:cancel")],
+            ]
+        )
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(btns["entry_done"], callback_data="entry_collect:done"),
+                InlineKeyboardButton(btns["entry_undo"], callback_data="entry_collect:undo"),
+            ],
+            [InlineKeyboardButton(btns["cancel"], callback_data="entry_collect:cancel")],
+        ]
+    )
+
+
 def build_language_keyboard() -> InlineKeyboardMarkup:
     """Inline keyboard for selecting language."""
 

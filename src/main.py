@@ -106,7 +106,8 @@ async def transcriptions_dispatch(
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok"}
+    settings = get_settings()
+    return {"status": "ok", "version": settings.app_version, "commit": settings.app_commit_sha}
 
 
 @app.post("/telegram/webhook")

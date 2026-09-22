@@ -44,10 +44,12 @@ from src.services.telegram.handlers.transcription import (
     handle_transcription_text,
     transcription_command,
 )
+from src.services.telegram.handlers.entry_collection import handle_entry_collection_text
 from src.services.telegram.utils import (
     get_settings_from_context,
     get_session_repo,
     get_whisper_client,
+    get_entry_collection_manager,
     record_usage_event,
     reply_text_chunked,
     resolve_language,
@@ -63,7 +65,12 @@ def _messages_for_lang(lang: str):
     return MESSAGES_RU if lang == "ru" else MESSAGES_EN
 
 
-async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_override: str | None = None) -> None:
+async def route_text(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    text_override: str | None = None,
+    input_type: InputType = InputType.TEXT,
+) -> None:
     """Route plain text messages based on conversation state."""
 
     if not update.message or not update.effective_user:
@@ -91,6 +98,9 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
             if session:
                 session.reset()
                 await session_repo.save(session)
+        collection_manager = get_entry_collection_manager(context)
+        if collection_manager and update.effective_user:
+            await collection_manager.discard(update.effective_user.id)
         
         await update.message.reply_text(msgs["cancelled"], reply_markup=build_main_menu_keyboard(lang))
         return
@@ -170,6 +180,14 @@ async def route_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text_ov
         return
 
     if await handle_admin_broadcast_text(update, context):
+        return
+
+    if await handle_entry_collection_text(
+        update,
+        context,
+        text,
+        input_type=input_type,
+    ):
         return
 
     if looks_like_sheet_input(text):
@@ -378,6 +396,17 @@ async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await safe_delete_message(progress_message)
         await update.message.reply_text(msgs["voice_transcription_error"])
         return
+    session_repo = get_session_repo(context)
+    session = await session_repo.get(update.effective_user.id) if session_repo else None
+    if session and session.state == ConversationState.ENTRY_COLLECTING:
+        await safe_delete_message(progress_message)
+        await handle_entry_collection_text(
+            update,
+            context,
+            result.text,
+            input_type=InputType.VOICE,
+        )
+        return
     await safe_delete_message(progress_message)
     try:
         await reply_text_chunked(
@@ -392,12 +421,10 @@ async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         )
 
     # Route with preference: habits voice handling first.
-    session_repo = get_session_repo(context)
-    session = await session_repo.get(update.effective_user.id) if session_repo else None
     if session and session.state == ConversationState.HABITS_AWAITING_CONTENT:
         await handle_habits_text(update, context, result.text, input_type=InputType.VOICE)
         return
-    await route_text(update, context, text_override=result.text)
+    await route_text(update, context, text_override=result.text, input_type=InputType.VOICE)
 
 
 async def route_media(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

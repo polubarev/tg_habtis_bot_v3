@@ -36,6 +36,7 @@ from src.services.telegram.handlers.config import config_command, handle_reset_c
 from src.services.telegram.handlers.config import handle_reminders_menu_callback, handle_smart_nudges_callback
 from src.services.telegram.handlers.language import handle_language_select
 from src.services.telegram.handlers.router import route_media, route_text
+from src.services.telegram.handlers.entry_collection import handle_entry_collection_callback
 from src.services.telegram.handlers.transcription import transcription_command
 from src.services.telegram.handlers.habits_config import (
     habits_config_command,
@@ -212,6 +213,9 @@ class TelegramBotService:
         )
         self.app.add_handler(
             CallbackQueryHandler(handle_reflect_confirm, pattern="^reflect_confirm:")
+        )
+        self.app.add_handler(
+            CallbackQueryHandler(handle_entry_collection_callback, pattern="^entry_collect:")
         )
         self.app.add_handler(
             CallbackQueryHandler(handle_language_select, pattern="^lang_select:")

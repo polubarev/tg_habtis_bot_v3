@@ -106,12 +106,20 @@ async def week_analysis_command(update: Update, context: ContextTypes.DEFAULT_TY
         cleaned = {
             key: value
             for key, value in entry.items()
-            if key not in {"raw_record", "timestamp"}
+            if key not in {"raw_record", "timestamp", "entry_id"}
         }
         cleaned_habits.append(cleaned)
 
-    cleaned_dreams = [entry for entry in dreams_entries if entry.get("record")]
-    cleaned_thoughts = [entry for entry in thoughts_entries if entry.get("record")]
+    cleaned_dreams = [
+        {key: value for key, value in entry.items() if key != "entry_id"}
+        for entry in dreams_entries
+        if entry.get("record")
+    ]
+    cleaned_thoughts = [
+        {key: value for key, value in entry.items() if key != "entry_id"}
+        for entry in thoughts_entries
+        if entry.get("record")
+    ]
     cleaned_reflections = []
     for entry in reflection_entries:
         reflections_value = entry.get("reflections")
@@ -120,7 +128,12 @@ async def week_analysis_command(update: Update, context: ContextTypes.DEFAULT_TY
                 reflections_value = json.loads(reflections_value)
             except Exception:
                 pass
-        cleaned_reflections.append({**entry, "reflections": reflections_value})
+        cleaned_reflections.append(
+            {
+                **{key: value for key, value in entry.items() if key != "entry_id"},
+                "reflections": reflections_value,
+            }
+        )
 
     payload_obj = {
         "habits": cleaned_habits,

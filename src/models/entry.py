@@ -1,5 +1,6 @@
 from datetime import date, datetime, timezone
 from typing import Any, Optional
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -19,11 +20,12 @@ class HabitEntry(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     source: str = "telegram"
     input_type: InputType = InputType.TEXT
+    entry_id: str = Field(default_factory=lambda: str(uuid4()))
 
     def to_sheet_row(self, field_order: list[str], base_header: list[str] | None = None) -> list[Any]:
         """Convert entry to row aligned with header."""
 
-        base_header = base_header or ["date", "raw_record", "diary"]
+        base_header = base_header or ["date", "raw_record", "diary", "entry_id"]
         row: list[Any] = []
         for field in base_header:
             if field == "timestamp":
@@ -34,6 +36,8 @@ class HabitEntry(BaseModel):
                 row.append(self.raw_record)
             elif field == "diary":
                 row.append(self.diary or "")
+            elif field == "entry_id":
+                row.append(self.entry_id)
             else:
                 row.append(self.extra_fields.get(field, ""))
         for field in field_order:
@@ -48,6 +52,7 @@ class DreamEntry(BaseModel):
 
     timestamp: datetime
     record: str
+    entry_id: str = Field(default_factory=lambda: str(uuid4()))
 
 
 class ThoughtEntry(BaseModel):
@@ -55,6 +60,7 @@ class ThoughtEntry(BaseModel):
 
     timestamp: datetime
     record: str
+    entry_id: str = Field(default_factory=lambda: str(uuid4()))
 
 
 class ReflectionEntry(BaseModel):
@@ -62,3 +68,4 @@ class ReflectionEntry(BaseModel):
 
     timestamp: datetime
     answers: dict[str, str] = Field(default_factory=dict)
+    entry_id: str = Field(default_factory=lambda: str(uuid4()))

@@ -120,8 +120,10 @@ async def test_config_prompts_for_sheet(telethon_client, bot_username):
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_habits_flow_returns_draft(telethon_client, bot_username):
-    """Habits flow should return a draft confirmation JSON when given a date and text."""
+async def test_habits_flow_collects_multiple_parts_and_returns_draft(
+    telethon_client, bot_username
+):
+    """Habits flow should combine multiple messages after the explicit Done action."""
 
     confirm_reply = None
     try:
@@ -140,9 +142,17 @@ async def test_habits_flow_returns_draft(telethon_client, bot_username):
             await _next_response(conv)  # prompt for date
 
             await conv.send_message("2024-01-01")
-            await _next_response(conv)  # prompt for content
+            collector = None
+            for _ in range(3):
+                candidate = await _next_response(conv)
+                if getattr(getattr(candidate, "reply_markup", None), "rows", None):
+                    collector = candidate
+                    break
+            assert collector is not None, "Multipart collector controls not received"
 
-            await conv.send_message("тестовый день про бота")
+            await conv.send_message("тестовая первая часть")
+            await conv.send_message("тестовая вторая часть")
+            await collector.click(0, 0)  # Done
 
             # There may be multiple replies (LLM disabled notice + draft)
             for _ in range(4):
@@ -166,7 +176,8 @@ async def test_habits_flow_returns_draft(telethon_client, bot_username):
         or "draft" in confirm_text.lower()
         or "черновик" in confirm_text.lower()
     ), f"Unexpected draft confirmation: {confirm_text!r}"
-    assert "тестовый" in confirm_text.lower() or "bot" in confirm_text.lower()
+    assert "первая часть" in confirm_text.lower() or "first part" in confirm_text.lower()
+    assert "вторая часть" in confirm_text.lower() or "second part" in confirm_text.lower()
 
 
 @pytest.mark.asyncio

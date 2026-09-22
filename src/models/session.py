@@ -14,6 +14,7 @@ class ConversationState(str, Enum):
     HABITS_AWAITING_CONTENT = "habits_awaiting_content"
     HABITS_AWAITING_CONFIRMATION = "habits_awaiting_confirmation"
     HABITS_AWAITING_EDIT = "habits_awaiting_edit"
+    ENTRY_COLLECTING = "entry_collecting"
     DREAM_AWAITING_CONTENT = "dream_awaiting_content"
     DREAM_AWAITING_CONFIRMATION = "dream_awaiting_confirmation"
     THOUGHT_AWAITING_CONTENT = "thought_awaiting_content"

@@ -9,6 +9,7 @@ class Language(str, Enum):
 class InputType(str, Enum):
     TEXT = "text"
     VOICE = "voice"
+    MIXED = "mixed"
 
 
 class EntryType(str, Enum):

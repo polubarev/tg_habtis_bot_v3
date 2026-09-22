@@ -84,7 +84,7 @@ class WhisperClient(ITranscriber):
             )
             raise
         except httpx.TimeoutException as exc:  # pragma: no cover - networking
-            logger.warning("Transcription timeout", error=str(exc))
+            logger.warning("Transcription timeout", error_type=type(exc).__name__)
             log_event(
                 "transcription.call",
                 model=self._model,
@@ -96,7 +96,9 @@ class WhisperClient(ITranscriber):
             raise ExternalTimeoutError("Transcription timed out") from exc
         except httpx.HTTPStatusError as exc:  # pragma: no cover - networking
             status = exc.response.status_code
-            logger.warning("Transcription HTTP error", status=status, error=str(exc))
+            logger.warning(
+                "Transcription HTTP error", status=status, error_type=type(exc).__name__
+            )
             log_event(
                 "transcription.call",
                 model=self._model,
@@ -109,7 +111,7 @@ class WhisperClient(ITranscriber):
                 raise ExternalTimeoutError("Transcription timed out") from exc
             raise ExternalResponseError("Transcription HTTP error") from exc
         except Exception as exc:  # pragma: no cover - networking
-            logger.warning("Transcription failed", error=str(exc))
+            logger.warning("Transcription failed", error_type=type(exc).__name__)
             log_event(
                 "transcription.call",
                 model=self._model,

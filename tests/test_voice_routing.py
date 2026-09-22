@@ -8,6 +8,7 @@ from telegram.error import BadRequest, NetworkError
 
 from src.config.constants import MESSAGES_EN
 from src.config.settings import Settings
+from src.models.enums import InputType
 from src.services.telegram.handlers import router as router_module
 from src.services.telegram.utils import TELEGRAM_TEXT_CHUNK_SIZE, telegram_text_length
 from src.services.transcription.interfaces import TranscriptionResult
@@ -127,7 +128,9 @@ async def test_long_voice_transcript_is_chunked_and_routed_in_full(monkeypatch):
     assert "".join(transcript_chunks) == MESSAGES_EN["voice_transcribed"].format(
         text=transcript
     )
-    route_text.assert_awaited_once_with(update, context, text_override=transcript)
+    route_text.assert_awaited_once_with(
+        update, context, text_override=transcript, input_type=InputType.VOICE
+    )
     transcriber.transcribe.assert_awaited_once()
     bot.get_file.assert_awaited_once()
     update.message.replies[0][2].delete.assert_awaited_once()
@@ -218,4 +221,6 @@ async def test_transcript_display_failure_does_not_block_routing(monkeypatch):
 
     await router_module.route_voice(update, context)
 
-    route_text.assert_awaited_once_with(update, context, text_override=transcript)
+    route_text.assert_awaited_once_with(
+        update, context, text_override=transcript, input_type=InputType.VOICE
+    )

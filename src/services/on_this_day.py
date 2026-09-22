@@ -149,7 +149,7 @@ def _format_habits_section(
         label = "Дневник" if lang == "ru" else "Diary"
         lines.append(f"📝 *{label}:* {diary_text}")
     # Remaining habit fields (exclude system columns).
-    reserved = {"timestamp", "date", "raw_record", "diary", "field_order"}
+    reserved = {"timestamp", "date", "raw_record", "diary", "field_order", "entry_id"}
     habit_pairs = []
     for key, value in habits.items():
         if key in reserved:

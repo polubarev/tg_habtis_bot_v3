@@ -4,7 +4,7 @@ param(
     [string]$Region = $(if ($env:GCP_REGION) { $env:GCP_REGION } else { "europe-west1" }),
     [string]$Repository = $(if ($env:REPO) { $env:REPO } else { "habits-bot" }),
     [string]$ServiceName = $(if ($env:SERVICE_NAME) { $env:SERVICE_NAME } else { "habits-diary-bot" }),
-    [string]$ImageTag = $(if ($env:IMAGE_TAG) { $env:IMAGE_TAG } else { "latest" }),
+    [string]$ImageTag = $env:IMAGE_TAG,
     [string]$ServiceAccount = $env:SERVICE_ACCOUNT,
     [switch]$SetTelegramWebhook
 )
@@ -56,6 +56,18 @@ $QueueName = if ($env:TRANSCRIPTION_QUEUE_NAME) {
 } else {
     "transcriptions"
 }
+$GitStatus = & git -C $RepoRoot status --porcelain
+if ($LASTEXITCODE -ne 0) {
+    throw "Unable to inspect Git worktree."
+}
+if ($GitStatus) {
+    throw "Production deployment requires a clean Git worktree. Commit or remove changes first."
+}
+$GitSha = (& git -C $RepoRoot rev-parse HEAD).Trim()
+if (-not $GitSha) {
+    throw "Unable to resolve Git commit SHA."
+}
+$ImageTag = $GitSha
 $Image = "${Region}-docker.pkg.dev/${ProjectId}/${Repository}/${ServiceName}:${ImageTag}"
 
 Write-Host "Project: $ProjectId"
@@ -90,6 +102,16 @@ try {
         GCP_PROJECT_ID = $ProjectId
         GCP_REGION = $Region
         TRANSCRIPTION_QUEUE_NAME = $QueueName
+        APP_COMMIT_SHA = $GitSha
+    }
+    foreach ($name in @(
+        "FIRESTORE_COLLECTION_TEXT_ENTRY_COLLECTIONS",
+        "TEXT_ENTRY_MAX_UTF16_UNITS"
+    )) {
+        $value = [Environment]::GetEnvironmentVariable($name, "Process")
+        if ($value) {
+            $environmentValues[$name] = $value
+        }
     }
     if ($env:TRANSCRIPTION_DISPATCH_URL) {
         $environmentValues.TRANSCRIPTION_DISPATCH_URL = $env:TRANSCRIPTION_DISPATCH_URL
@@ -130,6 +152,7 @@ try {
         "--min-instances=0",
         "--max-instances=1",
         "--timeout=1800",
+        "--labels=app-commit-sha=$GitSha",
         "--update-env-vars=$environmentArgument",
         "--update-secrets=$($secretBindings -join ',')"
     )
@@ -169,6 +192,7 @@ try {
     }
 
     Write-Host "Deployment complete: $serviceUrl"
+    Write-Host "Commit: $GitSha"
     Write-Host "Health check: $serviceUrl/health"
 } finally {
     Pop-Location

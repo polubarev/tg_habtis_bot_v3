@@ -216,6 +216,11 @@ def get_transcription_scheduler(context: ContextTypes.DEFAULT_TYPE):
     return deps.transcription_scheduler() if deps and hasattr(deps, "transcription_scheduler") else None
 
 
+def get_entry_collection_manager(context: ContextTypes.DEFAULT_TYPE):
+    deps = _get_deps(context)
+    return deps.entry_collection_manager() if deps and hasattr(deps, "entry_collection_manager") else None
+
+
 async def increment_usage_stat(profile: Optional[UserProfile], user_repo, field: str) -> None:
     if profile is None or user_repo is None:
         return

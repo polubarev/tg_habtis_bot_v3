@@ -8,7 +8,7 @@ set -euo pipefail
 #   GCP_REGION / REGION           - Artifact Registry + Cloud Run region (default: us-central1)
 #   REPO                          - Artifact Registry repo name (default: habits-bot)
 #   SERVICE_NAME                  - Cloud Run service name (default: habits-diary-bot)
-#   IMAGE_TAG                     - Image tag (default: latest)
+#   IMAGE_TAG                     - Image tag (default: full Git SHA)
 #   CONTAINER_TOOL                - docker or podman (default: docker)
 #   PLATFORM                      - container platform (default: linux/amd64)
 #   BUILD_STRATEGY                - local or cloud (default: local)
@@ -55,7 +55,13 @@ GCP_PROJECT_ID="${GCP_PROJECT_ID:-${PROJECT_ID}}"
 GCP_REGION="${GCP_REGION:-${REGION}}"
 REPO="${REPO:-habits-bot}"
 SERVICE_NAME="${SERVICE_NAME:-habits-diary-bot}"
-IMAGE_TAG="${IMAGE_TAG:-latest}"
+if [[ -n "$(git -C "${ROOT_DIR}" status --porcelain)" ]]; then
+  echo "Production deployment requires a clean Git worktree. Commit or remove changes first." >&2
+  exit 1
+fi
+GIT_SHA="$(git -C "${ROOT_DIR}" rev-parse HEAD)"
+IMAGE_TAG="${GIT_SHA}"
+APP_COMMIT_SHA="${GIT_SHA}"
 CONTAINER_TOOL="${CONTAINER_TOOL:-docker}"
 PLATFORM="${PLATFORM:-linux/amd64}"
 BUILD_STRATEGY="${BUILD_STRATEGY:-local}"
@@ -70,6 +76,7 @@ SERVICE_ACCOUNT="${SERVICE_ACCOUNT:-tg-habits-bot@${PROJECT_ID}.iam.gserviceacco
 CONFIG_APP_ENV_KEYS=(
   APP_NAME
   APP_VERSION
+  APP_COMMIT_SHA
   DEBUG
   LOG_LEVEL
   GCP_PROJECT_ID
@@ -93,7 +100,9 @@ CONFIG_APP_ENV_KEYS=(
   FIRESTORE_COLLECTION_FEEDBACK
   FIRESTORE_COLLECTION_USAGE_EVENTS
   FIRESTORE_COLLECTION_TRANSCRIPTION_BATCHES
+  FIRESTORE_COLLECTION_TEXT_ENTRY_COLLECTIONS
   SESSION_TTL_MINUTES
+  TEXT_ENTRY_MAX_UTF16_UNITS
   RATE_LIMIT_REQUESTS_PER_MINUTE
   REMINDERS_DISPATCH_RATE_LIMIT_PER_MINUTE
   OPERATION_TIMEOUT_SECONDS
@@ -267,6 +276,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --min-instances 0 \
   --max-instances 1 \
   --timeout 1800 \
+  --labels "app-commit-sha=${GIT_SHA}" \
   "${CPU_BOOST_ARGS[@]}" \
   "${SA_ARGS[@]}" \
   "${DEPLOY_ENV_ARGS[@]}"

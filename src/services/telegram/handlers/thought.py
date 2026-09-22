@@ -10,13 +10,16 @@ from src.core.analytics import log_event
 from src.config.settings import get_settings
 from src.models.entry import ThoughtEntry
 from src.core.exceptions import ExternalTimeoutError, SheetAccessError, SheetWriteError
-from src.models.session import ConversationState, SessionData
+from src.models.session import ConversationState
+from src.models.enums import EntryType
+from src.services.telegram.handlers.entry_collection import start_entry_collection
 from src.services.telegram.keyboards import build_confirmation_keyboard
 from src.services.telegram.utils import (
     get_session_repo,
     get_sheets_client,
     get_session_expired_message,
     get_user_repo,
+    get_entry_collection_manager,
     increment_usage_stat,
     record_usage_event,
     reply_confirmation_preview,
@@ -56,13 +59,12 @@ async def thought_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     log_event("command.thought", user_id=update.effective_user.id)
     profile = await resolve_user_profile(update, context)
     lang = resolve_language(profile)
-    session_repo, _, _ = _get_repos(context)
-    session = await session_repo.get(update.effective_user.id) if session_repo else None
-    if session is None:
-        session = SessionData(user_id=update.effective_user.id)
-    session.state = ConversationState.THOUGHT_AWAITING_CONTENT
-    await session_repo.save(session)
-    await update.message.reply_text(_messages_for_lang(lang)["thought_prompt"])
+    await start_entry_collection(
+        update,
+        context,
+        EntryType.THOUGHT,
+        intro=_messages_for_lang(lang)["thought_prompt"],
+    )
 
 
 async def handle_thought_text(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> bool:
@@ -93,7 +95,9 @@ async def handle_thought_text(update: Update, context: ContextTypes.DEFAULT_TYPE
     if session_repo:
         await session_repo.save(session)
 
-    preview = json.dumps(entry.model_dump(), ensure_ascii=False, indent=2, default=str)
+    preview = json.dumps(
+        entry.model_dump(exclude={"entry_id"}), ensure_ascii=False, indent=2, default=str
+    )
     await reply_confirmation_preview(
         update.message,
         _messages_for_lang(lang)["confirm_generic"],
@@ -145,13 +149,10 @@ async def handle_thought_confirm(update: Update, context: ContextTypes.DEFAULT_T
                     await query.edit_message_reply_markup(reply_markup=None)
                 except Exception:
                     pass
-                session.state = ConversationState.IDLE
-                session.pending_entry = None
-                if session_repo:
-                    await session_repo.save(session)
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
                     text=_messages_for_lang(lang)[error_key],
+                    reply_markup=build_confirmation_keyboard(prefix="thought", language=lang),
                 )
                 await query.answer()
                 return
@@ -174,10 +175,23 @@ async def handle_thought_confirm(update: Update, context: ContextTypes.DEFAULT_T
             await query.edit_message_text(_messages_for_lang(lang)["sheet_not_configured"])
     else:
         lang = resolve_language(await resolve_user_profile(update, context))
-        await query.edit_message_text(_messages_for_lang(lang)["cancelled"])
+        session.pending_entry = None
+        if session_repo:
+            await session_repo.save(session)
+        await start_entry_collection(
+            update,
+            context,
+            EntryType.THOUGHT,
+            intro=_messages_for_lang(lang)["thought_prompt"],
+        )
+        await query.answer()
+        return
 
     session.state = ConversationState.IDLE
     session.pending_entry = None
     if session_repo:
         await session_repo.save(session)
+    collection_manager = get_entry_collection_manager(context)
+    if collection_manager:
+        await collection_manager.discard(update.effective_user.id)
     await query.answer()

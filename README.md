@@ -142,12 +142,14 @@ session would otherwise keep its content forever. Create the TTL policy once per
 
 ```bash
 gcloud firestore fields ttls update expires_at --collection-group=sessions --enable-ttl --project="$GCP_PROJECT_ID"
+gcloud firestore fields ttls update expires_at --collection-group=text_entry_collections --enable-ttl --project="$GCP_PROJECT_ID"
 ```
 
 Verify it is active (`state: ACTIVE`, may take a few minutes):
 
 ```bash
 gcloud firestore fields ttls list --collection-group=sessions --project="$GCP_PROJECT_ID"
+gcloud firestore fields ttls list --collection-group=text_entry_collections --project="$GCP_PROJECT_ID"
 ```
 
 Firestore TTL only acts on native timestamp fields; `SessionRepository.save` writes
@@ -163,6 +165,11 @@ Firestore TTL only acts on native timestamp fields; `SessionRepository.save` wri
 - `/habits_config` — add/remove/reset habit fields
 - `/reflect_config` — manage reflection questions
 - `/help` — help text + keyboard
+
+Text-entry flows collect one or more text or voice messages. Use the inline
+**Done** button to process the combined entry, **Undo last** to remove the most
+recent part, or **Cancel** to discard it. Combined entries are limited to
+30,000 Telegram UTF-16 units; long confirmations are returned in safe chunks.
 
 ## Menu actions (main/config keyboard)
 - Week analysis — weekly LLM summary from the last 7 days

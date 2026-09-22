@@ -1,6 +1,7 @@
 
 import asyncio
 from datetime import date, datetime, timedelta
+import time
 from typing import Any, Dict, Optional
 
 import gspread
@@ -42,6 +43,7 @@ class SheetsClient(ISheetsClient):
             creds, _ = google.auth.default(scopes=self._SCOPES)
         self.client = gspread.Client(auth=creds, session=AuthorizedSession(creds))
         self._cache: Dict[str, gspread.Spreadsheet] = {}
+        self._attempted_entry_ids: set[str] = set()
 
     @staticmethod
     def _safe_cell_value(values: list[list[str]] | None) -> str:
@@ -172,10 +174,10 @@ class SheetsClient(ISheetsClient):
             ss = self._open(sheet_id)
             existing = {ws.title: ws for ws in ss.worksheets()}
             for title, header in [
-                ("Habits", ["timestamp", "date", "raw_record", "diary"]),  # dynamic fields added on append
+                ("Habits", ["timestamp", "date", "raw_record", "diary", "entry_id"]),  # dynamic fields added on append
                 ("Dreams", DREAMS_SHEET_COLUMNS),
                 ("Thoughts", THOUGHTS_SHEET_COLUMNS),
-                ("Reflections", ["timestamp", "reflections"]),
+                ("Reflections", ["timestamp", "reflections", "entry_id"]),
             ]:
                 if title not in existing:
                     ws = ss.add_worksheet(title=title, rows=1000, cols=30)
@@ -194,11 +196,7 @@ class SheetsClient(ISheetsClient):
                             for col in migrated
                         ]
                         missing = [col for col in header if col not in migrated]
-                        # For reflections, enforce the canonical two columns to avoid drift
-                        if title == "Reflections":
-                            new_header = ["timestamp", "reflections"]
-                        else:
-                            new_header = migrated + [m for m in missing if m not in migrated]
+                        new_header = migrated + [m for m in missing if m not in migrated]
                         if new_header != current:
                             ws.update("1:1", [new_header], value_input_option=self._WRITE_INPUT_OPTION)
             self._tabs_ensured.add(sheet_id)
@@ -215,7 +213,7 @@ class SheetsClient(ISheetsClient):
         field_order: list[str],
         entry: HabitEntry,
     ) -> tuple[list[str], list[Any]]:
-        base_header = ["timestamp", "date", "raw_record", "diary"]
+        base_header = ["timestamp", "date", "raw_record", "diary", "entry_id"]
         if header:
             header = [("raw_record" if col == "raw_diary" else col) for col in header]
         else:
@@ -246,6 +244,8 @@ class SheetsClient(ISheetsClient):
                 row.append(entry.raw_record)
             elif col == "diary":
                 row.append(entry.diary or "")
+            elif col == "entry_id":
+                row.append(entry.entry_id)
             else:
                 row.append(entry.extra_fields.get(col, ""))
 
@@ -262,6 +262,8 @@ class SheetsClient(ISheetsClient):
             ss = self._open(sheet_id)
             ws = ss.worksheet("Habits")
             self._ensure_write_access(ws)
+            if not self._should_append_entry(ws, entry.entry_id):
+                return
             header = ws.row_values(1)
             canonical_header, row = self._prepare_habit_header_and_row(header, field_order, entry)
             if header != canonical_header:
@@ -275,6 +277,40 @@ class SheetsClient(ISheetsClient):
 
     async def append_habit_entry(self, sheet_id: str, field_order: list[str], entry: HabitEntry) -> None:
         await asyncio.to_thread(self._append_habit_entry_sync, sheet_id, field_order, entry)
+
+    @staticmethod
+    def _find_entry_id_in_worksheet(worksheet: gspread.Worksheet, entry_id: str) -> bool:
+        header = worksheet.row_values(1)
+        if "entry_id" not in header:
+            return False
+        column = gspread.utils.rowcol_to_a1(1, header.index("entry_id") + 1)
+        column_letter = "".join(char for char in column if char.isalpha())
+        values = worksheet.get(
+            f"{column_letter}2:{column_letter}",
+            value_render_option=ValueRenderOption.unformatted,
+        )
+        return any(row and str(row[0]) == entry_id for row in values)
+
+    @staticmethod
+    def _row_for_header(header: list[str], values: dict[str, Any]) -> list[Any]:
+        return [values.get(column, "") for column in header]
+
+    def _should_append_entry(self, worksheet: gspread.Worksheet, entry_id: str) -> bool:
+        attempted = getattr(self, "_attempted_entry_ids", None)
+        if attempted is None:
+            attempted = set()
+            self._attempted_entry_ids = attempted
+        if entry_id in attempted:
+            # A timed-out asyncio.to_thread call may still be finishing. Reconcile
+            # for a bounded interval before issuing another append.
+            for _ in range(5):
+                if self._find_entry_id_in_worksheet(worksheet, entry_id):
+                    return False
+                time.sleep(0.5)
+        elif self._find_entry_id_in_worksheet(worksheet, entry_id):
+            return False
+        attempted.add(entry_id)
+        return True
 
     def _find_latest_habit_entry_sync(
         self,
@@ -319,7 +355,7 @@ class SheetsClient(ISheetsClient):
             entry_data["field_order"] = [
                 col
                 for col in normalized
-                if col not in {"timestamp", "date", "raw_record", "diary"}
+                if col not in {"timestamp", "date", "raw_record", "diary", "entry_id"}
             ]
             if "raw_record" not in entry_data and raw_record:
                 entry_data["raw_record"] = raw_record
@@ -492,10 +528,13 @@ class SheetsClient(ISheetsClient):
             ss = self._open(sheet_id)
             ws = ss.worksheet("Dreams")
             self._ensure_write_access(ws)
-            row = [
-                entry.timestamp.isoformat(),
-                entry.record,
-            ]
+            if not self._should_append_entry(ws, entry.entry_id):
+                return
+            header = ws.row_values(1)
+            row = self._row_for_header(
+                header,
+                {"timestamp": entry.timestamp.isoformat(), "record": entry.record, "entry_id": entry.entry_id},
+            )
             ws.append_row(row, value_input_option=self._WRITE_INPUT_OPTION)
         except Exception as exc:
             self._raise_mapped_error(exc)
@@ -510,10 +549,13 @@ class SheetsClient(ISheetsClient):
             ss = self._open(sheet_id)
             ws = ss.worksheet("Thoughts")
             self._ensure_write_access(ws)
-            row = [
-                entry.timestamp.isoformat(),
-                entry.record,
-            ]
+            if not self._should_append_entry(ws, entry.entry_id):
+                return
+            header = ws.row_values(1)
+            row = self._row_for_header(
+                header,
+                {"timestamp": entry.timestamp.isoformat(), "record": entry.record, "entry_id": entry.entry_id},
+            )
             ws.append_row(row, value_input_option=self._WRITE_INPUT_OPTION)
         except Exception as exc:
             self._raise_mapped_error(exc)
@@ -529,14 +571,23 @@ class SheetsClient(ISheetsClient):
             ws = ss.worksheet("Reflections")
             self._ensure_write_access(ws)
             header = ws.row_values(1)
-            canonical_header = ["timestamp", "reflections"]
+            canonical_header = ["timestamp", "reflections", "entry_id"]
             if header != canonical_header:
+                canonical_header = header + [
+                    column for column in canonical_header if column not in header
+                ]
                 ws.update("1:1", [canonical_header], value_input_option=self._WRITE_INPUT_OPTION)
+            if not self._should_append_entry(ws, entry.entry_id):
+                return
             ws.append_row(
-                [
-                    entry.timestamp.isoformat(),
-                    json.dumps(entry.answers, ensure_ascii=False),
-                ],
+                self._row_for_header(
+                    canonical_header,
+                    {
+                        "timestamp": entry.timestamp.isoformat(),
+                        "reflections": json.dumps(entry.answers, ensure_ascii=False),
+                        "entry_id": entry.entry_id,
+                    },
+                ),
                 value_input_option=self._WRITE_INPUT_OPTION,
             )
         except Exception as exc:

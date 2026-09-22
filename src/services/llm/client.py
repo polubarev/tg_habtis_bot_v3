@@ -24,7 +24,7 @@ class LLMClient:
         if ChatOpenAIType is None:
             logger.warning(
                 "LangChain ChatOpenAI not available; LLM calls disabled",
-                error=str(_IMPORT_ERROR) if _IMPORT_ERROR else None,
+                error_type=type(_IMPORT_ERROR).__name__ if _IMPORT_ERROR else None,
             )
             return
         self._model = ChatOpenAIType(

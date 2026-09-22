@@ -15,6 +15,8 @@ if TYPE_CHECKING:
     from src.services.transcription.whisper import WhisperClient
     from src.services.transcription.scheduler import TranscriptionTaskScheduler
     from src.services.storage.firestore.transcription_batch_repo import TranscriptionBatchRepository
+    from src.services.storage.firestore.text_entry_collection_repo import TextEntryCollectionRepository
+    from src.services.entry_collection import EntryCollectionManager
 
 
 class DependencyProvider:
@@ -34,6 +36,8 @@ class DependencyProvider:
         self._whisper_initialized = False
         self._transcription_batch_repo: TranscriptionBatchRepository | None = None
         self._transcription_scheduler: TranscriptionTaskScheduler | None = None
+        self._text_entry_collection_repo: TextEntryCollectionRepository | None = None
+        self._entry_collection_manager: EntryCollectionManager | None = None
 
     @property
     def settings(self) -> Settings:
@@ -121,3 +125,23 @@ class DependencyProvider:
 
             self._transcription_scheduler = TranscriptionTaskScheduler(self._settings)
         return self._transcription_scheduler
+
+    def text_entry_collection_repo(self) -> TextEntryCollectionRepository:
+        if self._text_entry_collection_repo is None:
+            from src.services.storage.firestore.text_entry_collection_repo import (
+                TextEntryCollectionRepository,
+            )
+
+            self._text_entry_collection_repo = TextEntryCollectionRepository(
+                self.firestore_client(), self._settings
+            )
+        return self._text_entry_collection_repo
+
+    def entry_collection_manager(self) -> EntryCollectionManager:
+        if self._entry_collection_manager is None:
+            from src.services.entry_collection import EntryCollectionManager
+
+            self._entry_collection_manager = EntryCollectionManager(
+                self.text_entry_collection_repo()
+            )
+        return self._entry_collection_manager
