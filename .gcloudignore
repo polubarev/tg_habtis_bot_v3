@@ -2,3 +2,8 @@
 
 # Include service account json in Cloud Build context (still ignored by git).
 !src/secrets/*.json
+
+# Local dependency/test environments are never part of the runtime image.
+.test-venv/
+.venv-ci/
+.uv-cache/
