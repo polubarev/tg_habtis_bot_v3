@@ -972,7 +972,8 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
         else:
             await query.edit_message_text(_messages_for_lang(lang)["sheet_not_configured"])
     else:
-        # Editing starts a fresh collection so replacement semantics are predictable.
+        session.temp_data = session.temp_data or {}
+        session.temp_data["previous_raw_record"] = session.pending_entry.get("raw_record", "")
         session.pending_entry = None
         if session_repo:
             await session_repo.save(session)

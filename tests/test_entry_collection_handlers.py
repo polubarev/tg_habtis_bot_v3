@@ -11,6 +11,7 @@ from src.services.storage.firestore.session_repo import SessionRepository
 from src.services.storage.firestore.text_entry_collection_repo import (
     TextEntryCollectionRepository,
 )
+from src.services.telegram.handlers.habits import handle_habits_confirm
 from src.services.telegram.handlers.entry_collection import (
     handle_entry_collection_callback,
     handle_entry_collection_text,
@@ -201,3 +202,38 @@ async def test_long_multipart_diary_confirmation_is_chunked():
     assert all(telegram_text_length(text) <= TELEGRAM_TEXT_CHUNK_SIZE for text, _ in confirmation_chunks)
     assert all("reply_markup" not in kwargs for _, kwargs in confirmation_chunks[:-1])
     assert "reply_markup" in confirmation_chunks[-1][1]
+
+
+@pytest.mark.asyncio
+async def test_habits_no_adds_to_draft_across_multiple_confirmation_rounds():
+    deps = FakeDeps()
+    context = SimpleNamespace(
+        application=SimpleNamespace(bot_data={"deps": deps}), bot=FakeBot()
+    )
+    await start_entry_collection(
+        _update(FakeMessage("prompt")),
+        context,
+        EntryType.HABIT,
+        flow_context={"selected_date": "2026-09-22"},
+    )
+
+    async def collect(text: str, message_id: int) -> str:
+        await handle_entry_collection_text(_update(FakeMessage(text, message_id)), context, text)
+        await handle_entry_collection_callback(
+            _update(FakeMessage("status"), callback_data="entry_collect:done"), context
+        )
+        session = await deps.session_repo().get(1)
+        assert session is not None
+        assert session.state == ConversationState.HABITS_AWAITING_CONFIRMATION
+        assert session.pending_entry is not None
+        return session.pending_entry["raw_record"]
+
+    assert await collect("first", 10) == "first"
+    await handle_habits_confirm(
+        _update(FakeMessage("draft"), callback_data="habits_confirm:no"), context
+    )
+    assert await collect("second", 20) == "first\n\n[Update]\nsecond"
+    await handle_habits_confirm(
+        _update(FakeMessage("draft"), callback_data="habits_confirm:no"), context
+    )
+    assert await collect("third", 30) == "first\n\n[Update]\nsecond\n\n[Update]\nthird"
