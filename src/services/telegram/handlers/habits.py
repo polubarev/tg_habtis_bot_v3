@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, tzinfo
 import html
 import asyncio
 from typing import Any, Dict
@@ -19,7 +19,7 @@ from src.services.telegram.keyboards import (
     build_date_keyboard,
     build_existing_habits_keyboard,
 )
-from src.utils.date_parser import parse_relative_date
+from src.utils.date_parser import local_today, parse_relative_date
 from src.models.entry import HabitEntry
 from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.models.enums import EntryType, InputType
@@ -416,20 +416,20 @@ def _get_llm_client(context: ContextTypes.DEFAULT_TYPE):
     return get_llm_client(context)
 
 
-def _parse_custom_date(text: str) -> date | None:
-    """Try parsing user-provided date."""
+def _parse_custom_date(text: str, tz: tzinfo | None = None) -> date | None:
+    """Try parsing user-provided date; relative labels resolve in the user's timezone."""
 
     for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d-%m-%Y", "%d.%m"):
         try:
             parsed = datetime.strptime(text.strip(), fmt).date()
             # if year missing, assume current year
             if fmt == "%d.%m" and parsed.year == 1900:
-                parsed = parsed.replace(year=date.today().year)
+                parsed = parsed.replace(year=local_today(tz).year)
             return parsed
         except ValueError:
             continue
     try:
-        return parse_relative_date(text)
+        return parse_relative_date(text, tz)
     except Exception:
         return None
 
@@ -582,10 +582,10 @@ async def handle_habits_date_callback(update: Update, context: ContextTypes.DEFA
         await query.edit_message_text(_messages_for_lang(lang)["date_custom_prompt"])
         return
 
-    selected = parse_relative_date(label)
-    session.selected_date = selected
     profile = await resolve_user_profile(update, context)
     lang = resolve_language(profile)
+    selected = parse_relative_date(label, resolve_user_timezone(profile))
+    session.selected_date = selected
     if await _maybe_prompt_existing_entry(update, context, session, selected, lang):
         return
 
@@ -616,15 +616,14 @@ async def handle_habits_date_text(update: Update, context: ContextTypes.DEFAULT_
     if session is None or session.state != ConversationState.HABITS_AWAITING_DATE:
         return False
 
-    parsed = _parse_custom_date(text)
+    profile = await resolve_user_profile(update, context)
+    lang = resolve_language(profile)
+    parsed = _parse_custom_date(text, resolve_user_timezone(profile))
     if not parsed:
-        lang = resolve_language(await resolve_user_profile(update, context))
         await update.message.reply_text(_messages_for_lang(lang)["date_parse_error"])
         return True
 
     session.selected_date = parsed
-    profile = await resolve_user_profile(update, context)
-    lang = resolve_language(profile)
     if await _maybe_prompt_existing_entry(update, context, session, parsed, lang):
         return True
 
@@ -670,7 +669,7 @@ async def handle_habits_existing_choice(update: Update, context: ContextTypes.DE
 
     profile = await resolve_user_profile(update, context)
     lang = resolve_language(profile)
-    selected_date = session.selected_date or date.today()
+    selected_date = session.selected_date or local_today(resolve_user_timezone(profile))
     try:
         await query.edit_message_reply_markup(reply_markup=None)
     except Exception:
@@ -712,7 +711,7 @@ async def handle_habits_text(
         return False
 
     raw_text = text or (update.message.text if update.message else "") or ""
-    selected_date = session.selected_date or date.today()
+    selected_date = session.selected_date
     previous_raw = (session.temp_data or {}).get("previous_raw_record")
     existing_action = (session.temp_data or {}).get("existing_entry_action")
     existing_raw = (
@@ -732,6 +731,8 @@ async def handle_habits_text(
     profile = await _get_user_repo(context).get_by_telegram_id(update.effective_user.id) if _get_user_repo(context) else None
     lang = resolve_language(profile)
     user_tz = resolve_user_timezone(profile)
+    if selected_date is None:
+        selected_date = local_today(user_tz)
     habit_schema = profile.habit_schema if profile else None
     include_diary = habit_schema.include_diary if habit_schema else True
     schema_fields: list[str] = (
@@ -851,7 +852,7 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
             created_at = (
                 datetime.fromisoformat(session.pending_entry.get("timestamp"))
                 if session.pending_entry.get("timestamp")
-                else datetime.now(timezone.utc)
+                else datetime.now(resolve_user_timezone(profile))
             )
             coerced_entry = _coerce_entry_for_sheet(session.pending_entry, habit_schema)
             raw_entry_date = coerced_entry.get("date")
@@ -968,13 +969,15 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
         session.pending_entry = None
         if session_repo:
             await session_repo.save(session)
-        lang = resolve_language(await resolve_user_profile(update, context))
+        profile = await resolve_user_profile(update, context)
+        lang = resolve_language(profile)
+        selected_date = session.selected_date or local_today(resolve_user_timezone(profile))
         await start_entry_collection(
             update,
             context,
             EntryType.HABIT,
             flow_context={
-                "selected_date": (session.selected_date or date.today()).isoformat(),
+                "selected_date": selected_date.isoformat(),
                 "existing_entry_action": (session.temp_data or {}).get("existing_entry_action"),
             },
             intro=_messages_for_lang(lang)["habits_update_prompt"],
