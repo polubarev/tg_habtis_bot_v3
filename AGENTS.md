@@ -16,3 +16,10 @@ Use `@/openspec/AGENTS.md` to learn:
 Keep this managed block so 'openspec update' can refresh the instructions.
 
 <!-- OPENSPEC:END -->
+
+# GitHub Actions after pushes
+
+- After every push to `main`, check all GitHub Actions runs for the exact pushed commit SHA.
+- Wait for those runs to finish before reporting the push as complete. If no run appears immediately, retry; do not assume success.
+- Inspect failed job logs and address failures caused by the change, then push the fix and check the new runs.
+- Report the final workflow results with links to the runs. If checks cannot be verified, state the blocker explicitly.
