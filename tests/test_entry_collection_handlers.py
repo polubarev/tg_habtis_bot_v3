@@ -72,6 +72,7 @@ class FakeBot:
 
     async def send_message(self, **kwargs):
         self.sent.append(kwargs)
+        return FakeMessage(kwargs["text"])
 
     async def delete_message(self, **kwargs):
         self.deleted.append(kwargs)
@@ -152,6 +153,25 @@ def _update(message: FakeMessage, *, callback_data: str | None = None):
         message=None if query else message,
         callback_query=query,
     )
+
+
+@pytest.mark.asyncio
+async def test_collection_started_from_callback_follows_field_hints():
+    deps = FakeDeps()
+    bot = FakeBot()
+    context = SimpleNamespace(application=SimpleNamespace(bot_data={"deps": deps}), bot=bot)
+    date_prompt = FakeMessage("Choose a date")
+    hints = await bot.send_message(chat_id=10, text="Habit field hints")
+
+    await start_entry_collection(
+        _update(date_prompt, callback_data="habits_date:today"), context, EntryType.HABIT
+    )
+
+    collection = await deps.text_entry_collection_repo().get(1)
+    assert collection.status_message_id > hints.message_id
+    assert "Parts: 0" in bot.sent[-1]["text"]
+    assert "reply_markup" in bot.sent[-1]
+    assert date_prompt.deleted
 
 
 @pytest.mark.asyncio

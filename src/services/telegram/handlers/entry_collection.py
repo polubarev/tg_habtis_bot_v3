@@ -92,12 +92,9 @@ async def start_entry_collection(
     keyboard = build_entry_collection_keyboard(lang)
     sent = None
     if update.callback_query:
-        try:
-            sent = await update.callback_query.edit_message_text(text, reply_markup=keyboard)
-        except Exception:
-            sent = await context.bot.send_message(
-                chat_id=update.effective_chat.id, text=text, reply_markup=keyboard
-            )
+        sent = await context.bot.send_message(
+            chat_id=update.effective_chat.id, text=text, reply_markup=keyboard
+        )
     elif update.message:
         sent = await update.message.reply_text(text, reply_markup=keyboard)
     sent_message_id = getattr(sent, "message_id", None)
@@ -107,6 +104,8 @@ async def start_entry_collection(
             collection_id=collection.collection_id,
             message_id=sent_message_id,
         )
+        if update.callback_query:
+            await safe_delete_message(cast(Any, update.callback_query.message))
 
 
 async def _refresh_status(context, collection, lang: str, message) -> None:
