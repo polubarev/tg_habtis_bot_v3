@@ -1,5 +1,6 @@
 from datetime import date
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -64,12 +65,16 @@ class FakeBot:
     def __init__(self) -> None:
         self.edits: list[dict] = []
         self.sent: list[dict] = []
+        self.deleted: list[dict] = []
 
     async def edit_message_text(self, **kwargs):
         self.edits.append(kwargs)
 
     async def send_message(self, **kwargs):
         self.sent.append(kwargs)
+
+    async def delete_message(self, **kwargs):
+        self.deleted.append(kwargs)
 
 
 class FakeUserRepo:
@@ -147,6 +152,73 @@ def _update(message: FakeMessage, *, callback_data: str | None = None):
         message=None if query else message,
         callback_query=query,
     )
+
+
+@pytest.mark.asyncio
+async def test_collection_status_follows_each_new_part():
+    deps = FakeDeps()
+    bot = FakeBot()
+    context = SimpleNamespace(application=SimpleNamespace(bot_data={"deps": deps}), bot=bot)
+    prompt = FakeMessage("prompt")
+    await start_entry_collection(_update(prompt), context, EntryType.HABIT)
+    previous_status_id = prompt.replies[-1][2].message_id
+
+    for count, text in enumerate(["first", "second"], start=1):
+        part = FakeMessage(text)
+        await handle_entry_collection_text(_update(part), context, text)
+
+        assert len(part.replies) == 1, "Status must be sent below the new diary part"
+        status_text, kwargs, status = part.replies[0]
+        assert status.message_id > part.message_id
+        assert f"Parts: {count}" in status_text
+        assert "reply_markup" in kwargs
+        collection = await deps.text_entry_collection_repo().get(1)
+        assert collection.status_message_id == status.message_id
+        assert bot.deleted[-1] == {"chat_id": 10, "message_id": previous_status_id}
+        previous_status_id = status.message_id
+
+    assert not bot.edits
+
+
+@pytest.mark.asyncio
+async def test_status_replacement_survives_old_card_delete_failure(monkeypatch):
+    deps = FakeDeps()
+    bot = FakeBot()
+    context = SimpleNamespace(application=SimpleNamespace(bot_data={"deps": deps}), bot=bot)
+    await start_entry_collection(_update(FakeMessage("prompt")), context, EntryType.HABIT)
+    monkeypatch.setattr(bot, "delete_message", AsyncMock(side_effect=RuntimeError("unavailable")))
+    part = FakeMessage("first")
+
+    assert await handle_entry_collection_text(_update(part), context, "first")
+
+    status = part.replies[-1][2]
+    collection = await deps.text_entry_collection_repo().get(1)
+    assert collection.status_message_id == status.message_id
+    await handle_entry_collection_callback(
+        _update(status, callback_data="entry_collect:undo"), context
+    )
+    assert "Parts: 0" in status.text
+    assert not collection.parts
+
+
+@pytest.mark.asyncio
+async def test_status_send_failure_preserves_previous_card(monkeypatch):
+    deps = FakeDeps()
+    bot = FakeBot()
+    context = SimpleNamespace(application=SimpleNamespace(bot_data={"deps": deps}), bot=bot)
+    prompt = FakeMessage("prompt")
+    await start_entry_collection(_update(prompt), context, EntryType.HABIT)
+    previous_status_id = prompt.replies[-1][2].message_id
+    part = FakeMessage("first")
+    monkeypatch.setattr(part, "reply_text", AsyncMock(side_effect=RuntimeError("unavailable")))
+
+    with pytest.raises(RuntimeError, match="unavailable"):
+        await handle_entry_collection_text(_update(part), context, "first")
+
+    collection = await deps.text_entry_collection_repo().get(1)
+    assert collection.status_message_id == previous_status_id
+    assert collection.combined_text == "first"
+    assert not bot.deleted
 
 
 @pytest.mark.asyncio

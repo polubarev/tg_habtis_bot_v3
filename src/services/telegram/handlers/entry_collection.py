@@ -109,29 +109,28 @@ async def start_entry_collection(
         )
 
 
-async def _refresh_status(context, collection, lang: str, fallback_message=None) -> None:
+async def _refresh_status(context, collection, lang: str, message) -> None:
     text = _status_text(collection, lang)
     keyboard = build_entry_collection_keyboard(lang)
-    if collection.status_message_id:
+    previous_status_id = collection.status_message_id
+    # Editing a message leaves it above newly received parts in the chat.
+    sent = await message.reply_text(text, reply_markup=keyboard)
+    manager = get_entry_collection_manager(context)
+    if manager is not None and getattr(sent, "message_id", None) is not None:
+        await manager.set_status_message(
+            user_id=collection.user_id,
+            collection_id=collection.collection_id,
+            message_id=sent.message_id,
+        )
+    if previous_status_id:
         try:
-            await context.bot.edit_message_text(
+            await context.bot.delete_message(
                 chat_id=collection.chat_id,
-                message_id=collection.status_message_id,
-                text=text,
-                reply_markup=keyboard,
+                message_id=previous_status_id,
             )
-            return
         except Exception:
+            # Keep the new card usable even if Telegram cannot remove the old one.
             pass
-    if fallback_message is not None:
-        sent = await fallback_message.reply_text(text, reply_markup=keyboard)
-        manager = get_entry_collection_manager(context)
-        if manager is not None and getattr(sent, "message_id", None) is not None:
-            await manager.set_status_message(
-                user_id=collection.user_id,
-                collection_id=collection.collection_id,
-                message_id=sent.message_id,
-            )
 
 
 async def handle_entry_collection_text(
