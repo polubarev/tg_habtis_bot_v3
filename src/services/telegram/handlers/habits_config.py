@@ -1263,6 +1263,8 @@ async def handle_habits_config_text(update: Update, context: ContextTypes.DEFAUL
             )
 
         async def _reject_diary_edit() -> None:
+            if update.message is None:
+                return
             session.state = ConversationState.IDLE
             session.temp_data = {}
             if session_repo:
