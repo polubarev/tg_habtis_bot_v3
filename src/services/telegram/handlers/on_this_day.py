@@ -23,11 +23,14 @@ from src.services.on_this_day import (
     format_on_this_day_message,
 )
 from src.services.telegram.utils import (
+    TELEGRAM_TEXT_CHUNK_SIZE,
     get_sheets_client,
+    reply_text_chunked,
     resolve_language,
     resolve_user_profile,
     resolve_user_timezone,
     safe_delete_message,
+    telegram_text_length,
 )
 
 
@@ -125,6 +128,9 @@ async def on_this_day_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     text = format_on_this_day_message(today, payloads, lang)
+    if telegram_text_length(text) > TELEGRAM_TEXT_CHUNK_SIZE:
+        await reply_text_chunked(update.message, text)
+        return
     try:
         await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
     except BadRequest:

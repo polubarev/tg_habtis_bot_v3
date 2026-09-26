@@ -48,7 +48,7 @@ Habits & Diary Telegram Bot that captures daily diaries, habits, dreams, thought
 - Feedback messages are stored in Firestore (collection name configurable) when available; otherwise the bot acknowledges but may not persist.
 
 ## Important Constraints
-- Preserve `raw_record` as ground truth; `diary` is optional/hallucination-prone and can be omitted when LLM unavailable.
+- Preserve `raw_record` as ground truth; for new entries, `diary` is an optional exact copy of the combined text and does not require an LLM.
 - Whisper/LLM/Firestore are optional; flows must degrade gracefully to text-only/in-memory operation with clear user messaging.
 - Validate Telegram webhook requests with a shared secret; rate limiting defaults to 30 req/min per user.
 - Protect reminder dispatch with a shared secret; avoid scheduling when Cloud Tasks is not configured.

@@ -5,6 +5,7 @@ import pytest
 
 from src.config.constants import MESSAGES_EN
 from src.core.exceptions import ExternalResponseError
+from src.models.habit import HabitFieldConfig, HabitSchema
 from src.models.session import ConversationState, SessionData
 from src.models.user import UserProfile
 from src.services.telegram.handlers import habits as habits_module
@@ -82,7 +83,13 @@ async def test_handle_habits_text_retries_once_then_succeeds(monkeypatch):
         selected_date=date(2026, 2, 12),
     )
     session_repo = FakeSessionRepo(session)
-    user_repo = FakeUserRepo(UserProfile(telegram_user_id=1, language="en"))
+    user_repo = FakeUserRepo(UserProfile(
+        telegram_user_id=1,
+        language="en",
+        habit_schema=HabitSchema(fields={"workout": HabitFieldConfig(
+            type="boolean", description="Did I work out?"
+        )}),
+    ))
     context = _build_context(FakeDeps(session_repo, user_repo, FakeLLMClient()))
     update = FakeUpdate(raw_text, user_id=1)
 
@@ -96,7 +103,7 @@ async def test_handle_habits_text_retries_once_then_succeeds(monkeypatch):
             type(self).calls += 1
             if type(self).calls == 1:
                 raise ExternalResponseError("bad structured output")
-            return {"diary": "Parsed diary"}
+            return {"diary": "Shortened diary", "workout": True}
 
     monkeypatch.setattr(habits_module, "HabitExtractor", RetryThenSuccessExtractor)
 
@@ -110,7 +117,9 @@ async def test_handle_habits_text_retries_once_then_succeeds(monkeypatch):
 
     assert session_repo._session.state == ConversationState.HABITS_AWAITING_CONFIRMATION
     assert session_repo._session.pending_entry is not None
-    assert session_repo._session.pending_entry["diary"] == "Parsed diary"
+    assert session_repo._session.pending_entry["raw_record"] == raw_text
+    assert session_repo._session.pending_entry["diary"] == raw_text
+    assert session_repo._session.pending_entry["workout"] is True
 
 
 @pytest.mark.asyncio
@@ -122,7 +131,13 @@ async def test_handle_habits_text_retries_then_falls_back_to_draft(monkeypatch):
         selected_date=date(2026, 2, 12),
     )
     session_repo = FakeSessionRepo(session)
-    user_repo = FakeUserRepo(UserProfile(telegram_user_id=1, language="en"))
+    user_repo = FakeUserRepo(UserProfile(
+        telegram_user_id=1,
+        language="en",
+        habit_schema=HabitSchema(fields={"workout": HabitFieldConfig(
+            type="boolean", description="Did I work out?"
+        )}),
+    ))
     context = _build_context(FakeDeps(session_repo, user_repo, FakeLLMClient()))
     update = FakeUpdate(raw_text, user_id=1)
 
@@ -149,3 +164,55 @@ async def test_handle_habits_text_retries_then_falls_back_to_draft(monkeypatch):
     assert session_repo._session.state == ConversationState.HABITS_AWAITING_CONFIRMATION
     assert session_repo._session.pending_entry is not None
     assert session_repo._session.pending_entry["diary"] == raw_text
+
+
+@pytest.mark.asyncio
+async def test_no_custom_habits_skips_llm_and_keeps_full_diary(monkeypatch):
+    raw_text = "First paragraph.\n\nSecond paragraph."
+    session_repo = FakeSessionRepo(SessionData(
+        user_id=1,
+        state=ConversationState.HABITS_AWAITING_CONTENT,
+        selected_date=date(2026, 9, 22),
+    ))
+    user_repo = FakeUserRepo(UserProfile(telegram_user_id=1, language="en"))
+    context = _build_context(FakeDeps(session_repo, user_repo, FakeLLMClient()))
+    update = FakeUpdate(raw_text, user_id=1)
+
+    class UnexpectedExtractor:
+        def __init__(self, client):
+            raise AssertionError("No habit fields require extraction")
+
+    monkeypatch.setattr(habits_module, "HabitExtractor", UnexpectedExtractor)
+    await habits_module.handle_habits_text(update, context, raw_text)
+
+    assert session_repo._session.pending_entry["raw_record"] == raw_text
+    assert session_repo._session.pending_entry["diary"] == raw_text
+
+
+@pytest.mark.asyncio
+async def test_diary_disabled_remains_absent_with_custom_habit(monkeypatch):
+    session_repo = FakeSessionRepo(SessionData(
+        user_id=1,
+        state=ConversationState.HABITS_AWAITING_CONTENT,
+        selected_date=date(2026, 9, 22),
+    ))
+    schema = HabitSchema(
+        include_diary=False,
+        fields={"workout": HabitFieldConfig(type="boolean", description="Did I work out?")},
+    )
+    user_repo = FakeUserRepo(UserProfile(telegram_user_id=1, language="en", habit_schema=schema))
+    context = _build_context(FakeDeps(session_repo, user_repo, FakeLLMClient()))
+
+    class Extractor:
+        def __init__(self, client):
+            pass
+
+        async def extract(self, raw_text, language="en", schema=None):
+            return {"diary": "Shortened diary", "workout": True}
+
+    monkeypatch.setattr(habits_module, "HabitExtractor", Extractor)
+    await habits_module.handle_habits_text(FakeUpdate("Worked out", user_id=1), context)
+
+    assert session_repo._session.pending_entry["raw_record"] == "Worked out"
+    assert "diary" not in session_repo._session.pending_entry
+    assert session_repo._session.pending_entry["workout"] is True

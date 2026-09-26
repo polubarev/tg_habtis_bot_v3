@@ -1,17 +1,20 @@
+from datetime import date
 from types import SimpleNamespace
 
 import pytest
 
 from src.config.settings import Settings
 from src.models.enums import EntryType
-from src.models.session import ConversationState
+from src.models.habit import HabitFieldConfig, HabitSchema
+from src.models.session import ConversationState, SessionData
 from src.models.user import UserProfile
 from src.services.entry_collection import EntryCollectionManager
 from src.services.storage.firestore.session_repo import SessionRepository
 from src.services.storage.firestore.text_entry_collection_repo import (
     TextEntryCollectionRepository,
 )
-from src.services.telegram.handlers.habits import handle_habits_confirm
+from src.services.telegram.handlers.habits import handle_habits_confirm, handle_habits_text
+from src.services.telegram.handlers import habits as habits_module
 from src.services.telegram.handlers.entry_collection import (
     handle_entry_collection_callback,
     handle_entry_collection_text,
@@ -60,9 +63,13 @@ class FakeQuery:
 class FakeBot:
     def __init__(self) -> None:
         self.edits: list[dict] = []
+        self.sent: list[dict] = []
 
     async def edit_message_text(self, **kwargs):
         self.edits.append(kwargs)
+
+    async def send_message(self, **kwargs):
+        self.sent.append(kwargs)
 
 
 class FakeUserRepo:
@@ -76,6 +83,21 @@ class FakeUserRepo:
     async def get_by_telegram_id(self, _user_id: int):
         return self.profile
 
+    async def update(self, profile):
+        self.profile = profile
+
+
+class FakeSheets:
+    def __init__(self):
+        self.appended = []
+        self.updated = []
+
+    async def append_habit_entry(self, sheet_id, field_order, entry):
+        self.appended.append((sheet_id, field_order, entry))
+
+    async def update_habit_entry(self, sheet_id, row_index, field_order, entry):
+        self.updated.append((sheet_id, row_index, field_order, entry))
+
 
 class FakeDeps:
     def __init__(self) -> None:
@@ -84,6 +106,8 @@ class FakeDeps:
         self._collection_repo = TextEntryCollectionRepository(settings=self.settings)
         self._manager = EntryCollectionManager(self._collection_repo)
         self._user_repo = FakeUserRepo()
+        self._sheets_client = FakeSheets()
+        self._llm_client = None
 
     def session_repo(self):
         return self._session_repo
@@ -98,13 +122,21 @@ class FakeDeps:
         return self._user_repo
 
     def sheets_client(self):
-        return object()
+        return self._sheets_client
 
     def llm_client(self):
-        return None
+        return self._llm_client
 
     def usage_event_repo(self):
         return None
+
+
+class ShorteningExtractor:
+    def __init__(self, _client):
+        pass
+
+    async def extract(self, _raw_text, language="en", schema=None):
+        return {"diary": "AI shortened this", "mood": 5}
 
 
 def _update(message: FakeMessage, *, callback_data: str | None = None):
@@ -202,11 +234,27 @@ async def test_long_multipart_diary_confirmation_is_chunked():
     assert all(telegram_text_length(text) <= TELEGRAM_TEXT_CHUNK_SIZE for text, _ in confirmation_chunks)
     assert all("reply_markup" not in kwargs for _, kwargs in confirmation_chunks[:-1])
     assert "reply_markup" in confirmation_chunks[-1][1]
+    session = await deps.session_repo().get(1)
+    assert session.pending_entry["raw_record"] == f"{part_one}\n\n{part_two}"
+    assert session.pending_entry["diary"] == session.pending_entry["raw_record"]
+    assert session.pending_entry["diary"] in "".join(text for text, _ in confirmation_chunks)
+
+    await handle_habits_confirm(
+        _update(FakeMessage("draft"), callback_data="habits_confirm:yes"), context
+    )
+    saved_entry = deps.sheets_client().appended[0][2]
+    assert saved_entry.raw_record == f"{part_one}\n\n{part_two}"
+    assert saved_entry.diary == saved_entry.raw_record
 
 
 @pytest.mark.asyncio
-async def test_habits_no_adds_to_draft_across_multiple_confirmation_rounds():
+async def test_habits_no_adds_to_draft_across_multiple_confirmation_rounds(monkeypatch):
     deps = FakeDeps()
+    deps._llm_client = SimpleNamespace(_model=object())
+    deps.user_repo().profile.habit_schema = HabitSchema(fields={
+        "mood": HabitFieldConfig(type="integer", description="Mood score"),
+    })
+    monkeypatch.setattr(habits_module, "HabitExtractor", ShorteningExtractor)
     context = SimpleNamespace(
         application=SimpleNamespace(bot_data={"deps": deps}), bot=FakeBot()
     )
@@ -226,6 +274,7 @@ async def test_habits_no_adds_to_draft_across_multiple_confirmation_rounds():
         assert session is not None
         assert session.state == ConversationState.HABITS_AWAITING_CONFIRMATION
         assert session.pending_entry is not None
+        assert session.pending_entry["diary"] == session.pending_entry["raw_record"]
         return session.pending_entry["raw_record"]
 
     assert await collect("first", 10) == "first"
@@ -237,3 +286,55 @@ async def test_habits_no_adds_to_draft_across_multiple_confirmation_rounds():
         _update(FakeMessage("draft"), callback_data="habits_confirm:no"), context
     )
     assert await collect("third", 30) == "first\n\n[Update]\nsecond\n\n[Update]\nthird"
+    await handle_habits_confirm(
+        _update(FakeMessage("draft"), callback_data="habits_confirm:yes"), context
+    )
+    saved_entry = deps.sheets_client().appended[0][2]
+    assert saved_entry.diary == saved_entry.raw_record
+    assert saved_entry.raw_record.endswith("third")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("action", "expected"),
+    [
+        ("append", "original\n\n[Update]\nnew text"),
+        ("rewrite", "new text"),
+    ],
+)
+async def test_existing_habit_update_saves_full_diary(action, expected, monkeypatch):
+    deps = FakeDeps()
+    deps._llm_client = SimpleNamespace(_model=object())
+    deps.user_repo().profile.habit_schema = HabitSchema(fields={
+        "mood": HabitFieldConfig(type="integer", description="Mood score"),
+    })
+
+    monkeypatch.setattr(habits_module, "HabitExtractor", ShorteningExtractor)
+    context = SimpleNamespace(
+        application=SimpleNamespace(bot_data={"deps": deps}), bot=FakeBot()
+    )
+    session = SessionData(
+        user_id=1,
+        state=ConversationState.HABITS_AWAITING_CONTENT,
+        selected_date=date(2026, 9, 22),
+        temp_data={
+            "existing_entry_action": action,
+            "existing_raw_record": "original",
+            "existing_row_index": 2,
+        },
+    )
+    await deps.session_repo().save(session)
+
+    await handle_habits_text(_update(FakeMessage("new text")), context, "new text")
+    pending = await deps.session_repo().get(1)
+    assert pending.pending_entry["raw_record"] == expected
+    assert pending.pending_entry["diary"] == expected
+    assert pending.pending_entry["mood"] == 5
+    await handle_habits_confirm(
+        _update(FakeMessage("draft"), callback_data="habits_confirm:yes"), context
+    )
+
+    saved_entry = deps.sheets_client().updated[0][3]
+    assert saved_entry.raw_record == expected
+    assert saved_entry.diary == expected
+    assert saved_entry.extra_fields["mood"] == 5

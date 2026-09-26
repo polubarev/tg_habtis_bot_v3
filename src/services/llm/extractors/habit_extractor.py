@@ -89,17 +89,16 @@ class HabitExtractor:
         return merged
 
     def _build_model(self, schema: Optional[HabitSchema]) -> Optional[type]:
-        """Build a loose Pydantic model from habit schema fields."""
-        include_diary = getattr(schema, "include_diary", True)
+        """Build a Pydantic model for custom habit fields only."""
         fields: dict[str, tuple[Any, Any]] = {}
-        if include_diary:
-            fields["diary"] = (Optional[Any], None)  # request diary summary when enabled
         if schema and getattr(schema, "fields", None):
             for name, field_config in schema.fields.items():
+                if name in {"diary", "raw_record"}:
+                    continue
                 py_type = self._type_annotation(field_config)
                 fields[name] = (Optional[py_type], None)
-        # always include raw_record as optional in structured output
-        fields.setdefault("raw_record", (Optional[str], None))
+        if not fields:
+            return None
         try:
             return create_model("HabitExtraction", **fields)  # type: ignore[call-overload]
         except Exception:
@@ -113,16 +112,16 @@ class HabitExtractor:
         return "timeout" in message or "timed out" in message
 
     async def extract(self, raw_text: str, language: str = "ru", schema=DEFAULT_HABIT_SCHEMA) -> Dict[str, Any]:
-        if self.client._model is None:
-            raise ExtractionError("LLM client is not configured")
-
         schema_for_llm = self._resolve_schema(schema)
-        schema_dict = schema_for_llm.model_dump() if hasattr(schema_for_llm, "model_dump") else {}
-        # keep descriptions/types for the model prompt
         fields_for_prompt = {
             name: cfg.model_dump() if hasattr(cfg, "model_dump") else cfg
             for name, cfg in (schema_for_llm.fields or {}).items()
+            if name not in {"diary", "raw_record"}
         }
+        if not fields_for_prompt:
+            return {}
+        if self.client._model is None:
+            raise ExtractionError("LLM client is not configured")
         for cfg in fields_for_prompt.values():
             if isinstance(cfg, dict):
                 cfg.pop("default", None)
@@ -131,7 +130,7 @@ class HabitExtractor:
             "Habit LLM request",
             extra={
                 "language": language,
-                "schema_field_count": len(schema_dict.get("fields", {})),
+                "schema_field_count": len(fields_for_prompt),
                 "text_length": len(raw_text or ""),
             },
         )
@@ -182,7 +181,7 @@ class HabitExtractor:
             )
             if not isinstance(payload, dict):
                 raise ExternalResponseError("LLM response was not a JSON object")
-            return payload
+            return {name: value for name, value in payload.items() if name in fields_for_prompt}
         except ExternalTimeoutError:
             raise
         except ExternalResponseError:

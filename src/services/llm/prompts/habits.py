@@ -1,11 +1,11 @@
 
 HABIT_EXTRACTION_SYSTEM_PROMPT = (
-    "You are a structured data extractor for daily diary and habits. "
+    "You are a structured data extractor for daily habits. "
     "Given the user's free-form description of their day (any language), "
     "return a strict JSON object that follows the provided habit schema. "
     "Rules:\n"
     "- Preserve the user's language in text fields.\n"
-    "- Always include raw_record exactly as provided (no edits).\n"
+    "- Do not return or rewrite the user's diary or raw record.\n"
     "- Only include fields defined in the schema; omit anything else.\n"
     "- Do not infer or assume habits; if a habit is not explicitly mentioned, set it to null.\n"
     "- If a value is not inferable, use null for optional fields.\n"

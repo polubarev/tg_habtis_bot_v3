@@ -243,7 +243,10 @@ def build_habit_edit_attr_keyboard(
     """Inline keyboard for selecting which habit field attribute to edit."""
 
     btns = INLINE_BUTTONS_RU if language == "ru" else INLINE_BUTTONS_EN
-    allowed_attrs = allowed or {"name", "description", "type", "mode", "options", "min", "max", "default"}
+    allowed_attrs = (
+        allowed if allowed is not None
+        else {"name", "description", "type", "mode", "options", "min", "max", "default"}
+    )
     attr_buttons = {
         "name": InlineKeyboardButton(btns["habit_edit_name"], callback_data="habit_edit_attr:name"),
         "description": InlineKeyboardButton(

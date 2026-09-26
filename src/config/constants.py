@@ -15,10 +15,7 @@ DEFAULT_HABIT_SCHEMA = HabitSchema(
     fields={
         "diary": HabitFieldConfig(
             type="string",
-            description=(
-                "Ensure the diary matches the input description fully, "
-                "only fixing typos and punctuation, and keep the same language."
-            ),
+            description="Full original diary text, preserved exactly without AI editing.",
             required=False,
         ),
     },  # base fields (timestamp, date, raw_record) are always present
@@ -445,6 +442,7 @@ MESSAGES_RU = {
         "Выбери поле для редактирования или напиши его название. Пример: вода."
     ),
     "habit_edit_not_found": "Не нашёл такое поле. Проверь название и попробуй ещё раз.",
+    "habit_diary_fixed": "Поле «дневник» сохраняет полный исходный текст без изменений. Его можно удалить или добавить снова, но описание не редактируется.",
     "habit_edit_details": (
         "Текущие значения поля:\n"
         "• Название: *{name}*\n"
@@ -899,6 +897,7 @@ MESSAGES_EN = {
     "habit_remove_error": "I couldn't find that field. Check the name and try again. Example: water.",
     "habit_edit_prompt": "Choose a field to edit or send its name. Example: water.",
     "habit_edit_not_found": "I couldn't find that field. Check the name and try again.",
+    "habit_diary_fixed": "The diary field saves the complete original text unchanged. You can remove or add it again, but its description cannot be edited.",
     "habit_edit_details": (
         "Current field details:\n"
         "• Name: *{name}*\n"

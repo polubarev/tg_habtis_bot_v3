@@ -31,7 +31,12 @@ from src.services.on_this_day import (
 )
 from src.services.storage.sheets.client import SheetsClient
 from src.services.telegram.bot import TelegramBotService
-from src.services.telegram.utils import resolve_language
+from src.services.telegram.utils import (
+    TELEGRAM_TEXT_CHUNK_SIZE,
+    resolve_language,
+    split_telegram_text,
+    telegram_text_length,
+)
 from src.services.transcription.processor import RetryableBatchError, TranscriptionBatchProcessor
 from src.services.reminders import (
     ReminderScheduleError,
@@ -192,17 +197,21 @@ async def reminders_dispatch(
                     text = format_on_this_day_message(today_local, payloads, lang)
                     try:
                         bot = Bot(token=bot_token)
-                        try:
-                            await bot.send_message(chat_id=user_id, text=text, parse_mode=ParseMode.MARKDOWN)
-                        except BadRequest:
+                        if telegram_text_length(text) > TELEGRAM_TEXT_CHUNK_SIZE:
+                            for chunk in split_telegram_text(text):
+                                await bot.send_message(chat_id=user_id, text=chunk)
+                        else:
                             try:
-                                await bot.send_message(
-                                    chat_id=user_id,
-                                    text=text.replace("_", "\\_"),
-                                    parse_mode=ParseMode.MARKDOWN,
-                                )
+                                await bot.send_message(chat_id=user_id, text=text, parse_mode=ParseMode.MARKDOWN)
                             except BadRequest:
-                                await bot.send_message(chat_id=user_id, text=text)
+                                try:
+                                    await bot.send_message(
+                                        chat_id=user_id,
+                                        text=text.replace("_", "\\_"),
+                                        parse_mode=ParseMode.MARKDOWN,
+                                    )
+                                except BadRequest:
+                                    await bot.send_message(chat_id=user_id, text=text)
                         sent = True
                     except TelegramError as exc:
                         return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)

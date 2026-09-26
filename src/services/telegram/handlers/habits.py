@@ -737,13 +737,11 @@ async def handle_habits_text(
     schema_fields: list[str] = (
         list(habit_schema.fields.keys()) if habit_schema and habit_schema.fields else []
     )
-    # If schema matches the baked-in default, treat it as empty until user customizes.
-    # keep schema_fields as-is; diary is now part of default schema
     field_order = [f for f in schema_fields if f not in BASE_HABIT_FIELDS]
-    if not llm_available and update.message:
+    if field_order and not llm_available and update.message:
         await update.message.reply_text(_messages_for_lang(lang)["llm_disabled"])
     progress_message = None
-    if llm_available:
+    if llm_available and field_order:
         extraction_error_key = None
         try:
             if update.message and not getattr(update, "entry_collection_processing", False):
@@ -760,13 +758,6 @@ async def handle_habits_text(
             extraction_error_key = None
         if extraction_error_key and update.message:
             await update.message.reply_text(_messages_for_lang(lang)[extraction_error_key])
-    else:
-        extraction = {}
-
-    diary_text = None
-    if include_diary:
-        diary_text = extraction.get("diary") or combined_text
-
     entry_data: Dict[str, Any] = {
         "timestamp": datetime.now(user_tz).isoformat(),
         "date": selected_date.isoformat(),
@@ -776,7 +767,7 @@ async def handle_habits_text(
         "entry_id": str(uuid4()),
     }
     if include_diary:
-        entry_data["diary"] = diary_text
+        entry_data["diary"] = combined_text
     for k, v in extraction.items():
         if k not in {"timestamp", "date", "raw_record", "diary", "input_type", "entry_id"}:
             entry_data[k] = v
