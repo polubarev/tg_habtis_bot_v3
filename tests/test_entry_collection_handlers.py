@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from telegram.error import BadRequest
 
 from src.config.settings import Settings
 from src.models.enums import EntryType
@@ -153,6 +154,54 @@ def _update(message: FakeMessage, *, callback_data: str | None = None):
         message=None if query else message,
         callback_query=query,
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("force_edit_failure", [False, True])
+async def test_existing_diary_date_selection_sends_safe_preview(
+    monkeypatch, force_edit_failure
+):
+    deps = FakeDeps()
+    bot = FakeBot()
+    context = SimpleNamespace(application=SimpleNamespace(bot_data={"deps": deps}), bot=bot)
+    raw_text = "A long diary paragraph < & > 📝. " * (1 if force_edit_failure else 400)
+    existing = SimpleNamespace(
+        row_index=2,
+        raw_record=raw_text,
+        entry_data={"date": "2026-09-26", "diary": raw_text},
+    )
+    monkeypatch.setattr(
+        deps.sheets_client(), "find_latest_habit_entry", AsyncMock(return_value=existing),
+        raising=False,
+    )
+    prompt = FakeMessage("Choose a date")
+    update = _update(prompt, callback_data="habits_date:today")
+
+    async def telegram_edit(text, **kwargs):
+        if force_edit_failure or telegram_text_length(text) > 4096:
+            raise BadRequest("Message is too long")
+        return prompt
+
+    async def telegram_send(**kwargs):
+        if telegram_text_length(kwargs["text"]) > 4096:
+            raise BadRequest("Message is too long")
+        return FakeMessage(kwargs["text"])
+
+    monkeypatch.setattr(update.callback_query, "edit_message_text", telegram_edit)
+    monkeypatch.setattr(bot, "send_message", telegram_send)
+
+    await habits_module.handle_habits_date_callback(update, context)
+
+    assert len(prompt.replies) >= (1 if force_edit_failure else 2)
+    assert all(telegram_text_length(text) <= TELEGRAM_TEXT_CHUNK_SIZE
+               for text, _, _ in prompt.replies)
+    assert raw_text in "".join(text for text, _, _ in prompt.replies)
+    assert all("reply_markup" not in kwargs for _, kwargs, _ in prompt.replies[:-1])
+    assert "reply_markup" in prompt.replies[-1][1]
+    assert prompt.deleted
+    session = await deps.session_repo().get(1)
+    assert session.state == ConversationState.HABITS_AWAITING_EXISTING_CHOICE
+    assert session.temp_data["existing_raw_record"] == raw_text
 
 
 @pytest.mark.asyncio

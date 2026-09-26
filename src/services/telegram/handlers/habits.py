@@ -1,7 +1,7 @@
 from datetime import date, datetime, tzinfo
 import html
 import asyncio
-from typing import Any, Dict
+from typing import Any, Dict, cast
 from uuid import uuid4
 
 from telegram import Update
@@ -27,6 +27,7 @@ from src.services.telegram.handlers.entry_collection import start_entry_collecti
 from src.services.llm.extractors.habit_extractor import HabitExtractor
 from src.services.telegram.handlers.config import looks_like_sheet_input
 from src.services.telegram.utils import (
+    TELEGRAM_TEXT_CHUNK_SIZE,
     get_session_expired_message,
     get_llm_client,
     get_session_repo,
@@ -40,6 +41,7 @@ from src.services.telegram.utils import (
     resolve_user_profile,
     resolve_user_timezone,
     safe_delete_message,
+    telegram_text_length,
 )
 
 
@@ -499,20 +501,26 @@ async def _maybe_prompt_existing_entry(
     keyboard = build_existing_habits_keyboard(lang)
     if update.callback_query:
         await _safe_answer(update.callback_query)
-        try:
-            await update.callback_query.edit_message_text(
+        edited = False
+        if telegram_text_length(prompt) <= TELEGRAM_TEXT_CHUNK_SIZE:
+            try:
+                await update.callback_query.edit_message_text(
+                    prompt,
+                    reply_markup=keyboard,
+                    parse_mode=parse_mode,
+                )
+                edited = True
+            except Exception:
+                pass
+        if not edited and update.callback_query.message is not None:
+            message = cast(Any, update.callback_query.message)
+            await reply_text_chunked(
+                message,
                 prompt,
                 reply_markup=keyboard,
                 parse_mode=parse_mode,
             )
-        except Exception:
-            if update.effective_chat:
-                await context.bot.send_message(
-                    chat_id=update.effective_chat.id,
-                    text=prompt,
-                    reply_markup=keyboard,
-                    parse_mode=parse_mode,
-                )
+            await safe_delete_message(message)
     elif update.message:
         await reply_text_chunked(
             update.message,
