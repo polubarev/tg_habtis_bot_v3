@@ -105,6 +105,8 @@ try {
         APP_COMMIT_SHA = $GitSha
     }
     foreach ($name in @(
+        "LLM_MODEL",
+        "WHISPER_MODEL",
         "FIRESTORE_COLLECTION_TEXT_ENTRY_COLLECTIONS",
         "TEXT_ENTRY_MAX_UTF16_UNITS"
     )) {

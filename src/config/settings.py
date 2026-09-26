@@ -46,13 +46,13 @@ class Settings(BaseSettings):
     # OpenRouter / LLM
     openrouter_api_key: str | None = None
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
-    llm_model: str = "anthropic/claude-3-5-sonnet"
+    llm_model: str = "google/gemini-3.8-flash"
     llm_temperature: float = 0.1
     llm_max_tokens: int = 2000
 
-    # Whisper / STT
-    openai_api_key: str | None = None  # For Whisper API
-    whisper_model: str = "whisper-1"
+    # OpenAI speech-to-text
+    openai_api_key: str | None = None  # For transcription API
+    whisper_model: str = "gpt-transcribe"
 
     # Firestore
     firestore_collection_users: str = "users"

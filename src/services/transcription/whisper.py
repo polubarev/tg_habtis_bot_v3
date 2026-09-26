@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 
 
 class WhisperClient(ITranscriber):
-    """OpenAI Whisper API client for speech-to-text."""
+    """OpenAI transcription API client for speech-to-text."""
 
     def __init__(self):
         settings = get_settings()
@@ -35,7 +35,10 @@ class WhisperClient(ITranscriber):
         files = {"file": (f"audio.{format}", audio_data)}
         data = {"model": self._model}
         if language_hint:
-            data["language"] = language_hint
+            if self._model == "gpt-transcribe":
+                data["languages[]"] = language_hint
+            else:
+                data["language"] = language_hint
 
         headers = {"Authorization": f"Bearer {self._api_key}"}
         started = time.monotonic()
@@ -50,6 +53,10 @@ class WhisperClient(ITranscriber):
                     raise ExternalResponseError("Invalid transcription response") from exc
                 text = payload.get("text")
                 language = payload.get("language")
+                if language is None and isinstance(payload.get("languages"), list):
+                    first_language = next(iter(payload["languages"]), None)
+                    if isinstance(first_language, dict):
+                        language = first_language.get("code")
                 if not isinstance(text, str) or not text.strip():
                     raise ExternalResponseError("Transcription response missing text")
                 logger.info("Transcription result", language=language, text_length=len(text))
