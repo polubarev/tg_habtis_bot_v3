@@ -1,4 +1,5 @@
 from datetime import date
+import html
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -195,7 +196,7 @@ async def test_existing_diary_date_selection_sends_safe_preview(
     assert len(prompt.replies) >= (1 if force_edit_failure else 2)
     assert all(telegram_text_length(text) <= TELEGRAM_TEXT_CHUNK_SIZE
                for text, _, _ in prompt.replies)
-    assert raw_text in "".join(text for text, _, _ in prompt.replies)
+    assert raw_text in html.unescape("".join(text for text, _, _ in prompt.replies))
     assert all("reply_markup" not in kwargs for _, kwargs, _ in prompt.replies[:-1])
     assert "reply_markup" in prompt.replies[-1][1]
     assert prompt.deleted
