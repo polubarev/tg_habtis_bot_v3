@@ -1,0 +1,542 @@
+[
+  {
+    "id": "0535476a6e",
+    "records": [
+      {
+        "model": "deepseek/deepseek-v4-pro-0813",
+        "repeat": 1,
+        "case": "sensitive_and_uncertain"
+      }
+    ]
+  },
+  {
+    "id": "07a34ed6df",
+    "records": [
+      {
+        "model": "deepseek/deepseek-v4-pro-0813",
+        "repeat": 2,
+        "case": "negations_other_people"
+      }
+    ]
+  },
+  {
+    "id": "09a411ecdb",
+    "records": [
+      {
+        "model": "deepseek/deepseek-v4-pro-0813",
+        "repeat": 1,
+        "case": "fields_only"
+      },
+      {
+        "model": "mistralai/mistral-large-4-0",
+        "repeat": 1,
+        "case": "fields_only"
+      },
+      {
+        "model": "deepseek/deepseek-v4-pro-0813",
+        "repeat": 2,
+        "case": "fields_only"
+      }
+    ]
+  },
+  {
+    "id": "1091881136",
+    "records": [
+      {
+        "model": "anthropic/claude-haiku-5.5",
+        "repeat": 2,
+        "case": "mixed_and_counts"
+      }
+    ]
+  },
+  {
+    "id": "1c7d679ef0",
+    "records": [
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 1,
+        "case": "explicit_corrections"
+      },
+      {
+        "model": "deepseek/deepseek-v4-pro-0813",
+        "repeat": 2,
+        "case": "explicit_corrections"
+      },
+      {
+        "model": "mistralai/mistral-large-4-0",
+        "repeat": 1,
+        "case": "explicit_corrections"
+      }
+    ]
+  },
+  {
+    "id": "295ce11870",
+    "records": [
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 2,
+        "case": "legacy_markers"
+      },
+      {
+        "model": "mistralai/mistral-large-4-0",
+        "repeat": 2,
+        "case": "legacy_markers"
+      },
+      {
+        "model": "mistralai/mistral-large-4-0",
+        "repeat": 1,
+        "case": "legacy_markers"
+      }
+    ]
+  },
+  {
+    "id": "2cdcdd7463",
+    "records": [
+      {
+        "model": "anthropic/claude-haiku-5.5",
+        "repeat": 1,
+        "case": "legacy_markers"
+      }
+    ]
+  },
+  {
+    "id": "2f6c62848e",
+    "records": [
+      {
+        "model": "deepseek/deepseek-v4-pro-0813",
+        "repeat": 2,
+        "case": "spoken_russian"
+      }
+    ]
+  },
+  {
+    "id": "340170dc55",
+    "records": [
+      {
+        "model": "mistralai/mistral-large-4-0",
+        "repeat": 1,
+        "case": "spoken_russian"
+      }
+    ]
+  },
+  {
+    "id": "3c38d0f625",
+    "records": [
+      {
+        "model": "deepseek/deepseek-v4-pro-0813",
+        "repeat": 2,
+        "case": "ambiguous_time"
+      }
+    ]
+  },
+  {
+    "id": "3de42da473",
+    "records": [
+      {
+        "model": "anthropic/claude-haiku-5.5",
+        "repeat": 1,
+        "case": "sensitive_and_uncertain"
+      },
+      {
+        "model": "anthropic/claude-haiku-5.5",
+        "repeat": 2,
+        "case": "sensitive_and_uncertain"
+      }
+    ]
+  },
+  {
+    "id": "433697e164",
+    "records": [
+      {
+        "model": "deepseek/deepseek-v4-pro-0813",
+        "repeat": 1,
+        "case": "negations_other_people"
+      }
+    ]
+  },
+  {
+    "id": "4625ecc68e",
+    "records": [
+      {
+        "model": "mistralai/mistral-large-4-0",
+        "repeat": 1,
+        "case": "mixed_and_counts"
+      }
+    ]
+  },
+  {
+    "id": "47717ad506",
+    "records": [
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 2,
+        "case": "sensitive_and_uncertain"
+      }
+    ]
+  },
+  {
+    "id": "4ae9fad6db",
+    "records": [
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 1,
+        "case": "negations_other_people"
+      }
+    ]
+  },
+  {
+    "id": "4f86cf4716",
+    "records": [
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 2,
+        "case": "negations_other_people"
+      }
+    ]
+  },
+  {
+    "id": "513f67a2f4",
+    "records": [
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 1,
+        "case": "ambiguous_time"
+      },
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 2,
+        "case": "ambiguous_time"
+      },
+      {
+        "model": "anthropic/claude-haiku-5.5",
+        "repeat": 2,
+        "case": "ambiguous_time"
+      },
+      {
+        "model": "mistralai/mistral-large-4-0",
+        "repeat": 1,
+        "case": "ambiguous_time"
+      }
+    ]
+  },
+  {
+    "id": "548695586d",
+    "records": [
+      {
+        "model": "deepseek/deepseek-v4-pro-0813",
+        "repeat": 1,
+        "case": "mixed_and_counts"
+      },
+      {
+        "model": "mistralai/mistral-large-4-0",
+        "repeat": 2,
+        "case": "mixed_and_counts"
+      }
+    ]
+  },
+  {
+    "id": "5ede7bc11e",
+    "records": [
+      {
+        "model": "deepseek/deepseek-v4-pro-0813",
+        "repeat": 2,
+        "case": "morning_and_ratings"
+      }
+    ]
+  },
+  {
+    "id": "5f21c52a1e",
+    "records": [
+      {
+        "model": "anthropic/claude-haiku-5.5",
+        "repeat": 1,
+        "case": "spoken_russian"
+      }
+    ]
+  },
+  {
+    "id": "63476492fa",
+    "records": [
+      {
+        "model": "deepseek/deepseek-v4-pro-0813",
+        "repeat": 1,
+        "case": "spoken_russian"
+      }
+    ]
+  },
+  {
+    "id": "649184565e",
+    "records": [
+      {
+        "model": "anthropic/claude-haiku-5.5",
+        "repeat": 1,
+        "case": "mixed_and_counts"
+      }
+    ]
+  },
+  {
+    "id": "687c87ea34",
+    "records": [
+      {
+        "model": "deepseek/deepseek-v4-pro-0813",
+        "repeat": 2,
+        "case": "mixed_and_counts"
+      }
+    ]
+  },
+  {
+    "id": "70ed15f0d3",
+    "records": [
+      {
+        "model": "deepseek/deepseek-v4-pro-0813",
+        "repeat": 1,
+        "case": "legacy_markers"
+      },
+      {
+        "model": "deepseek/deepseek-v4-pro-0813",
+        "repeat": 2,
+        "case": "legacy_markers"
+      }
+    ]
+  },
+  {
+    "id": "814c672fda",
+    "records": [
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 1,
+        "case": "fields_only"
+      },
+      {
+        "model": "anthropic/claude-haiku-5.5",
+        "repeat": 1,
+        "case": "fields_only"
+      },
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 2,
+        "case": "fields_only"
+      },
+      {
+        "model": "anthropic/claude-haiku-5.5",
+        "repeat": 2,
+        "case": "fields_only"
+      },
+      {
+        "model": "mistralai/mistral-large-4-0",
+        "repeat": 2,
+        "case": "fields_only"
+      }
+    ]
+  },
+  {
+    "id": "840a1db22b",
+    "records": [
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 1,
+        "case": "sensitive_and_uncertain"
+      }
+    ]
+  },
+  {
+    "id": "846ebb874b",
+    "records": [
+      {
+        "model": "mistralai/mistral-large-4-0",
+        "repeat": 2,
+        "case": "spoken_russian"
+      }
+    ]
+  },
+  {
+    "id": "95589a7335",
+    "records": [
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 2,
+        "case": "explicit_corrections"
+      }
+    ]
+  },
+  {
+    "id": "9628c324bb",
+    "records": [
+      {
+        "model": "anthropic/claude-haiku-5.5",
+        "repeat": 1,
+        "case": "explicit_corrections"
+      },
+      {
+        "model": "anthropic/claude-haiku-5.5",
+        "repeat": 2,
+        "case": "explicit_corrections"
+      }
+    ]
+  },
+  {
+    "id": "a475656432",
+    "records": [
+      {
+        "model": "anthropic/claude-haiku-5.5",
+        "repeat": 1,
+        "case": "negations_other_people"
+      }
+    ]
+  },
+  {
+    "id": "b3da05fefe",
+    "records": [
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 1,
+        "case": "spoken_russian"
+      },
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 2,
+        "case": "spoken_russian"
+      }
+    ]
+  },
+  {
+    "id": "b631d3c4ef",
+    "records": [
+      {
+        "model": "anthropic/claude-haiku-5.5",
+        "repeat": 1,
+        "case": "ambiguous_time"
+      }
+    ]
+  },
+  {
+    "id": "b68279916e",
+    "records": [
+      {
+        "model": "anthropic/claude-haiku-5.5",
+        "repeat": 1,
+        "case": "morning_and_ratings"
+      },
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 1,
+        "case": "morning_and_ratings"
+      },
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 2,
+        "case": "morning_and_ratings"
+      },
+      {
+        "model": "anthropic/claude-haiku-5.5",
+        "repeat": 2,
+        "case": "morning_and_ratings"
+      }
+    ]
+  },
+  {
+    "id": "bc53117b90",
+    "records": [
+      {
+        "model": "mistralai/mistral-large-4-0",
+        "repeat": 1,
+        "case": "negations_other_people"
+      }
+    ]
+  },
+  {
+    "id": "bc71c6bcd6",
+    "records": [
+      {
+        "model": "deepseek/deepseek-v4-pro-0813",
+        "repeat": 2,
+        "case": "sensitive_and_uncertain"
+      }
+    ]
+  },
+  {
+    "id": "c8fe900b54",
+    "records": [
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 1,
+        "case": "legacy_markers"
+      }
+    ]
+  },
+  {
+    "id": "c9b10771b5",
+    "records": [
+      {
+        "model": "deepseek/deepseek-v4-pro-0813",
+        "repeat": 1,
+        "case": "morning_and_ratings"
+      },
+      {
+        "model": "mistralai/mistral-large-4-0",
+        "repeat": 1,
+        "case": "morning_and_ratings"
+      }
+    ]
+  },
+  {
+    "id": "cde9a6d794",
+    "records": [
+      {
+        "model": "deepseek/deepseek-v4-pro-0813",
+        "repeat": 1,
+        "case": "explicit_corrections"
+      }
+    ]
+  },
+  {
+    "id": "d4454f19cb",
+    "records": [
+      {
+        "model": "anthropic/claude-haiku-5.5",
+        "repeat": 2,
+        "case": "spoken_russian"
+      }
+    ]
+  },
+  {
+    "id": "eec028badc",
+    "records": [
+      {
+        "model": "mistralai/mistral-large-4-0",
+        "repeat": 1,
+        "case": "sensitive_and_uncertain"
+      }
+    ]
+  },
+  {
+    "id": "ef1e86a99f",
+    "records": [
+      {
+        "model": "anthropic/claude-haiku-5.5",
+        "repeat": 2,
+        "case": "legacy_markers"
+      }
+    ]
+  },
+  {
+    "id": "f636b9ff09",
+    "records": [
+      {
+        "model": "deepseek/deepseek-v4-pro-0813",
+        "repeat": 1,
+        "case": "ambiguous_time"
+      }
+    ]
+  },
+  {
+    "id": "f6922fbea9",
+    "records": [
+      {
+        "model": "anthropic/claude-haiku-5.5",
+        "repeat": 2,
+        "case": "negations_other_people"
+      }
+    ]
+  }
+]

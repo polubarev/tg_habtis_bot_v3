@@ -143,7 +143,7 @@ class ShorteningExtractor:
     def __init__(self, _client):
         pass
 
-    async def extract(self, _raw_text, language="en", schema=None):
+    async def extract(self, _raw_text, language="en", schema=None, **kwargs):
         return {"diary": "AI shortened this", "mood": 5}
 
 
@@ -416,23 +416,23 @@ async def test_habits_no_adds_to_draft_across_multiple_confirmation_rounds(monke
         assert session is not None
         assert session.state == ConversationState.HABITS_AWAITING_CONFIRMATION
         assert session.pending_entry is not None
-        assert session.pending_entry["diary"] == session.pending_entry["raw_record"]
+        assert session.pending_entry["diary"] == "AI shortened this"
         return session.pending_entry["raw_record"]
 
     assert await collect("first", 10) == "first"
     await handle_habits_confirm(
         _update(FakeMessage("draft"), callback_data="habits_confirm:no"), context
     )
-    assert await collect("second", 20) == "first\n\n[Update]\nsecond"
+    assert await collect("second", 20) == "first\n\nsecond"
     await handle_habits_confirm(
         _update(FakeMessage("draft"), callback_data="habits_confirm:no"), context
     )
-    assert await collect("third", 30) == "first\n\n[Update]\nsecond\n\n[Update]\nthird"
+    assert await collect("third", 30) == "first\n\nsecond\n\nthird"
     await handle_habits_confirm(
         _update(FakeMessage("draft"), callback_data="habits_confirm:yes"), context
     )
     saved_entry = deps.sheets_client().appended[0][2]
-    assert saved_entry.diary == saved_entry.raw_record
+    assert saved_entry.diary == "AI shortened this"
     assert saved_entry.raw_record.endswith("third")
 
 
@@ -440,7 +440,7 @@ async def test_habits_no_adds_to_draft_across_multiple_confirmation_rounds(monke
 @pytest.mark.parametrize(
     ("action", "expected"),
     [
-        ("append", "original\n\n[Update]\nnew text"),
+        ("append", "original\n\nnew text"),
         ("rewrite", "new text"),
     ],
 )
@@ -470,7 +470,7 @@ async def test_existing_habit_update_saves_full_diary(action, expected, monkeypa
     await handle_habits_text(_update(FakeMessage("new text")), context, "new text")
     pending = await deps.session_repo().get(1)
     assert pending.pending_entry["raw_record"] == expected
-    assert pending.pending_entry["diary"] == expected
+    assert pending.pending_entry["diary"] == "AI shortened this"
     assert pending.pending_entry["mood"] == 5
     await handle_habits_confirm(
         _update(FakeMessage("draft"), callback_data="habits_confirm:yes"), context
@@ -478,5 +478,5 @@ async def test_existing_habit_update_saves_full_diary(action, expected, monkeypa
 
     saved_entry = deps.sheets_client().updated[0][3]
     assert saved_entry.raw_record == expected
-    assert saved_entry.diary == expected
+    assert saved_entry.diary == "AI shortened this"
     assert saved_entry.extra_fields["mood"] == 5

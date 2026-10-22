@@ -1,0 +1,22 @@
+{
+  "google/gemini-3.8-flash": {
+    "only": ["Google AI Studio"],
+    "allow_fallbacks": false,
+    "max_price": {"prompt": 1.5, "completion": 5}
+  },
+  "deepseek/deepseek-v4-pro-0813": {
+    "only": ["DeepInfra"],
+    "allow_fallbacks": false,
+    "max_price": {"prompt": 1.5, "completion": 5}
+  },
+  "mistralai/mistral-large-4-0": {
+    "only": ["Mistral"],
+    "allow_fallbacks": false,
+    "max_price": {"prompt": 1.5, "completion": 5}
+  },
+  "anthropic/claude-haiku-5.5": {
+    "only": ["Anthropic"],
+    "allow_fallbacks": false,
+    "max_price": {"prompt": 1.5, "completion": 5}
+  }
+}

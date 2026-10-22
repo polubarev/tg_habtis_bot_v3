@@ -1,0 +1,526 @@
+{
+  "createdAt": "2026-10-22T05:39:28.781Z",
+  "recordedCalls": 209,
+  "expectedCalls": 210,
+  "totalBilledCostUsd": 0.21518077799999993,
+  "labelAmbiguity": "sensitive_and_uncertain, turn 1, общение: spouse leaving a note can be interpreted as family communication; exclude this one field from unambiguous metric for all models/phases/repeats",
+  "metrics": [
+    {
+      "model": "google/gemini-3.8-flash",
+      "phase": "baseline",
+      "expectedCalls": 20,
+      "attemptedCalls": 20,
+      "validCalls": 20,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 20,
+      "extraction": {
+        "all": {
+          "matched": 200,
+          "total": 200,
+          "percent": 100
+        },
+        "known": {
+          "matched": 72,
+          "total": 72,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 128,
+          "total": 128,
+          "percent": 100
+        },
+        "explicitZeroOrFalse": {
+          "matched": 26,
+          "total": 26,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 198,
+          "total": 198,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": null,
+      "checkTotals": {},
+      "failedChecks": [],
+      "shortLatencyP50Ms": 2219,
+      "shortLatencyP90Ms": 3305,
+      "billedCostUsd": 0.027538499999999994,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 964,
+      "failures": [],
+      "longOutputs": []
+    },
+    {
+      "model": "google/gemini-3.8-flash",
+      "phase": "unified",
+      "expectedCalls": 50,
+      "attemptedCalls": 46,
+      "validCalls": 43,
+      "endToEndSuccessPercent": 86,
+      "perfectExtractionTurns": 43,
+      "extraction": {
+        "all": {
+          "matched": 430,
+          "total": 430,
+          "percent": 100
+        },
+        "known": {
+          "matched": 167,
+          "total": 167,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 263,
+          "total": 263,
+          "percent": 100
+        },
+        "explicitZeroOrFalse": {
+          "matched": 69,
+          "total": 69,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 428,
+          "total": 428,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": 17,
+      "checkTotals": {
+        "fact": {
+          "passed": 197,
+          "total": 197
+        },
+        "no_update_marker": {
+          "passed": 43,
+          "total": 43
+        },
+        "forbidden": {
+          "passed": 20,
+          "total": 20
+        },
+        "order": {
+          "passed": 5,
+          "total": 5
+        },
+        "unchanged": {
+          "passed": 2,
+          "total": 2
+        },
+        "empty": {
+          "passed": 4,
+          "total": 4
+        }
+      },
+      "failedChecks": [],
+      "shortLatencyP50Ms": 2699,
+      "shortLatencyP90Ms": 3044,
+      "billedCostUsd": 0.13401127499999999,
+      "missingBillingCalls": 1,
+      "reasoningTokens": 0,
+      "failures": [
+        {
+          "case": "mixed_and_counts",
+          "repeat": 1,
+          "turn": 1,
+          "finishReason": "content_filter",
+          "parseError": "Unterminated string in JSON at position 185 (line 2 column 184)"
+        },
+        {
+          "case": "long_diary",
+          "repeat": 1,
+          "turn": 2,
+          "error": {
+            "name": "Error",
+            "message": "Non-JSON HTTP 200"
+          }
+        },
+        {
+          "case": "mixed_and_counts",
+          "repeat": 2,
+          "turn": 1,
+          "finishReason": "content_filter",
+          "parseError": "Unterminated string in JSON at position 185 (line 2 column 184)"
+        }
+      ],
+      "longOutputs": [
+        {
+          "repeat": 1,
+          "turn": 1,
+          "chars": 20116,
+          "seconds": 32.731,
+          "factsMatched": 18,
+          "factsTotal": 18
+        },
+        {
+          "repeat": 2,
+          "turn": 1,
+          "chars": 20116,
+          "seconds": 34.254,
+          "factsMatched": 18,
+          "factsTotal": 18
+        },
+        {
+          "repeat": 2,
+          "turn": 2,
+          "chars": 20230,
+          "seconds": 34.485,
+          "factsMatched": 21,
+          "factsTotal": 21
+        }
+      ]
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "phase": "baseline",
+      "expectedCalls": 20,
+      "attemptedCalls": 20,
+      "validCalls": 20,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 19,
+      "extraction": {
+        "all": {
+          "matched": 199,
+          "total": 200,
+          "percent": 99.5
+        },
+        "known": {
+          "matched": 72,
+          "total": 72,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 127,
+          "total": 128,
+          "percent": 99.22
+        },
+        "explicitZeroOrFalse": {
+          "matched": 26,
+          "total": 26,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 198,
+          "total": 198,
+          "percent": 100
+        }
+      },
+      "mismatches": [
+        {
+          "case": "sensitive_and_uncertain",
+          "turn": 1,
+          "repeat": 1,
+          "field": "общение",
+          "expected": null,
+          "actual": [
+            "семья"
+          ],
+          "ambiguousLabel": true
+        }
+      ],
+      "fullChains": null,
+      "checkTotals": {},
+      "failedChecks": [],
+      "shortLatencyP50Ms": 1358,
+      "shortLatencyP90Ms": 2515,
+      "billedCostUsd": 0.0029957350000000002,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 241,
+      "failures": [],
+      "longOutputs": []
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "phase": "unified",
+      "expectedCalls": 50,
+      "attemptedCalls": 50,
+      "validCalls": 50,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 49,
+      "extraction": {
+        "all": {
+          "matched": 499,
+          "total": 500,
+          "percent": 99.8
+        },
+        "known": {
+          "matched": 228,
+          "total": 228,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 271,
+          "total": 272,
+          "percent": 99.63
+        },
+        "explicitZeroOrFalse": {
+          "matched": 88,
+          "total": 88,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 498,
+          "total": 498,
+          "percent": 100
+        }
+      },
+      "mismatches": [
+        {
+          "case": "sensitive_and_uncertain",
+          "turn": 1,
+          "repeat": 1,
+          "field": "общение",
+          "expected": null,
+          "actual": [
+            "семья"
+          ],
+          "ambiguousLabel": true
+        }
+      ],
+      "fullChains": 20,
+      "checkTotals": {
+        "fact": {
+          "passed": 238,
+          "total": 238
+        },
+        "no_update_marker": {
+          "passed": 50,
+          "total": 50
+        },
+        "forbidden": {
+          "passed": 24,
+          "total": 24
+        },
+        "order": {
+          "passed": 8,
+          "total": 8
+        },
+        "unchanged": {
+          "passed": 2,
+          "total": 2
+        },
+        "empty": {
+          "passed": 4,
+          "total": 4
+        }
+      },
+      "failedChecks": [],
+      "shortLatencyP50Ms": 2119,
+      "shortLatencyP90Ms": 2582,
+      "billedCostUsd": 0.01589838,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 1057,
+      "failures": [],
+      "longOutputs": [
+        {
+          "repeat": 1,
+          "turn": 1,
+          "chars": 4103,
+          "seconds": 10.621,
+          "factsMatched": 18,
+          "factsTotal": 18
+        },
+        {
+          "repeat": 1,
+          "turn": 2,
+          "chars": 4217,
+          "seconds": 10.057,
+          "factsMatched": 21,
+          "factsTotal": 21
+        },
+        {
+          "repeat": 2,
+          "turn": 1,
+          "chars": 20116,
+          "seconds": 33.474,
+          "factsMatched": 18,
+          "factsTotal": 18
+        },
+        {
+          "repeat": 2,
+          "turn": 2,
+          "chars": 20231,
+          "seconds": 33.885,
+          "factsMatched": 21,
+          "factsTotal": 21
+        }
+      ]
+    },
+    {
+      "model": "qwen/qwen3.8-flash",
+      "phase": "baseline",
+      "expectedCalls": 20,
+      "attemptedCalls": 20,
+      "validCalls": 20,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 18,
+      "extraction": {
+        "all": {
+          "matched": 198,
+          "total": 200,
+          "percent": 99
+        },
+        "known": {
+          "matched": 72,
+          "total": 72,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 126,
+          "total": 128,
+          "percent": 98.44
+        },
+        "explicitZeroOrFalse": {
+          "matched": 26,
+          "total": 26,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 198,
+          "total": 198,
+          "percent": 100
+        }
+      },
+      "mismatches": [
+        {
+          "case": "sensitive_and_uncertain",
+          "turn": 1,
+          "repeat": 1,
+          "field": "общение",
+          "expected": null,
+          "actual": [
+            "семья"
+          ],
+          "ambiguousLabel": true
+        },
+        {
+          "case": "sensitive_and_uncertain",
+          "turn": 1,
+          "repeat": 2,
+          "field": "общение",
+          "expected": null,
+          "actual": [
+            "семья"
+          ],
+          "ambiguousLabel": true
+        }
+      ],
+      "fullChains": null,
+      "checkTotals": {},
+      "failedChecks": [],
+      "shortLatencyP50Ms": 10190,
+      "shortLatencyP90Ms": 15353,
+      "billedCostUsd": 0.008456293999999998,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 12244,
+      "failures": [],
+      "longOutputs": []
+    },
+    {
+      "model": "qwen/qwen3.8-flash",
+      "phase": "unified",
+      "expectedCalls": 50,
+      "attemptedCalls": 48,
+      "validCalls": 46,
+      "endToEndSuccessPercent": 92,
+      "perfectExtractionTurns": 45,
+      "extraction": {
+        "all": {
+          "matched": 459,
+          "total": 460,
+          "percent": 99.78
+        },
+        "known": {
+          "matched": 208,
+          "total": 208,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 251,
+          "total": 252,
+          "percent": 99.6
+        },
+        "explicitZeroOrFalse": {
+          "matched": 76,
+          "total": 76,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 458,
+          "total": 458,
+          "percent": 100
+        }
+      },
+      "mismatches": [
+        {
+          "case": "sensitive_and_uncertain",
+          "turn": 1,
+          "repeat": 2,
+          "field": "общение",
+          "expected": null,
+          "actual": [
+            "семья"
+          ],
+          "ambiguousLabel": true
+        }
+      ],
+      "fullChains": 18,
+      "checkTotals": {
+        "fact": {
+          "passed": 160,
+          "total": 160
+        },
+        "no_update_marker": {
+          "passed": 46,
+          "total": 46
+        },
+        "forbidden": {
+          "passed": 24,
+          "total": 24
+        },
+        "order": {
+          "passed": 6,
+          "total": 6
+        },
+        "unchanged": {
+          "passed": 2,
+          "total": 2
+        },
+        "empty": {
+          "passed": 4,
+          "total": 4
+        }
+      },
+      "failedChecks": [],
+      "shortLatencyP50Ms": 18139,
+      "shortLatencyP90Ms": 43195,
+      "billedCostUsd": 0.026280593999999997,
+      "missingBillingCalls": 2,
+      "reasoningTokens": 43554,
+      "failures": [
+        {
+          "case": "long_diary",
+          "repeat": 1,
+          "turn": 1,
+          "error": {
+            "name": "Error",
+            "message": "Non-JSON HTTP 200"
+          }
+        },
+        {
+          "case": "long_diary",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "name": "Error",
+            "message": "Non-JSON HTTP 200"
+          }
+        }
+      ],
+      "longOutputs": []
+    }
+  ]
+}

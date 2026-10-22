@@ -1,0 +1,637 @@
+{
+  "createdAt": "2026-10-22T06:56:02.324Z",
+  "recordedCalls": 125,
+  "expectedCalls": 140,
+  "totalBilledCostUsd": 1.0484768,
+  "labelAmbiguity": "sensitive_and_uncertain, turn 1, общение: spouse leaving a note can be interpreted as family communication; exclude this one field from unambiguous metric for all models/phases/repeats",
+  "metrics": [
+    {
+      "model": "anthropic/claude-sonnet-5.5",
+      "phase": "baseline",
+      "expectedCalls": 20,
+      "attemptedCalls": 20,
+      "validCalls": 15,
+      "endToEndSuccessPercent": 75,
+      "perfectExtractionTurns": 15,
+      "extraction": {
+        "all": {
+          "matched": 150,
+          "total": 150,
+          "percent": 100
+        },
+        "known": {
+          "matched": 53,
+          "total": 53,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 97,
+          "total": 97,
+          "percent": 100
+        },
+        "explicitZeroOrFalse": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 148,
+          "total": 148,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": null,
+      "checkTotals": {},
+      "failedChecks": [],
+      "shortLatencyP50Ms": 2270,
+      "shortLatencyP90Ms": 2722,
+      "billedCostUsd": 0.197144,
+      "missingBillingCalls": 5,
+      "reasoningTokens": 0,
+      "failures": [
+        {
+          "case": "mixed_and_counts",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 4000 tokens, but can only afford 1252. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "legacy_markers",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 4000 tokens, but can only afford 1252. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "ambiguous_time",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 4000 tokens, but can only afford 1252. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "fields_only",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 4000 tokens, but can only afford 1252. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "long_diary",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 4000 tokens, but can only afford 1252. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        }
+      ],
+      "longOutputs": []
+    },
+    {
+      "model": "anthropic/claude-sonnet-5.5",
+      "phase": "unified",
+      "expectedCalls": 50,
+      "attemptedCalls": 43,
+      "validCalls": 36,
+      "endToEndSuccessPercent": 72,
+      "perfectExtractionTurns": 36,
+      "extraction": {
+        "all": {
+          "matched": 360,
+          "total": 360,
+          "percent": 100
+        },
+        "known": {
+          "matched": 155,
+          "total": 155,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 205,
+          "total": 205,
+          "percent": 100
+        },
+        "explicitZeroOrFalse": {
+          "matched": 57,
+          "total": 57,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 358,
+          "total": 358,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": 13,
+      "checkTotals": {
+        "fact": {
+          "passed": 138,
+          "total": 138
+        },
+        "no_update_marker": {
+          "passed": 36,
+          "total": 36
+        },
+        "forbidden": {
+          "passed": 15,
+          "total": 15
+        },
+        "order": {
+          "passed": 4,
+          "total": 4
+        },
+        "unchanged": {
+          "passed": 2,
+          "total": 2
+        },
+        "empty": {
+          "passed": 2,
+          "total": 2
+        }
+      },
+      "failedChecks": [],
+      "shortLatencyP50Ms": 2784,
+      "shortLatencyP90Ms": 3674,
+      "billedCostUsd": 0.646488,
+      "missingBillingCalls": 7,
+      "reasoningTokens": 700,
+      "failures": [
+        {
+          "case": "mixed_and_counts",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 10000 tokens, but can only afford 1252. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "legacy_markers",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 10000 tokens, but can only afford 1252. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "ambiguous_time",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 10000 tokens, but can only afford 1252. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "fields_only",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 10000 tokens, but can only afford 1252. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "long_diary",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 24000 tokens, but can only afford 1252. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "spoken_russian",
+          "repeat": 2,
+          "turn": 2,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 10000 tokens, but can only afford 1252. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "long_diary",
+          "repeat": 1,
+          "turn": 2,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 24000 tokens, but can only afford 1252. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        }
+      ],
+      "longOutputs": [
+        {
+          "repeat": 1,
+          "turn": 1,
+          "chars": 20116,
+          "seconds": 43.008,
+          "factsMatched": 18,
+          "factsTotal": 18
+        }
+      ]
+    },
+    {
+      "model": "openai/gpt-5.6-terra",
+      "phase": "baseline",
+      "expectedCalls": 20,
+      "attemptedCalls": 20,
+      "validCalls": 14,
+      "endToEndSuccessPercent": 70,
+      "perfectExtractionTurns": 14,
+      "extraction": {
+        "all": {
+          "matched": 140,
+          "total": 140,
+          "percent": 100
+        },
+        "known": {
+          "matched": 52,
+          "total": 52,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 88,
+          "total": 88,
+          "percent": 100
+        },
+        "explicitZeroOrFalse": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 138,
+          "total": 138,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": null,
+      "checkTotals": {},
+      "failedChecks": [],
+      "shortLatencyP50Ms": 1391,
+      "shortLatencyP90Ms": 1718,
+      "billedCostUsd": 0.049329500000000005,
+      "missingBillingCalls": 6,
+      "reasoningTokens": 0,
+      "failures": [
+        {
+          "case": "spoken_russian",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 4000 tokens, but can only afford 1043. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "mixed_and_counts",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 4000 tokens, but can only afford 1043. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "legacy_markers",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 4000 tokens, but can only afford 1043. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "ambiguous_time",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 4000 tokens, but can only afford 1043. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "fields_only",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 4000 tokens, but can only afford 1043. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "long_diary",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 4000 tokens, but can only afford 1043. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        }
+      ],
+      "longOutputs": []
+    },
+    {
+      "model": "openai/gpt-5.6-terra",
+      "phase": "unified",
+      "expectedCalls": 50,
+      "attemptedCalls": 42,
+      "validCalls": 36,
+      "endToEndSuccessPercent": 72,
+      "perfectExtractionTurns": 36,
+      "extraction": {
+        "all": {
+          "matched": 360,
+          "total": 360,
+          "percent": 100
+        },
+        "known": {
+          "matched": 159,
+          "total": 159,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 201,
+          "total": 201,
+          "percent": 100
+        },
+        "explicitZeroOrFalse": {
+          "matched": 60,
+          "total": 60,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 358,
+          "total": 358,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": 14,
+      "checkTotals": {
+        "fact": {
+          "passed": 153,
+          "total": 153
+        },
+        "no_update_marker": {
+          "passed": 36,
+          "total": 36
+        },
+        "forbidden": {
+          "passed": 15,
+          "total": 15
+        },
+        "order": {
+          "passed": 5,
+          "total": 5
+        },
+        "unchanged": {
+          "passed": 2,
+          "total": 2
+        },
+        "empty": {
+          "passed": 2,
+          "total": 2
+        }
+      },
+      "failedChecks": [],
+      "shortLatencyP50Ms": 1925,
+      "shortLatencyP90Ms": 2518,
+      "billedCostUsd": 0.15551529999999997,
+      "missingBillingCalls": 6,
+      "reasoningTokens": 279,
+      "failures": [
+        {
+          "case": "spoken_russian",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 10000 tokens, but can only afford 1043. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "mixed_and_counts",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 10000 tokens, but can only afford 1043. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "legacy_markers",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 10000 tokens, but can only afford 1043. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "ambiguous_time",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 10000 tokens, but can only afford 1043. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "fields_only",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 10000 tokens, but can only afford 1043. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "long_diary",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 24000 tokens, but can only afford 1043. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        }
+      ],
+      "longOutputs": [
+        {
+          "repeat": 1,
+          "turn": 1,
+          "chars": 3185,
+          "seconds": 9.718,
+          "factsMatched": 18,
+          "factsTotal": 18
+        },
+        {
+          "repeat": 1,
+          "turn": 2,
+          "chars": 3299,
+          "seconds": 8.676,
+          "factsMatched": 21,
+          "factsTotal": 21
+        }
+      ]
+    }
+  ]
+}

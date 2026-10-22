@@ -75,7 +75,7 @@ def _build_context(deps: FakeDeps):
 
 
 @pytest.mark.asyncio
-async def test_handle_habits_text_retries_once_then_succeeds(monkeypatch):
+async def test_handle_habits_text_makes_one_unified_request(monkeypatch):
     raw_text = "Morning workout, work, then home"
     session = SessionData(
         user_id=1,
@@ -99,10 +99,8 @@ async def test_handle_habits_text_retries_once_then_succeeds(monkeypatch):
         def __init__(self, client):
             pass
 
-        async def extract(self, raw_text: str, language: str = "en", schema=None):
+        async def extract(self, raw_text: str, language: str = "en", schema=None, **kwargs):
             type(self).calls += 1
-            if type(self).calls == 1:
-                raise ExternalResponseError("bad structured output")
             return {"diary": "Shortened diary", "workout": True}
 
     monkeypatch.setattr(habits_module, "HabitExtractor", RetryThenSuccessExtractor)
@@ -110,20 +108,20 @@ async def test_handle_habits_text_retries_once_then_succeeds(monkeypatch):
     handled = await habits_module.handle_habits_text(update, context, raw_text)
 
     assert handled is True
-    assert RetryThenSuccessExtractor.calls == habits_module._HABIT_EXTRACTION_MAX_ATTEMPTS
+    assert RetryThenSuccessExtractor.calls == 1
     response_texts = [text for text, _ in update.message.replies]
     assert response_texts.count(MESSAGES_EN["external_response_error"]) == 0
-    assert any(text.startswith(MESSAGES_EN["confirm_entry"]) for text in response_texts)
+    assert any(MESSAGES_EN["confirm_entry"] in text for text in response_texts)
 
     assert session_repo._session.state == ConversationState.HABITS_AWAITING_CONFIRMATION
     assert session_repo._session.pending_entry is not None
     assert session_repo._session.pending_entry["raw_record"] == raw_text
-    assert session_repo._session.pending_entry["diary"] == raw_text
+    assert session_repo._session.pending_entry["diary"] == "Shortened diary"
     assert session_repo._session.pending_entry["workout"] is True
 
 
 @pytest.mark.asyncio
-async def test_handle_habits_text_retries_then_falls_back_to_draft(monkeypatch):
+async def test_handle_habits_text_failure_keeps_lossless_draft(monkeypatch):
     raw_text = "Morning workout, work, then home"
     session = SessionData(
         user_id=1,
@@ -147,7 +145,7 @@ async def test_handle_habits_text_retries_then_falls_back_to_draft(monkeypatch):
         def __init__(self, client):
             pass
 
-        async def extract(self, raw_text: str, language: str = "en", schema=None):
+        async def extract(self, raw_text: str, language: str = "en", schema=None, **kwargs):
             type(self).calls += 1
             raise ExternalResponseError("bad structured output")
 
@@ -156,10 +154,10 @@ async def test_handle_habits_text_retries_then_falls_back_to_draft(monkeypatch):
     handled = await habits_module.handle_habits_text(update, context, raw_text)
 
     assert handled is True
-    assert AlwaysFailExtractor.calls == habits_module._HABIT_EXTRACTION_MAX_ATTEMPTS
+    assert AlwaysFailExtractor.calls == 1
     response_texts = [text for text, _ in update.message.replies]
-    assert response_texts.count(MESSAGES_EN["external_response_error"]) == 1
-    assert any(text.startswith(MESSAGES_EN["confirm_entry"]) for text in response_texts)
+    assert any(MESSAGES_EN["diary_integration_failed"] in text for text in response_texts)
+    assert any(MESSAGES_EN["confirm_entry"] in text for text in response_texts)
 
     assert session_repo._session.state == ConversationState.HABITS_AWAITING_CONFIRMATION
     assert session_repo._session.pending_entry is not None
@@ -167,7 +165,7 @@ async def test_handle_habits_text_retries_then_falls_back_to_draft(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_no_custom_habits_skips_llm_and_keeps_full_diary(monkeypatch):
+async def test_no_custom_habits_still_processes_diary(monkeypatch):
     raw_text = "First paragraph.\n\nSecond paragraph."
     session_repo = FakeSessionRepo(SessionData(
         user_id=1,
@@ -180,13 +178,16 @@ async def test_no_custom_habits_skips_llm_and_keeps_full_diary(monkeypatch):
 
     class UnexpectedExtractor:
         def __init__(self, client):
-            raise AssertionError("No habit fields require extraction")
+            pass
+
+        async def extract(self, raw_text, **kwargs):
+            return {"diary": "Composed diary"}
 
     monkeypatch.setattr(habits_module, "HabitExtractor", UnexpectedExtractor)
     await habits_module.handle_habits_text(update, context, raw_text)
 
     assert session_repo._session.pending_entry["raw_record"] == raw_text
-    assert session_repo._session.pending_entry["diary"] == raw_text
+    assert session_repo._session.pending_entry["diary"] == "Composed diary"
 
 
 @pytest.mark.asyncio
@@ -207,7 +208,7 @@ async def test_diary_disabled_remains_absent_with_custom_habit(monkeypatch):
         def __init__(self, client):
             pass
 
-        async def extract(self, raw_text, language="en", schema=None):
+        async def extract(self, raw_text, language="en", schema=None, **kwargs):
             return {"diary": "Shortened diary", "workout": True}
 
     monkeypatch.setattr(habits_module, "HabitExtractor", Extractor)

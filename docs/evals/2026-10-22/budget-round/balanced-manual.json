@@ -1,0 +1,88 @@
+{
+  "note": "Only identical case/repeat finals available and reviewed for every model; this does not replace missing-output coverage.",
+  "caseRepeatKeys": [
+    "sensitive_and_uncertain|1",
+    "fields_only|1",
+    "fields_only|2",
+    "explicit_corrections|1",
+    "legacy_markers|2",
+    "legacy_markers|1",
+    "spoken_russian|2",
+    "spoken_russian|1",
+    "negations_other_people|1",
+    "ambiguous_time|1",
+    "morning_and_ratings|1"
+  ],
+  "results": [
+    {
+      "model": "deepseek/deepseek-v4-pro-0813",
+      "comparableFinals": 11,
+      "substantiveIssues": [
+        {
+          "case": "explicit_corrections",
+          "repeat": 1,
+          "reviewId": "cde9a6d794",
+          "note": "При исправлении тренировки потеряны сон и отсутствие зарядки; это фактический рассказ, а не команды удалить его."
+        },
+        {
+          "case": "ambiguous_time",
+          "repeat": 1,
+          "reviewId": "f636b9ff09",
+          "note": "Потеряны неопределённое время звонка, отсутствие связи с грустью и отсутствие алкоголя. Это не просьба сократить запись."
+        }
+      ],
+      "minorIssues": 5
+    },
+    {
+      "model": "mistralai/mistral-large-4-0",
+      "comparableFinals": 11,
+      "substantiveIssues": [
+        {
+          "case": "explicit_corrections",
+          "repeat": 1,
+          "reviewId": "1c7d679ef0",
+          "note": "Неотменённые сведения о сне и отсутствии зарядки потеряны при исправлении дня тренировки."
+        }
+      ],
+      "minorIssues": 3
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "comparableFinals": 11,
+      "substantiveIssues": [
+        {
+          "case": "explicit_corrections",
+          "repeat": 1,
+          "reviewId": "9628c324bb",
+          "note": "После правки пропали фактические сведения о сне и отсутствии зарядки; начало «Потом» осталось без предыдущего события. Удаление вчерашнего бассейна само по себе допустимо."
+        },
+        {
+          "case": "negations_other_people",
+          "repeat": 1,
+          "reviewId": "a475656432",
+          "note": "Прямое противоречие: «Вечером всё-таки выпил один бокал вина, я алкоголь не пил». Старое отрицание не исправлено."
+        },
+        {
+          "case": "ambiguous_time",
+          "repeat": 1,
+          "reviewId": "b631d3c4ef",
+          "note": "Потеряны отсутствие алкоголя и явно сообщённое отсутствие связи звонка с грустью. Пользователь не просил удалять эти сведения."
+        }
+      ],
+      "minorIssues": 3
+    },
+    {
+      "model": "google/gemini-3.8-flash",
+      "comparableFinals": 11,
+      "substantiveIssues": [
+        {
+          "case": "explicit_corrections",
+          "repeat": 1,
+          "reviewId": "1c7d679ef0",
+          "note": "Неотменённые сведения о сне и отсутствии зарядки потеряны при исправлении дня тренировки."
+        }
+      ],
+      "minorIssues": 0
+    }
+  ]
+}

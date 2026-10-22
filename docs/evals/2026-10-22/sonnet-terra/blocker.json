@@ -1,0 +1,10 @@
+{
+  "status": "incomplete_account_credits",
+  "httpStatus": 402,
+  "limitingResource": "OpenRouter account credits, not the API key spending limit",
+  "observedAccountBalanceUsd": -0.39930686199999954,
+  "observedKeyLimitRemainingUsd": 1.504354732,
+  "furtherModelCalls": "stopped",
+  "billingChanges": "none",
+  "resumeRequires": "User replenishes account credits or provides an authorized funded account; preserve completed calls and the same evaluation configuration"
+}

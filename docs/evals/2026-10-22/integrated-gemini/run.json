@@ -1,0 +1,16 @@
+{
+  "model": "google/gemini-3.8-flash",
+  "prompt_sha256": "a2846337aa14cd5f6e419af53bcda657d3c5e4a7b8bb10b0b3d1509fa3a95f59",
+  "base_max_tokens": 10000,
+  "timeout_seconds": 45,
+  "real_services": [
+    "OpenRouter",
+    "Gemini"
+  ],
+  "fake_services": [
+    "Telegram",
+    "Sheets",
+    "Firestore"
+  ],
+  "scope": "synthetic fixtures only; no production writes"
+}

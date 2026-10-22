@@ -1,0 +1,100 @@
+{
+  "startedAt": "2026-10-22T06:53:40.213Z",
+  "fixtureSha256": "61439da4d46e9e7a854deddcd00da4a39b10f2d721af8d3b0e04f30964f9c81a",
+  "repeats": 2,
+  "concurrency": 2,
+  "maxCostUsd": 1.5,
+  "maxCalls": 250,
+  "providerMap": {
+    "anthropic/claude-sonnet-5.5": {
+      "only": [
+        "Anthropic"
+      ],
+      "allow_fallbacks": false,
+      "max_price": {
+        "prompt": 2.5,
+        "completion": 13
+      }
+    },
+    "openai/gpt-5.6-terra": {
+      "only": [
+        "OpenAI"
+      ],
+      "allow_fallbacks": false,
+      "max_price": {
+        "prompt": 2.5,
+        "completion": 13
+      }
+    }
+  },
+  "expectedCalls": 12,
+  "modelMetadata": [
+    {
+      "id": "anthropic/claude-sonnet-5.5",
+      "name": "Anthropic: Claude Sonnet 5.5",
+      "pricing": {
+        "prompt": "0.000002",
+        "completion": "0.00001",
+        "web_search": "0.01",
+        "input_cache_read": "0.0000001",
+        "input_cache_write": "0.0000025",
+        "input_cache_write_1h": "0.000004"
+      },
+      "supported_parameters": [
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ],
+      "context_length": 1000000
+    },
+    {
+      "id": "openai/gpt-5.6-terra",
+      "name": "OpenAI: GPT-5.6 Terra",
+      "pricing": {
+        "prompt": "0.000002",
+        "completion": "0.000012",
+        "web_search": "0.01",
+        "input_cache_read": "0.0000002",
+        "input_cache_write": "0.0000025",
+        "overrides": [
+          {
+            "min_prompt_tokens": 272000,
+            "prompt": "0.000004",
+            "completion": "0.000018",
+            "input_cache_read": "0.0000004",
+            "input_cache_write": "0.000005"
+          }
+        ]
+      },
+      "supported_parameters": [
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ],
+      "context_length": 1050000
+    }
+  ],
+  "reasoningEffort": "low",
+  "normalMaxTokens": 10000,
+  "longMaxTokens": 24000,
+  "baselineMaxTokens": 4000,
+  "transport": "OpenRouter chat/completions with strict JSON Schema; not production LangChain wrapper",
+  "baselineScope": "Current extraction system prompt, first turn of every scenario",
+  "credentials": "Environment or .env; never persisted"
+}

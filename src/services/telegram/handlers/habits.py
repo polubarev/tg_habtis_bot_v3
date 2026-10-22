@@ -1,6 +1,7 @@
 from datetime import date, datetime, tzinfo
 import html
 import asyncio
+import json
 from typing import Any, Dict, cast
 from uuid import uuid4
 
@@ -21,10 +22,11 @@ from src.services.telegram.keyboards import (
 )
 from src.utils.date_parser import local_today, parse_relative_date
 from src.models.entry import HabitEntry
-from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, SheetAccessError, SheetWriteError
+from src.core.exceptions import ExternalTimeoutError, SheetAccessError, SheetWriteError
 from src.models.enums import EntryType, InputType
 from src.services.telegram.handlers.entry_collection import start_entry_collection
 from src.services.llm.extractors.habit_extractor import HabitExtractor
+from src.services.llm.client import diary_processing_timeout
 from src.services.telegram.handlers.config import looks_like_sheet_input
 from src.services.telegram.utils import (
     TELEGRAM_TEXT_CHUNK_SIZE,
@@ -48,38 +50,11 @@ from src.services.telegram.utils import (
 BASE_HABIT_FIELDS = set(HABITS_SHEET_COLUMNS)
 _LLM_TIMEOUT = get_settings().llm_timeout_seconds
 _SHEETS_TIMEOUT = get_settings().sheets_timeout_seconds
-_HABIT_EXTRACTION_MAX_ATTEMPTS = 2
 logger = get_logger(__name__)
 
 
 def _messages_for_lang(lang: str) -> Dict[str, str]:
     return MESSAGES_RU if lang == "ru" else MESSAGES_EN
-
-
-async def _extract_habit_with_retry(
-    extractor: HabitExtractor,
-    raw_text: str,
-    language: str,
-    schema: HabitSchema | None,
-) -> tuple[Dict[str, Any], str | None]:
-    error_key: str | None = None
-    for attempt in range(_HABIT_EXTRACTION_MAX_ATTEMPTS):
-        try:
-            payload = await asyncio.wait_for(
-                extractor.extract(raw_text, language=language, schema=schema),
-                timeout=_LLM_TIMEOUT,
-            )
-            return payload, None
-        except (asyncio.TimeoutError, ExternalTimeoutError):
-            error_key = "external_timeout_error"
-        except ExternalResponseError:
-            error_key = "external_response_error"
-        except Exception:
-            return {}, None
-
-        if attempt + 1 >= _HABIT_EXTRACTION_MAX_ATTEMPTS:
-            break
-    return {}, error_key
 
 
 def _bool_label(value: bool, lang: str) -> str:
@@ -486,6 +461,7 @@ async def _maybe_prompt_existing_entry(
         session.temp_data = {}
     session.temp_data["existing_row_index"] = existing.row_index
     session.temp_data["existing_raw_record"] = existing.raw_record
+    session.temp_data["existing_entry"] = existing.entry_data or {}
     session.temp_data["existing_entry_action"] = None
     session.selected_date = selected
     session.state = ConversationState.HABITS_AWAITING_EXISTING_CHOICE
@@ -672,6 +648,8 @@ async def handle_habits_existing_choice(update: Update, context: ContextTypes.DE
     if session.temp_data is None:
         session.temp_data = {}
     session.temp_data["existing_entry_action"] = action
+    for key in ("entry_messages", "previous_entry", "previous_raw_record", "entry_scope"):
+        session.temp_data.pop(key, None)
     if session_repo:
         await session_repo.save(session)
 
@@ -708,6 +686,8 @@ async def handle_habits_text(
     context: ContextTypes.DEFAULT_TYPE,
     text: str | None = None,
     input_type: InputType = InputType.TEXT,
+    *,
+    user_texts: list[str] | None = None,
 ) -> bool:
     """Handle text input during habits flow. Returns True if handled."""
 
@@ -719,54 +699,62 @@ async def handle_habits_text(
         return False
 
     raw_text = text or (update.message.text if update.message else "") or ""
-    selected_date = session.selected_date
-    previous_raw = (session.temp_data or {}).get("previous_raw_record")
-    existing_action = (session.temp_data or {}).get("existing_entry_action")
-    existing_raw = (
-        (session.temp_data or {}).get("existing_raw_record")
-        if existing_action == "append"
-        else None
-    )
-    combined_text = raw_text
-    if previous_raw:
-        combined_text = f"{previous_raw}\n\n[Update]\n{raw_text}"
-    elif existing_raw:
-        combined_text = f"{existing_raw}\n\n[Update]\n{raw_text}"
-
-    llm_client = _get_llm_client(context)
-    llm_available = llm_client is not None and getattr(llm_client, "_model", None) is not None
-    extraction: Dict[str, Any] = {}
-    profile = await _get_user_repo(context).get_by_telegram_id(update.effective_user.id) if _get_user_repo(context) else None
+    user_repo = _get_user_repo(context)
+    profile = await user_repo.get_by_telegram_id(update.effective_user.id) if user_repo else None
     lang = resolve_language(profile)
     user_tz = resolve_user_timezone(profile)
-    if selected_date is None:
-        selected_date = local_today(user_tz)
+    selected_date = session.selected_date or local_today(user_tz)
+    session.selected_date = selected_date
     habit_schema = profile.habit_schema if profile else None
     include_diary = habit_schema.include_diary if habit_schema else True
-    schema_fields: list[str] = (
-        list(habit_schema.fields.keys()) if habit_schema and habit_schema.fields else []
+    field_order = [name for name in (habit_schema.fields if habit_schema else {})
+                   if name not in BASE_HABIT_FIELDS | {"input_type", "field_order", "defaulted_fields"}]
+    temp = session.temp_data = session.temp_data or {}
+    scope = {"user_id": session.user_id, "date": selected_date.isoformat()}
+    if temp.get("entry_scope") != scope:
+        for key in ("entry_messages", "previous_entry", "previous_raw_record"):
+            temp.pop(key, None)
+        temp["entry_scope"] = scope
+    history = list(temp.get("entry_messages") or [])
+    previous = temp.get("previous_entry") or {}
+    if not history and temp.get("existing_entry_action") == "append":
+        previous = dict(temp.get("existing_entry") or {})
+        previous["raw_record"] = temp.get("existing_raw_record") or ""
+        # Old rows can have a readable diary that differs from the original material.
+        snapshot = {key: value for key, value in previous.items()
+                    if key in {*field_order, "diary"}}
+        history = [{"role": "user", "content": previous["raw_record"]},
+                   {"role": "assistant", "content": json.dumps(snapshot, ensure_ascii=False)}]
+    previous_raw = previous.get("raw_record", "")
+    combined_text = "\n\n".join(part for part in (previous_raw, raw_text) if part)
+    history.extend({"role": "user", "content": part} for part in (user_texts or [raw_text]))
+    previous_diary = previous.get("diary")
+    fallback_diary = "\n\n".join(
+        part for part in (previous_diary if previous_diary is not None else previous_raw, raw_text)
+        if part
     )
-    field_order = [f for f in schema_fields if f not in BASE_HABIT_FIELDS]
-    if field_order and not llm_available and update.message:
-        await update.message.reply_text(_messages_for_lang(lang)["llm_disabled"])
+    llm_client = _get_llm_client(context)
+    llm_available = llm_client is not None and getattr(llm_client, "_model", None) is not None
+    needs_processing = include_diary or bool(field_order)
+    processing_failed = needs_processing
+    extraction: Dict[str, Any] = {}
     progress_message = None
-    if llm_available and field_order:
-        extraction_error_key = None
+    if needs_processing and llm_available:
         try:
             if update.message and not getattr(update, "entry_collection_processing", False):
                 progress_message = await update.message.reply_text(_messages_for_lang(lang)["processing"])
-            extractor = HabitExtractor(llm_client)
-            extraction, extraction_error_key = await _extract_habit_with_retry(
-                extractor=extractor,
-                raw_text=combined_text,
-                language=lang,
-                schema=habit_schema or None,
+            extraction = await asyncio.wait_for(
+                HabitExtractor(llm_client).extract(
+                    combined_text, language=lang, schema=habit_schema,
+                    history=history, previous_diary=previous_diary, new_text=raw_text,
+                ),
+                timeout=diary_processing_timeout(combined_text, _LLM_TIMEOUT),
             )
-        except Exception:
-            extraction = {}
-            extraction_error_key = None
-        if extraction_error_key and update.message:
-            await update.message.reply_text(_messages_for_lang(lang)[extraction_error_key])
+            processing_failed = False
+        except Exception as exc:
+            logger.warning("habit_processing_failed", error_type=type(exc).__name__)
+    elif not needs_processing:
+        processing_failed = False
     entry_data: Dict[str, Any] = {
         "timestamp": datetime.now(user_tz).isoformat(),
         "date": selected_date.isoformat(),
@@ -775,11 +763,16 @@ async def handle_habits_text(
         "field_order": field_order,
         "entry_id": str(uuid4()),
     }
+    if previous.get("input_type") and previous["input_type"] != input_type.value:
+        entry_data["input_type"] = InputType.MIXED.value
     if include_diary:
-        entry_data["diary"] = combined_text
-    for k, v in extraction.items():
-        if k not in {"timestamp", "date", "raw_record", "diary", "input_type", "entry_id"}:
-            entry_data[k] = v
+        entry_data["diary"] = fallback_diary if processing_failed else extraction["diary"]
+    for name in field_order:
+        entry_data[name] = previous.get(name) if processing_failed else extraction.get(name)
+    if not processing_failed and needs_processing:
+        history.append({"role": "assistant", "content": json.dumps(extraction, ensure_ascii=False)})
+    temp["entry_messages"] = history
+    temp["entry_processing_failed"] = processing_failed
     _normalize_list_fields(entry_data, habit_schema)
     defaulted_fields = _apply_defaults(entry_data, habit_schema)
     if defaulted_fields:
@@ -794,9 +787,8 @@ async def handle_habits_text(
     if update.message:
         await reply_text_chunked(
             update.message,
-            msgs["confirm_entry"]
-            + "\n\n"
-            + preview,
+            (msgs["diary_integration_failed"] + "\n\n" if processing_failed else "")
+            + msgs["confirm_entry"] + "\n\n" + preview,
             reply_markup=build_confirmation_keyboard(prefix="habits", language=lang),
             parse_mode=ParseMode.HTML,
         )
@@ -973,7 +965,7 @@ async def handle_habits_confirm(update: Update, context: ContextTypes.DEFAULT_TY
             await query.edit_message_text(_messages_for_lang(lang)["sheet_not_configured"])
     else:
         session.temp_data = session.temp_data or {}
-        session.temp_data["previous_raw_record"] = session.pending_entry.get("raw_record", "")
+        session.temp_data["previous_entry"] = dict(session.pending_entry)
         session.pending_entry = None
         if session_repo:
             await session_repo.save(session)

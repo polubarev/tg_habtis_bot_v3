@@ -39,7 +39,7 @@ class FakeModel:
 class FakeStructuredClient:
     _model = object()
 
-    def with_structured_output(self, _schema):
+    def with_structured_output(self, _schema, **kwargs):
         return self
 
     async def ainvoke(self, _messages):

@@ -33,7 +33,7 @@ def _ensure_diary_field(profile) -> bool:
     schema = profile.habit_schema
     include_diary = getattr(schema, "include_diary", True)
     updated = False
-    if include_diary and "diary" not in schema.fields:
+    if include_diary and schema.fields.get("diary") != DEFAULT_HABIT_SCHEMA.fields["diary"]:
         schema.fields["diary"] = DEFAULT_HABIT_SCHEMA.fields["diary"].model_copy(deep=True)
         updated = True
     if not include_diary and "diary" in schema.fields:

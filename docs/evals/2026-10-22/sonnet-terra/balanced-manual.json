@@ -1,0 +1,45 @@
+{
+  "note": "Only identical case/repeat finals available and reviewed for every model; this does not replace missing-output coverage.",
+  "caseRepeatKeys": [
+    "sensitive_and_uncertain|1",
+    "sensitive_and_uncertain|2",
+    "legacy_markers|1",
+    "explicit_corrections|1",
+    "explicit_corrections|2",
+    "ambiguous_time|1",
+    "mixed_and_counts|1",
+    "spoken_russian|1",
+    "fields_only|1",
+    "morning_and_ratings|1",
+    "morning_and_ratings|2",
+    "negations_other_people|2",
+    "negations_other_people|1"
+  ],
+  "results": [
+    {
+      "model": "anthropic/claude-sonnet-5.5",
+      "comparableFinals": 13,
+      "substantiveIssues": [],
+      "minorIssues": 2
+    },
+    {
+      "model": "openai/gpt-5.6-terra",
+      "comparableFinals": 13,
+      "substantiveIssues": [
+        {
+          "case": "explicit_corrections",
+          "repeat": 1,
+          "reviewId": "1add260561",
+          "note": "Потеряны неотменённые сведения о сне и отсутствии зарядки. Начальное «Потом» осталось без предшествующего события."
+        },
+        {
+          "case": "explicit_corrections",
+          "repeat": 2,
+          "reviewId": "1add260561",
+          "note": "Потеряны неотменённые сведения о сне и отсутствии зарядки. Начальное «Потом» осталось без предшествующего события."
+        }
+      ],
+      "minorIssues": 2
+    }
+  ]
+}

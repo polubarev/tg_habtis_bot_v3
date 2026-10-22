@@ -1,0 +1,36 @@
+{
+  "totalCallsIncludingSmoke": 327,
+  "mainCallsIncludingRecovery": 289,
+  "holdoutCalls": 22,
+  "smokeCalls": 16,
+  "knownBilledCostUsd": 1.3701570299999994,
+  "missingBillingCalls": 28,
+  "explicitRateLimitCalls": 21,
+  "conservativeBudgetChargeUsd": 2.945772149999998,
+  "balancedShortCosts": [
+    {
+      "model": "google/gemini-3.8-flash",
+      "comparableShortCalls": 30,
+      "billedCostUsd": 0.044085,
+      "costPer100CallsUsd": 0.14695
+    },
+    {
+      "model": "deepseek/deepseek-v4-pro-0813",
+      "comparableShortCalls": 30,
+      "billedCostUsd": 0.0878703,
+      "costPer100CallsUsd": 0.292901
+    },
+    {
+      "model": "mistralai/mistral-large-4-0",
+      "comparableShortCalls": 30,
+      "billedCostUsd": 0.24181532000000003,
+      "costPer100CallsUsd": 0.8060510666666668
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "comparableShortCalls": 30,
+      "billedCostUsd": 0.022710600000000004,
+      "costPer100CallsUsd": 0.07570200000000002
+    }
+  ]
+}

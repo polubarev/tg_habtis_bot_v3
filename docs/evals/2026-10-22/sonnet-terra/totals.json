@@ -1,0 +1,24 @@
+{
+  "totalCallsIncludingSmoke": 145,
+  "mainCallsIncludingRecovery": 125,
+  "holdoutCalls": 12,
+  "smokeCalls": 8,
+  "knownBilledCostUsd": 1.5200136,
+  "missingBillingCalls": 25,
+  "explicitRateLimitCalls": 0,
+  "conservativeBudgetChargeUsd": 5.024491600000001,
+  "balancedShortCosts": [
+    {
+      "model": "anthropic/claude-sonnet-5.5",
+      "comparableShortCalls": 34,
+      "billedCostUsd": 0.5083519999999999,
+      "costPer100CallsUsd": 1.4951529411764704
+    },
+    {
+      "model": "openai/gpt-5.6-terra",
+      "comparableShortCalls": 34,
+      "billedCostUsd": 0.1014858,
+      "costPer100CallsUsd": 0.2984876470588235
+    }
+  ]
+}

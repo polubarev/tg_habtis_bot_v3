@@ -1,0 +1,26 @@
+[
+  {
+    "model": "openai/gpt-5.6-terra",
+    "repeat": 1,
+    "habitMood": 2,
+    "diaryMoodMentions": [],
+    "mismatch": false,
+    "note": "Post-hoc observation after reading outputs; not part of the frozen automatic primary checks"
+  },
+  {
+    "model": "anthropic/claude-sonnet-5.5",
+    "repeat": 1,
+    "habitMood": 2,
+    "diaryMoodMentions": [],
+    "mismatch": false,
+    "note": "Post-hoc observation after reading outputs; not part of the frozen automatic primary checks"
+  },
+  {
+    "model": "anthropic/claude-sonnet-5.5",
+    "repeat": 2,
+    "habitMood": 2,
+    "diaryMoodMentions": [],
+    "mismatch": false,
+    "note": "Post-hoc observation after reading outputs; not part of the frozen automatic primary checks"
+  }
+]

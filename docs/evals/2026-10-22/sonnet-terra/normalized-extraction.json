@@ -1,0 +1,37 @@
+{
+  "note": "Supplementary metric: exclude the fixed ambiguous family-note label and normalize [] to null for the multi-choice field. Original strict metrics are unchanged.",
+  "results": [
+    {
+      "model": "anthropic/claude-sonnet-5.5",
+      "phase": "baseline",
+      "matched": 148,
+      "total": 148,
+      "percent": 100,
+      "issues": []
+    },
+    {
+      "model": "anthropic/claude-sonnet-5.5",
+      "phase": "unified",
+      "matched": 358,
+      "total": 358,
+      "percent": 100,
+      "issues": []
+    },
+    {
+      "model": "openai/gpt-5.6-terra",
+      "phase": "baseline",
+      "matched": 138,
+      "total": 138,
+      "percent": 100,
+      "issues": []
+    },
+    {
+      "model": "openai/gpt-5.6-terra",
+      "phase": "unified",
+      "matched": 358,
+      "total": 358,
+      "percent": 100,
+      "issues": []
+    }
+  ]
+}

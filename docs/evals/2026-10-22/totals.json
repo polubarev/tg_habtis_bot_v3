@@ -1,0 +1,29 @@
+{
+  "totalCallsIncludingSmoke": 239,
+  "mainCallsIncludingRecovery": 209,
+  "holdoutCalls": 18,
+  "smokeCalls": 12,
+  "knownBilledCostUsd": 0.301213152,
+  "missingBillingCalls": 8,
+  "conservativeBudgetChargeUsd": 0.5723171270000005,
+  "balancedShortCosts": [
+    {
+      "model": "google/gemini-3.8-flash",
+      "comparableShortCalls": 40,
+      "billedCostUsd": 0.0597015,
+      "costPer100CallsUsd": 0.14925375
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "comparableShortCalls": 40,
+      "billedCostUsd": 0.0055558199999999995,
+      "costPer100CallsUsd": 0.01388955
+    },
+    {
+      "model": "qwen/qwen3.8-flash",
+      "comparableShortCalls": 40,
+      "billedCostUsd": 0.023032142000000005,
+      "costPer100CallsUsd": 0.057580355000000014
+    }
+  ]
+}

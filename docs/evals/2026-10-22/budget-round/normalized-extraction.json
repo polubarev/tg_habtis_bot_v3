@@ -1,0 +1,80 @@
+{
+  "note": "Supplementary metric: exclude the fixed ambiguous family-note label and normalize [] to null for the multi-choice field. Original strict metrics are unchanged.",
+  "results": [
+    {
+      "model": "google/gemini-3.8-flash",
+      "phase": "baseline",
+      "matched": 198,
+      "total": 198,
+      "percent": 100,
+      "issues": []
+    },
+    {
+      "model": "google/gemini-3.8-flash",
+      "phase": "unified",
+      "matched": 438,
+      "total": 438,
+      "percent": 100,
+      "issues": []
+    },
+    {
+      "model": "deepseek/deepseek-v4-pro-0813",
+      "phase": "baseline",
+      "matched": 198,
+      "total": 198,
+      "percent": 100,
+      "issues": []
+    },
+    {
+      "model": "deepseek/deepseek-v4-pro-0813",
+      "phase": "unified",
+      "matched": 498,
+      "total": 498,
+      "percent": 100,
+      "issues": []
+    },
+    {
+      "model": "mistralai/mistral-large-4-0",
+      "phase": "baseline",
+      "matched": 188,
+      "total": 188,
+      "percent": 100,
+      "issues": []
+    },
+    {
+      "model": "mistralai/mistral-large-4-0",
+      "phase": "unified",
+      "matched": 379,
+      "total": 379,
+      "percent": 100,
+      "issues": []
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "phase": "baseline",
+      "matched": 197,
+      "total": 198,
+      "percent": 99.4949494949495,
+      "issues": [
+        {
+          "case": "explicit_corrections",
+          "repeat": 1,
+          "turn": 1,
+          "field": "общение",
+          "expected": null,
+          "actual": [
+            "друзья"
+          ]
+        }
+      ]
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "phase": "unified",
+      "matched": 498,
+      "total": 498,
+      "percent": 100,
+      "issues": []
+    }
+  ]
+}

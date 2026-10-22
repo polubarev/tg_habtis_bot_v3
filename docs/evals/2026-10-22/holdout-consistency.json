@@ -1,0 +1,58 @@
+[
+  {
+    "model": "openai/gpt-6-luna",
+    "repeat": 1,
+    "habitMood": 2,
+    "diaryMoodMentions": [
+      3
+    ],
+    "mismatch": true,
+    "note": "Post-hoc observation after reading outputs; not part of the frozen automatic primary checks"
+  },
+  {
+    "model": "google/gemini-3.8-flash",
+    "repeat": 1,
+    "habitMood": 2,
+    "diaryMoodMentions": [
+      3
+    ],
+    "mismatch": true,
+    "note": "Post-hoc observation after reading outputs; not part of the frozen automatic primary checks"
+  },
+  {
+    "model": "google/gemini-3.8-flash",
+    "repeat": 2,
+    "habitMood": 2,
+    "diaryMoodMentions": [],
+    "mismatch": false,
+    "note": "Post-hoc observation after reading outputs; not part of the frozen automatic primary checks"
+  },
+  {
+    "model": "openai/gpt-6-luna",
+    "repeat": 2,
+    "habitMood": 2,
+    "diaryMoodMentions": [],
+    "mismatch": false,
+    "note": "Post-hoc observation after reading outputs; not part of the frozen automatic primary checks"
+  },
+  {
+    "model": "qwen/qwen3.8-flash",
+    "repeat": 1,
+    "habitMood": 2,
+    "diaryMoodMentions": [
+      2
+    ],
+    "mismatch": false,
+    "note": "Post-hoc observation after reading outputs; not part of the frozen automatic primary checks"
+  },
+  {
+    "model": "qwen/qwen3.8-flash",
+    "repeat": 2,
+    "habitMood": 2,
+    "diaryMoodMentions": [
+      2
+    ],
+    "mismatch": false,
+    "note": "Post-hoc observation after reading outputs; not part of the frozen automatic primary checks"
+  }
+]

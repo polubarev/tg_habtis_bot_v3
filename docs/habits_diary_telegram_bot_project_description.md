@@ -9,7 +9,7 @@
 The project is a Telegram bot that helps users keep a daily diary and track habits using both text and audio messages. The bot uses an LLM (via OpenRouter + LangChain with structured output) to extract structured habit data from free-form descriptions and saves:
 
 - **raw_record** – the original text (from text input or speech transcription); never modified by the LLM.  
-- **diary** – the complete original diary text when enabled, without AI editing; new entries match `raw_record`.
+- **diary** – a full, detailed diary in the author’s voice, with additions integrated and bot commands omitted. Original material remains in `raw_record`.
 
 All data (habits, diary, dreams, thoughts, answers to custom questions) is stored in a user-defined **Google Sheet**. The bot is optimized for Russian-speaking users but should work with other languages as well.
 
@@ -27,7 +27,7 @@ The system is designed to be:
    - User runs `/habits`.  
    - Chooses a date (e.g., "today", "yesterday", or a specific date).  
    - Sends a free-form description as text or voice.  
-   - System transcribes voice (if needed), preserves the combined text in `raw_record` and, when enabled, `diary`, and uses the LLM only to extract configured habit values.
+   - System transcribes voice (if needed), preserves the combined original text in `raw_record`, and uses one structured LLM response for the complete diary and configured habit values.
    - Bot shows extracted JSON and asks for confirmation.  
    - On confirmation, data is appended to the user’s Google Sheet.
 
@@ -91,7 +91,7 @@ Each user has a **habit configuration** that defines which fields the LLM should
   },
   "diary": {
     "type": "string",
-    "description": "Full original diary text, preserved exactly without AI editing."
+    "description": "Full detailed diary in the author’s language and voice; integrate additions without summarizing and omit bot commands."
   },
   "day_importance": {
     "type": "integer",
@@ -111,7 +111,7 @@ Notes:
 - `raw_record` is **always** the original content, either:  
   - text message from the user, or  
   - transcription result from the speech-to-text API.  
-- `diary` equals `raw_record` for new entries when enabled; users can disable the diary field.
+- `diary` preserves narrative separately from `raw_record`; users can disable the diary field. Fields-only additions leave the prior diary unchanged.
 - The schema can be extended or edited by the user in a future config UI.
 
 ---
@@ -188,7 +188,7 @@ The bot must validate the sheet structure on first use and create missing tabs/c
      - Using structured output (Pydantic/JSON schema) for robust extraction.  
      - Validating and parsing model output.  
    - Separate templates for:  
-     - Habit extraction for configured fields; diary text is preserved outside the LLM.
+     - Unified diary composition and habit extraction from original entry-scoped message history.
      - Dream metadata extraction.  
      - Thought tagging.  
      - Mapping answers to custom questions.
@@ -223,7 +223,7 @@ The bot must validate the sheet structure on first use and create missing tabs/c
 Because the LLM can hallucinate, especially for free-text fields, the design explicitly separates:
 
 - **`raw_record`** – ground truth input from the user (text or transcription), never edited by the LLM.  
-- **`diary`** – optional full copy of the combined original text for new entries, never rewritten by the LLM.
+- **`diary`** – optional detailed narrative; additions are integrated by the LLM while original text stays untouched in `raw_record`.
 
 Additional measures:
 
@@ -250,4 +250,4 @@ A typical Russian-language interaction could look like this:
 
 ---
 
-This document is the working project description/spec for implementing the bot from scratch in a clean, modular way with OpenRouter + LangChain + structured output, a clear habit config schema, and original diary text kept outside LLM extraction.
+This document is the working project description/spec for implementing the bot from scratch in a clean, modular way with OpenRouter + LangChain + structured output, a clear habit config schema, and original input preserved separately from the generated diary.

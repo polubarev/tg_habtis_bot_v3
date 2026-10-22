@@ -1,0 +1,297 @@
+{
+  "createdAt": "2026-10-22T06:56:02.416Z",
+  "recordedCalls": 12,
+  "expectedCalls": 12,
+  "totalBilledCostUsd": 0.3859597,
+  "labelAmbiguity": "sensitive_and_uncertain, turn 1, общение: spouse leaving a note can be interpreted as family communication; exclude this one field from unambiguous metric for all models/phases/repeats",
+  "metrics": [
+    {
+      "model": "anthropic/claude-sonnet-5.5",
+      "phase": "baseline",
+      "expectedCalls": 2,
+      "attemptedCalls": 2,
+      "validCalls": 2,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 2,
+      "extraction": {
+        "all": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        },
+        "known": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 0,
+          "total": 0,
+          "percent": null
+        },
+        "explicitZeroOrFalse": {
+          "matched": 12,
+          "total": 12,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": null,
+      "checkTotals": {},
+      "failedChecks": [],
+      "shortLatencyP50Ms": null,
+      "shortLatencyP90Ms": null,
+      "billedCostUsd": 0.037624,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 0,
+      "failures": [],
+      "longOutputs": []
+    },
+    {
+      "model": "anthropic/claude-sonnet-5.5",
+      "phase": "unified",
+      "expectedCalls": 4,
+      "attemptedCalls": 4,
+      "validCalls": 4,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 4,
+      "extraction": {
+        "all": {
+          "matched": 40,
+          "total": 40,
+          "percent": 100
+        },
+        "known": {
+          "matched": 40,
+          "total": 40,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 0,
+          "total": 0,
+          "percent": null
+        },
+        "explicitZeroOrFalse": {
+          "matched": 24,
+          "total": 24,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 40,
+          "total": 40,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": 2,
+      "checkTotals": {
+        "fact": {
+          "passed": 110,
+          "total": 110
+        },
+        "no_update_marker": {
+          "passed": 4,
+          "total": 4
+        },
+        "order": {
+          "passed": 2,
+          "total": 2
+        }
+      },
+      "failedChecks": [],
+      "shortLatencyP50Ms": null,
+      "shortLatencyP90Ms": null,
+      "billedCostUsd": 0.23424,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 0,
+      "failures": [],
+      "longOutputs": [
+        {
+          "repeat": 1,
+          "turn": 1,
+          "chars": 8081,
+          "seconds": 17.359,
+          "factsMatched": 26,
+          "factsTotal": 26
+        },
+        {
+          "repeat": 1,
+          "turn": 2,
+          "chars": 8195,
+          "seconds": 19.793,
+          "factsMatched": 29,
+          "factsTotal": 29
+        },
+        {
+          "repeat": 2,
+          "turn": 1,
+          "chars": 8081,
+          "seconds": 17.536,
+          "factsMatched": 26,
+          "factsTotal": 26
+        },
+        {
+          "repeat": 2,
+          "turn": 2,
+          "chars": 8195,
+          "seconds": 17.738,
+          "factsMatched": 29,
+          "factsTotal": 29
+        }
+      ]
+    },
+    {
+      "model": "openai/gpt-5.6-terra",
+      "phase": "baseline",
+      "expectedCalls": 2,
+      "attemptedCalls": 2,
+      "validCalls": 2,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 2,
+      "extraction": {
+        "all": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        },
+        "known": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 0,
+          "total": 0,
+          "percent": null
+        },
+        "explicitZeroOrFalse": {
+          "matched": 12,
+          "total": 12,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": null,
+      "checkTotals": {},
+      "failedChecks": [],
+      "shortLatencyP50Ms": null,
+      "shortLatencyP90Ms": null,
+      "billedCostUsd": 0.0109951,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 0,
+      "failures": [],
+      "longOutputs": []
+    },
+    {
+      "model": "openai/gpt-5.6-terra",
+      "phase": "unified",
+      "expectedCalls": 4,
+      "attemptedCalls": 4,
+      "validCalls": 3,
+      "endToEndSuccessPercent": 75,
+      "perfectExtractionTurns": 3,
+      "extraction": {
+        "all": {
+          "matched": 30,
+          "total": 30,
+          "percent": 100
+        },
+        "known": {
+          "matched": 30,
+          "total": 30,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 0,
+          "total": 0,
+          "percent": null
+        },
+        "explicitZeroOrFalse": {
+          "matched": 18,
+          "total": 18,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 30,
+          "total": 30,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": 1,
+      "checkTotals": {
+        "fact": {
+          "passed": 81,
+          "total": 81
+        },
+        "no_update_marker": {
+          "passed": 3,
+          "total": 3
+        },
+        "order": {
+          "passed": 1,
+          "total": 1
+        }
+      },
+      "failedChecks": [],
+      "shortLatencyP50Ms": null,
+      "shortLatencyP90Ms": null,
+      "billedCostUsd": 0.10310059999999999,
+      "missingBillingCalls": 1,
+      "reasoningTokens": 0,
+      "failures": [
+        {
+          "case": "long_varied_holdout",
+          "repeat": 2,
+          "turn": 2,
+          "error": {
+            "message": "This request requires more credits, or fewer max_tokens. You requested up to 24000 tokens, but can only afford 1043. To increase, visit https://openrouter.ai/workspaces/default/keys/af7f96e5e00443b5eb06bded6a0bb4e25b440c652d495d322d080d24c4d14f90 and adjust the key's monthly limit",
+            "code": 402,
+            "metadata": {
+              "limit_source": "openrouter_credits",
+              "remedy_hint": "Add credits at https://openrouter.ai/settings/credits, or lower max_tokens / prompt size to fit your remaining balance.",
+              "provider_name": null
+            }
+          },
+          "parseError": "Missing text content"
+        }
+      ],
+      "longOutputs": [
+        {
+          "repeat": 1,
+          "turn": 1,
+          "chars": 8126,
+          "seconds": 14.996,
+          "factsMatched": 26,
+          "factsTotal": 26
+        },
+        {
+          "repeat": 1,
+          "turn": 2,
+          "chars": 8240,
+          "seconds": 14.664,
+          "factsMatched": 29,
+          "factsTotal": 29
+        },
+        {
+          "repeat": 2,
+          "turn": 1,
+          "chars": 8053,
+          "seconds": 14.846,
+          "factsMatched": 26,
+          "factsTotal": 26
+        }
+      ]
+    }
+  ]
+}

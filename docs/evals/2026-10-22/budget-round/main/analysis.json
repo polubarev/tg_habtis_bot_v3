@@ -1,0 +1,859 @@
+{
+  "createdAt": "2026-10-22T06:38:07.420Z",
+  "recordedCalls": 289,
+  "expectedCalls": 280,
+  "totalBilledCostUsd": 1.1356063800000002,
+  "labelAmbiguity": "sensitive_and_uncertain, turn 1, общение: spouse leaving a note can be interpreted as family communication; exclude this one field from unambiguous metric for all models/phases/repeats",
+  "metrics": [
+    {
+      "model": "google/gemini-3.8-flash",
+      "phase": "baseline",
+      "expectedCalls": 20,
+      "attemptedCalls": 20,
+      "validCalls": 20,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 20,
+      "extraction": {
+        "all": {
+          "matched": 200,
+          "total": 200,
+          "percent": 100
+        },
+        "known": {
+          "matched": 72,
+          "total": 72,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 128,
+          "total": 128,
+          "percent": 100
+        },
+        "explicitZeroOrFalse": {
+          "matched": 26,
+          "total": 26,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 198,
+          "total": 198,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": null,
+      "checkTotals": {},
+      "failedChecks": [],
+      "shortLatencyP50Ms": 2224,
+      "shortLatencyP90Ms": 3433,
+      "billedCostUsd": 0.023036175,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 572,
+      "failures": [],
+      "longOutputs": []
+    },
+    {
+      "model": "google/gemini-3.8-flash",
+      "phase": "unified",
+      "expectedCalls": 50,
+      "attemptedCalls": 46,
+      "validCalls": 44,
+      "endToEndSuccessPercent": 88,
+      "perfectExtractionTurns": 41,
+      "extraction": {
+        "all": {
+          "matched": 437,
+          "total": 440,
+          "percent": 99.32
+        },
+        "known": {
+          "matched": 172,
+          "total": 172,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 265,
+          "total": 268,
+          "percent": 98.88
+        },
+        "explicitZeroOrFalse": {
+          "matched": 72,
+          "total": 72,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 435,
+          "total": 438,
+          "percent": 99.32
+        }
+      },
+      "mismatches": [
+        {
+          "case": "explicit_corrections",
+          "turn": 1,
+          "repeat": 2,
+          "field": "общение",
+          "expected": null,
+          "actual": [],
+          "ambiguousLabel": false
+        },
+        {
+          "case": "explicit_corrections",
+          "turn": 2,
+          "repeat": 2,
+          "field": "общение",
+          "expected": null,
+          "actual": [],
+          "ambiguousLabel": false
+        },
+        {
+          "case": "explicit_corrections",
+          "turn": 3,
+          "repeat": 2,
+          "field": "общение",
+          "expected": null,
+          "actual": [],
+          "ambiguousLabel": false
+        }
+      ],
+      "fullChains": 18,
+      "checkTotals": {
+        "fact": {
+          "passed": 216,
+          "total": 218
+        },
+        "no_update_marker": {
+          "passed": 44,
+          "total": 44
+        },
+        "forbidden": {
+          "passed": 20,
+          "total": 20
+        },
+        "order": {
+          "passed": 6,
+          "total": 6
+        },
+        "unchanged": {
+          "passed": 2,
+          "total": 2
+        },
+        "empty": {
+          "passed": 4,
+          "total": 4
+        }
+      },
+      "failedChecks": [
+        {
+          "case": "spoken_russian",
+          "turn": 2,
+          "repeat": 1,
+          "id": "fact:under_box"
+        },
+        {
+          "case": "spoken_russian",
+          "turn": 2,
+          "repeat": 2,
+          "id": "fact:under_box"
+        }
+      ],
+      "shortLatencyP50Ms": 2723,
+      "shortLatencyP90Ms": 3091,
+      "billedCostUsd": 0.16505752499999998,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 0,
+      "failures": [
+        {
+          "case": "mixed_and_counts",
+          "repeat": 1,
+          "turn": 1,
+          "finishReason": "content_filter",
+          "parseError": "Unterminated string in JSON at position 185 (line 2 column 184)"
+        },
+        {
+          "case": "mixed_and_counts",
+          "repeat": 2,
+          "turn": 1,
+          "finishReason": "content_filter",
+          "parseError": "Unterminated string in JSON at position 185 (line 2 column 184)"
+        }
+      ],
+      "longOutputs": [
+        {
+          "repeat": 1,
+          "turn": 1,
+          "chars": 20116,
+          "seconds": 33.734,
+          "factsMatched": 18,
+          "factsTotal": 18
+        },
+        {
+          "repeat": 1,
+          "turn": 2,
+          "chars": 20230,
+          "seconds": 32.341,
+          "factsMatched": 21,
+          "factsTotal": 21
+        },
+        {
+          "repeat": 2,
+          "turn": 1,
+          "chars": 20116,
+          "seconds": 34.227,
+          "factsMatched": 18,
+          "factsTotal": 18
+        },
+        {
+          "repeat": 2,
+          "turn": 2,
+          "chars": 20230,
+          "seconds": 35.225,
+          "factsMatched": 21,
+          "factsTotal": 21
+        }
+      ]
+    },
+    {
+      "model": "deepseek/deepseek-v4-pro-0813",
+      "phase": "baseline",
+      "expectedCalls": 20,
+      "attemptedCalls": 20,
+      "validCalls": 20,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 19,
+      "extraction": {
+        "all": {
+          "matched": 199,
+          "total": 200,
+          "percent": 99.5
+        },
+        "known": {
+          "matched": 72,
+          "total": 72,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 127,
+          "total": 128,
+          "percent": 99.22
+        },
+        "explicitZeroOrFalse": {
+          "matched": 26,
+          "total": 26,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 198,
+          "total": 198,
+          "percent": 100
+        }
+      },
+      "mismatches": [
+        {
+          "case": "sensitive_and_uncertain",
+          "turn": 1,
+          "repeat": 1,
+          "field": "общение",
+          "expected": null,
+          "actual": [
+            "семья"
+          ],
+          "ambiguousLabel": true
+        }
+      ],
+      "fullChains": null,
+      "checkTotals": {},
+      "failedChecks": [],
+      "shortLatencyP50Ms": 6778,
+      "shortLatencyP90Ms": 12215,
+      "billedCostUsd": 0.05719180000000001,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 13639,
+      "failures": [],
+      "longOutputs": []
+    },
+    {
+      "model": "deepseek/deepseek-v4-pro-0813",
+      "phase": "unified",
+      "expectedCalls": 50,
+      "attemptedCalls": 50,
+      "validCalls": 50,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 49,
+      "extraction": {
+        "all": {
+          "matched": 499,
+          "total": 500,
+          "percent": 99.8
+        },
+        "known": {
+          "matched": 228,
+          "total": 228,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 271,
+          "total": 272,
+          "percent": 99.63
+        },
+        "explicitZeroOrFalse": {
+          "matched": 88,
+          "total": 88,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 498,
+          "total": 498,
+          "percent": 100
+        }
+      },
+      "mismatches": [
+        {
+          "case": "sensitive_and_uncertain",
+          "turn": 1,
+          "repeat": 1,
+          "field": "общение",
+          "expected": null,
+          "actual": [
+            "семья"
+          ],
+          "ambiguousLabel": true
+        }
+      ],
+      "fullChains": 20,
+      "checkTotals": {
+        "fact": {
+          "passed": 237,
+          "total": 238
+        },
+        "no_update_marker": {
+          "passed": 50,
+          "total": 50
+        },
+        "forbidden": {
+          "passed": 24,
+          "total": 24
+        },
+        "order": {
+          "passed": 8,
+          "total": 8
+        },
+        "unchanged": {
+          "passed": 2,
+          "total": 2
+        },
+        "empty": {
+          "passed": 4,
+          "total": 4
+        }
+      },
+      "failedChecks": [
+        {
+          "case": "ambiguous_time",
+          "turn": 2,
+          "repeat": 1,
+          "id": "fact:unknown_time"
+        }
+      ],
+      "shortLatencyP50Ms": 8539,
+      "shortLatencyP90Ms": 15031,
+      "billedCostUsd": 0.24596099999999999,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 47094,
+      "failures": [],
+      "longOutputs": [
+        {
+          "repeat": 1,
+          "turn": 1,
+          "chars": 20116,
+          "seconds": 63.762,
+          "factsMatched": 18,
+          "factsTotal": 18
+        },
+        {
+          "repeat": 1,
+          "turn": 2,
+          "chars": 20230,
+          "seconds": 53.736,
+          "factsMatched": 21,
+          "factsTotal": 21
+        },
+        {
+          "repeat": 2,
+          "turn": 1,
+          "chars": 4102,
+          "seconds": 57.35,
+          "factsMatched": 18,
+          "factsTotal": 18
+        },
+        {
+          "repeat": 2,
+          "turn": 2,
+          "chars": 20230,
+          "seconds": 65.837,
+          "factsMatched": 21,
+          "factsTotal": 21
+        }
+      ]
+    },
+    {
+      "model": "mistralai/mistral-large-4-0",
+      "phase": "baseline",
+      "expectedCalls": 20,
+      "attemptedCalls": 20,
+      "validCalls": 19,
+      "endToEndSuccessPercent": 95,
+      "perfectExtractionTurns": 17,
+      "extraction": {
+        "all": {
+          "matched": 188,
+          "total": 190,
+          "percent": 98.95
+        },
+        "known": {
+          "matched": 69,
+          "total": 69,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 119,
+          "total": 121,
+          "percent": 98.35
+        },
+        "explicitZeroOrFalse": {
+          "matched": 26,
+          "total": 26,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 188,
+          "total": 188,
+          "percent": 100
+        }
+      },
+      "mismatches": [
+        {
+          "case": "sensitive_and_uncertain",
+          "turn": 1,
+          "repeat": 1,
+          "field": "общение",
+          "expected": null,
+          "actual": [
+            "семья"
+          ],
+          "ambiguousLabel": true
+        },
+        {
+          "case": "sensitive_and_uncertain",
+          "turn": 1,
+          "repeat": 2,
+          "field": "общение",
+          "expected": null,
+          "actual": [
+            "семья"
+          ],
+          "ambiguousLabel": true
+        }
+      ],
+      "fullChains": null,
+      "checkTotals": {},
+      "failedChecks": [],
+      "shortLatencyP50Ms": 19115,
+      "shortLatencyP90Ms": 30542,
+      "billedCostUsd": 0.14972912,
+      "missingBillingCalls": 1,
+      "reasoningTokens": 28283,
+      "failures": [
+        {
+          "case": "morning_and_ratings",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "Provider returned error",
+            "code": 429,
+            "metadata": {
+              "raw": "mistralai/mistral-large-4-0 is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your rate limits: https://openrouter.ai/settings/integrations",
+              "provider_name": "Mistral",
+              "is_byok": false,
+              "limit_source": "upstream_provider_shared_pool",
+              "remedy_hint": "Retry shortly, add your own provider key (https://openrouter.ai/settings/integrations), or route to another provider with provider routing: https://openrouter.ai/docs/features/provider-routing"
+            }
+          },
+          "parseError": "Missing text content"
+        }
+      ],
+      "longOutputs": []
+    },
+    {
+      "model": "mistralai/mistral-large-4-0",
+      "phase": "unified",
+      "expectedCalls": 50,
+      "attemptedCalls": 44,
+      "validCalls": 38,
+      "endToEndSuccessPercent": 76,
+      "perfectExtractionTurns": 38,
+      "extraction": {
+        "all": {
+          "matched": 380,
+          "total": 380,
+          "percent": 100
+        },
+        "known": {
+          "matched": 183,
+          "total": 183,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 197,
+          "total": 197,
+          "percent": 100
+        },
+        "explicitZeroOrFalse": {
+          "matched": 70,
+          "total": 70,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 379,
+          "total": 379,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": 14,
+      "checkTotals": {
+        "fact": {
+          "passed": 161,
+          "total": 161
+        },
+        "no_update_marker": {
+          "passed": 38,
+          "total": 38
+        },
+        "forbidden": {
+          "passed": 21,
+          "total": 21
+        },
+        "empty": {
+          "passed": 4,
+          "total": 4
+        },
+        "order": {
+          "passed": 6,
+          "total": 6
+        },
+        "unchanged": {
+          "passed": 1,
+          "total": 1
+        }
+      },
+      "failedChecks": [],
+      "shortLatencyP50Ms": 17619,
+      "shortLatencyP90Ms": 38896,
+      "billedCostUsd": 0.41964516,
+      "missingBillingCalls": 6,
+      "reasoningTokens": 70071,
+      "failures": [
+        {
+          "case": "morning_and_ratings",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "Provider returned error",
+            "code": 429,
+            "metadata": {
+              "raw": "mistralai/mistral-large-4-0 is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your rate limits: https://openrouter.ai/settings/integrations",
+              "provider_name": "Mistral",
+              "is_byok": false,
+              "limit_source": "upstream_provider_shared_pool",
+              "remedy_hint": "Retry shortly, add your own provider key (https://openrouter.ai/settings/integrations), or route to another provider with provider routing: https://openrouter.ai/docs/features/provider-routing"
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "sensitive_and_uncertain",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "Provider returned error",
+            "code": 429,
+            "metadata": {
+              "raw": "mistralai/mistral-large-4-0 is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your rate limits: https://openrouter.ai/settings/integrations",
+              "provider_name": "Mistral",
+              "is_byok": false,
+              "limit_source": "upstream_provider_shared_pool",
+              "remedy_hint": "Retry shortly, add your own provider key (https://openrouter.ai/settings/integrations), or route to another provider with provider routing: https://openrouter.ai/docs/features/provider-routing"
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "explicit_corrections",
+          "repeat": 2,
+          "turn": 2,
+          "error": {
+            "message": "Provider returned error",
+            "code": 429,
+            "metadata": {
+              "raw": "mistralai/mistral-large-4-0 is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your rate limits: https://openrouter.ai/settings/integrations",
+              "provider_name": "Mistral",
+              "is_byok": false,
+              "limit_source": "upstream_provider_shared_pool",
+              "remedy_hint": "Retry shortly, add your own provider key (https://openrouter.ai/settings/integrations), or route to another provider with provider routing: https://openrouter.ai/docs/features/provider-routing"
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "negations_other_people",
+          "repeat": 2,
+          "turn": 3,
+          "error": {
+            "message": "Provider returned error",
+            "code": 429,
+            "metadata": {
+              "raw": "mistralai/mistral-large-4-0 is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your rate limits: https://openrouter.ai/settings/integrations",
+              "provider_name": "Mistral",
+              "is_byok": false,
+              "limit_source": "upstream_provider_shared_pool",
+              "remedy_hint": "Retry shortly, add your own provider key (https://openrouter.ai/settings/integrations), or route to another provider with provider routing: https://openrouter.ai/docs/features/provider-routing"
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "long_diary",
+          "repeat": 1,
+          "turn": 1,
+          "error": {
+            "name": "TimeoutError",
+            "message": "The operation was aborted due to timeout"
+          }
+        },
+        {
+          "case": "ambiguous_time",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "message": "Provider returned error",
+            "code": 429,
+            "metadata": {
+              "raw": "mistralai/mistral-large-4-0 is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your rate limits: https://openrouter.ai/settings/integrations",
+              "provider_name": "Mistral",
+              "is_byok": false,
+              "limit_source": "upstream_provider_shared_pool",
+              "remedy_hint": "Retry shortly, add your own provider key (https://openrouter.ai/settings/integrations), or route to another provider with provider routing: https://openrouter.ai/docs/features/provider-routing"
+            }
+          },
+          "parseError": "Missing text content"
+        }
+      ],
+      "longOutputs": [
+        {
+          "repeat": 2,
+          "turn": 1,
+          "chars": 20170,
+          "seconds": 119.498,
+          "factsMatched": 18,
+          "factsTotal": 18
+        },
+        {
+          "repeat": 2,
+          "turn": 2,
+          "chars": 20246,
+          "seconds": 98.283,
+          "factsMatched": 21,
+          "factsTotal": 21
+        }
+      ]
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "phase": "baseline",
+      "expectedCalls": 20,
+      "attemptedCalls": 20,
+      "validCalls": 20,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 18,
+      "extraction": {
+        "all": {
+          "matched": 198,
+          "total": 200,
+          "percent": 99
+        },
+        "known": {
+          "matched": 72,
+          "total": 72,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 126,
+          "total": 128,
+          "percent": 98.44
+        },
+        "explicitZeroOrFalse": {
+          "matched": 26,
+          "total": 26,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 197,
+          "total": 198,
+          "percent": 99.49
+        }
+      },
+      "mismatches": [
+        {
+          "case": "explicit_corrections",
+          "turn": 1,
+          "repeat": 1,
+          "field": "общение",
+          "expected": null,
+          "actual": [
+            "друзья"
+          ],
+          "ambiguousLabel": false
+        },
+        {
+          "case": "sensitive_and_uncertain",
+          "turn": 1,
+          "repeat": 2,
+          "field": "общение",
+          "expected": null,
+          "actual": [
+            "семья"
+          ],
+          "ambiguousLabel": true
+        }
+      ],
+      "fullChains": null,
+      "checkTotals": {},
+      "failedChecks": [],
+      "shortLatencyP50Ms": 1458,
+      "shortLatencyP90Ms": 6211,
+      "billedCostUsd": 0.014255700000000001,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 1108,
+      "failures": [],
+      "longOutputs": []
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "phase": "unified",
+      "expectedCalls": 50,
+      "attemptedCalls": 50,
+      "validCalls": 50,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 49,
+      "extraction": {
+        "all": {
+          "matched": 499,
+          "total": 500,
+          "percent": 99.8
+        },
+        "known": {
+          "matched": 228,
+          "total": 228,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 271,
+          "total": 272,
+          "percent": 99.63
+        },
+        "explicitZeroOrFalse": {
+          "matched": 88,
+          "total": 88,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 498,
+          "total": 498,
+          "percent": 100
+        }
+      },
+      "mismatches": [
+        {
+          "case": "sensitive_and_uncertain",
+          "turn": 1,
+          "repeat": 2,
+          "field": "общение",
+          "expected": null,
+          "actual": [
+            "семья"
+          ],
+          "ambiguousLabel": true
+        }
+      ],
+      "fullChains": 20,
+      "checkTotals": {
+        "fact": {
+          "passed": 238,
+          "total": 238
+        },
+        "no_update_marker": {
+          "passed": 50,
+          "total": 50
+        },
+        "forbidden": {
+          "passed": 24,
+          "total": 24
+        },
+        "order": {
+          "passed": 8,
+          "total": 8
+        },
+        "unchanged": {
+          "passed": 2,
+          "total": 2
+        },
+        "empty": {
+          "passed": 4,
+          "total": 4
+        }
+      },
+      "failedChecks": [],
+      "shortLatencyP50Ms": 1587,
+      "shortLatencyP90Ms": 3853,
+      "billedCostUsd": 0.06072990000000003,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 3226,
+      "failures": [],
+      "longOutputs": [
+        {
+          "repeat": 1,
+          "turn": 1,
+          "chars": 20116,
+          "seconds": 26.295,
+          "factsMatched": 18,
+          "factsTotal": 18
+        },
+        {
+          "repeat": 1,
+          "turn": 2,
+          "chars": 20213,
+          "seconds": 23.868,
+          "factsMatched": 21,
+          "factsTotal": 21
+        },
+        {
+          "repeat": 2,
+          "turn": 1,
+          "chars": 20099,
+          "seconds": 26.438,
+          "factsMatched": 18,
+          "factsTotal": 18
+        },
+        {
+          "repeat": 2,
+          "turn": 2,
+          "chars": 20213,
+          "seconds": 24.123,
+          "factsMatched": 21,
+          "factsTotal": 21
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "anthropic/claude-sonnet-5.5": {
+    "only": ["Anthropic"],
+    "allow_fallbacks": false,
+    "max_price": {"prompt": 2.5, "completion": 13}
+  },
+  "openai/gpt-5.6-terra": {
+    "only": ["OpenAI"],
+    "allow_fallbacks": false,
+    "max_price": {"prompt": 2.5, "completion": 13}
+  }
+}

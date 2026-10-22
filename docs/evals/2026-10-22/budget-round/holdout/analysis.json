@@ -1,0 +1,550 @@
+{
+  "createdAt": "2026-10-22T06:25:04.871Z",
+  "recordedCalls": 22,
+  "expectedCalls": 24,
+  "totalBilledCostUsd": 0.17937922999999997,
+  "labelAmbiguity": "sensitive_and_uncertain, turn 1, общение: spouse leaving a note can be interpreted as family communication; exclude this one field from unambiguous metric for all models/phases/repeats",
+  "metrics": [
+    {
+      "model": "google/gemini-3.8-flash",
+      "phase": "baseline",
+      "expectedCalls": 2,
+      "attemptedCalls": 2,
+      "validCalls": 2,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 2,
+      "extraction": {
+        "all": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        },
+        "known": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 0,
+          "total": 0,
+          "percent": null
+        },
+        "explicitZeroOrFalse": {
+          "matched": 12,
+          "total": 12,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": null,
+      "checkTotals": {},
+      "failedChecks": [],
+      "shortLatencyP50Ms": null,
+      "shortLatencyP90Ms": null,
+      "billedCostUsd": 0.004974,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 0,
+      "failures": [],
+      "longOutputs": []
+    },
+    {
+      "model": "google/gemini-3.8-flash",
+      "phase": "unified",
+      "expectedCalls": 4,
+      "attemptedCalls": 4,
+      "validCalls": 4,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 4,
+      "extraction": {
+        "all": {
+          "matched": 40,
+          "total": 40,
+          "percent": 100
+        },
+        "known": {
+          "matched": 40,
+          "total": 40,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 0,
+          "total": 0,
+          "percent": null
+        },
+        "explicitZeroOrFalse": {
+          "matched": 24,
+          "total": 24,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 40,
+          "total": 40,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": 2,
+      "checkTotals": {
+        "fact": {
+          "passed": 110,
+          "total": 110
+        },
+        "no_update_marker": {
+          "passed": 4,
+          "total": 4
+        },
+        "order": {
+          "passed": 2,
+          "total": 2
+        }
+      },
+      "failedChecks": [],
+      "shortLatencyP50Ms": null,
+      "shortLatencyP90Ms": null,
+      "billedCostUsd": 0.049155149999999995,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 0,
+      "failures": [],
+      "longOutputs": [
+        {
+          "repeat": 1,
+          "turn": 1,
+          "chars": 8008,
+          "seconds": 15.38,
+          "factsMatched": 26,
+          "factsTotal": 26
+        },
+        {
+          "repeat": 1,
+          "turn": 2,
+          "chars": 8285,
+          "seconds": 15.228,
+          "factsMatched": 29,
+          "factsTotal": 29
+        },
+        {
+          "repeat": 2,
+          "turn": 1,
+          "chars": 8098,
+          "seconds": 15.232,
+          "factsMatched": 26,
+          "factsTotal": 26
+        },
+        {
+          "repeat": 2,
+          "turn": 2,
+          "chars": 8212,
+          "seconds": 15.704,
+          "factsMatched": 29,
+          "factsTotal": 29
+        }
+      ]
+    },
+    {
+      "model": "deepseek/deepseek-v4-pro-0813",
+      "phase": "baseline",
+      "expectedCalls": 2,
+      "attemptedCalls": 2,
+      "validCalls": 2,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 2,
+      "extraction": {
+        "all": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        },
+        "known": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 0,
+          "total": 0,
+          "percent": null
+        },
+        "explicitZeroOrFalse": {
+          "matched": 12,
+          "total": 12,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": null,
+      "checkTotals": {},
+      "failedChecks": [],
+      "shortLatencyP50Ms": null,
+      "shortLatencyP90Ms": null,
+      "billedCostUsd": 0.007898,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 1170,
+      "failures": [],
+      "longOutputs": []
+    },
+    {
+      "model": "deepseek/deepseek-v4-pro-0813",
+      "phase": "unified",
+      "expectedCalls": 4,
+      "attemptedCalls": 4,
+      "validCalls": 4,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 4,
+      "extraction": {
+        "all": {
+          "matched": 40,
+          "total": 40,
+          "percent": 100
+        },
+        "known": {
+          "matched": 40,
+          "total": 40,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 0,
+          "total": 0,
+          "percent": null
+        },
+        "explicitZeroOrFalse": {
+          "matched": 24,
+          "total": 24,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 40,
+          "total": 40,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": 2,
+      "checkTotals": {
+        "fact": {
+          "passed": 110,
+          "total": 110
+        },
+        "no_update_marker": {
+          "passed": 4,
+          "total": 4
+        },
+        "order": {
+          "passed": 2,
+          "total": 2
+        }
+      },
+      "failedChecks": [],
+      "shortLatencyP50Ms": null,
+      "shortLatencyP90Ms": null,
+      "billedCostUsd": 0.08193800000000001,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 15209,
+      "failures": [],
+      "longOutputs": [
+        {
+          "repeat": 1,
+          "turn": 1,
+          "chars": 8008,
+          "seconds": 99.587,
+          "factsMatched": 26,
+          "factsTotal": 26
+        },
+        {
+          "repeat": 2,
+          "turn": 1,
+          "chars": 8008,
+          "seconds": 71.931,
+          "factsMatched": 26,
+          "factsTotal": 26
+        },
+        {
+          "repeat": 1,
+          "turn": 2,
+          "chars": 8122,
+          "seconds": 19.191,
+          "factsMatched": 29,
+          "factsTotal": 29
+        },
+        {
+          "repeat": 2,
+          "turn": 2,
+          "chars": 8122,
+          "seconds": 18.94,
+          "factsMatched": 29,
+          "factsTotal": 29
+        }
+      ]
+    },
+    {
+      "model": "mistralai/mistral-large-4-0",
+      "phase": "baseline",
+      "expectedCalls": 2,
+      "attemptedCalls": 2,
+      "validCalls": 2,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 2,
+      "extraction": {
+        "all": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        },
+        "known": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 0,
+          "total": 0,
+          "percent": null
+        },
+        "explicitZeroOrFalse": {
+          "matched": 12,
+          "total": 12,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": null,
+      "checkTotals": {},
+      "failedChecks": [],
+      "shortLatencyP50Ms": null,
+      "shortLatencyP90Ms": null,
+      "billedCostUsd": 0.02054028,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 3528,
+      "failures": [],
+      "longOutputs": []
+    },
+    {
+      "model": "mistralai/mistral-large-4-0",
+      "phase": "unified",
+      "expectedCalls": 4,
+      "attemptedCalls": 2,
+      "validCalls": 0,
+      "endToEndSuccessPercent": 0,
+      "perfectExtractionTurns": 0,
+      "extraction": {
+        "all": {
+          "matched": 0,
+          "total": 0,
+          "percent": null
+        },
+        "known": {
+          "matched": 0,
+          "total": 0,
+          "percent": null
+        },
+        "unknown": {
+          "matched": 0,
+          "total": 0,
+          "percent": null
+        },
+        "explicitZeroOrFalse": {
+          "matched": 0,
+          "total": 0,
+          "percent": null
+        },
+        "unambiguous": {
+          "matched": 0,
+          "total": 0,
+          "percent": null
+        }
+      },
+      "mismatches": [],
+      "fullChains": 0,
+      "checkTotals": {},
+      "failedChecks": [],
+      "shortLatencyP50Ms": null,
+      "shortLatencyP90Ms": null,
+      "billedCostUsd": 0,
+      "missingBillingCalls": 2,
+      "reasoningTokens": 0,
+      "failures": [
+        {
+          "case": "long_varied_holdout",
+          "repeat": 1,
+          "turn": 1,
+          "error": {
+            "message": "Provider returned error",
+            "code": 429,
+            "metadata": {
+              "raw": "mistralai/mistral-large-4-0 is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your rate limits: https://openrouter.ai/settings/integrations",
+              "provider_name": "Mistral",
+              "is_byok": false,
+              "limit_source": "upstream_provider_shared_pool",
+              "remedy_hint": "Retry shortly, add your own provider key (https://openrouter.ai/settings/integrations), or route to another provider with provider routing: https://openrouter.ai/docs/features/provider-routing"
+            }
+          },
+          "parseError": "Missing text content"
+        },
+        {
+          "case": "long_varied_holdout",
+          "repeat": 2,
+          "turn": 1,
+          "error": {
+            "name": "TimeoutError",
+            "message": "The operation was aborted due to timeout"
+          }
+        }
+      ],
+      "longOutputs": []
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "phase": "baseline",
+      "expectedCalls": 2,
+      "attemptedCalls": 2,
+      "validCalls": 2,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 2,
+      "extraction": {
+        "all": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        },
+        "known": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 0,
+          "total": 0,
+          "percent": null
+        },
+        "explicitZeroOrFalse": {
+          "matched": 12,
+          "total": 12,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": null,
+      "checkTotals": {},
+      "failedChecks": [],
+      "shortLatencyP50Ms": null,
+      "shortLatencyP90Ms": null,
+      "billedCostUsd": 0.0021472,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 532,
+      "failures": [],
+      "longOutputs": []
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "phase": "unified",
+      "expectedCalls": 4,
+      "attemptedCalls": 4,
+      "validCalls": 4,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 4,
+      "extraction": {
+        "all": {
+          "matched": 40,
+          "total": 40,
+          "percent": 100
+        },
+        "known": {
+          "matched": 40,
+          "total": 40,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 0,
+          "total": 0,
+          "percent": null
+        },
+        "explicitZeroOrFalse": {
+          "matched": 24,
+          "total": 24,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 40,
+          "total": 40,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": 2,
+      "checkTotals": {
+        "fact": {
+          "passed": 110,
+          "total": 110
+        },
+        "no_update_marker": {
+          "passed": 4,
+          "total": 4
+        },
+        "order": {
+          "passed": 2,
+          "total": 2
+        }
+      },
+      "failedChecks": [],
+      "shortLatencyP50Ms": null,
+      "shortLatencyP90Ms": null,
+      "billedCostUsd": 0.012726600000000001,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 1950,
+      "failures": [],
+      "longOutputs": [
+        {
+          "repeat": 1,
+          "turn": 1,
+          "chars": 8172,
+          "seconds": 13.969,
+          "factsMatched": 26,
+          "factsTotal": 26
+        },
+        {
+          "repeat": 1,
+          "turn": 2,
+          "chars": 8286,
+          "seconds": 14.839,
+          "factsMatched": 29,
+          "factsTotal": 29
+        },
+        {
+          "repeat": 2,
+          "turn": 1,
+          "chars": 8054,
+          "seconds": 13.636,
+          "factsMatched": 26,
+          "factsTotal": 26
+        },
+        {
+          "repeat": 2,
+          "turn": 2,
+          "chars": 8168,
+          "seconds": 10.343,
+          "factsMatched": 29,
+          "factsTotal": 29
+        }
+      ]
+    }
+  ]
+}

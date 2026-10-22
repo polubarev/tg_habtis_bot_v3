@@ -221,6 +221,7 @@ async def _process_collection(update: Any, context, collection) -> bool:
             context,
             collection.combined_text,
             input_type=collection.combined_input_type,
+            user_texts=[part.text for part in sorted(collection.parts, key=lambda p: p.message_id)],
         )
         expected = ConversationState.HABITS_AWAITING_CONFIRMATION
     elif collection.entry_type == EntryType.DREAM:
@@ -269,7 +270,9 @@ async def _retry_pending_preview(update: Any, context, collection, lang: str) ->
         )
         await reply_text_chunked(
             message,
-            _messages(lang)["confirm_entry"] + "\n\n" + preview,
+            (_messages(lang)["diary_integration_failed"] + "\n\n"
+             if (session.temp_data or {}).get("entry_processing_failed") else "")
+            + _messages(lang)["confirm_entry"] + "\n\n" + preview,
             reply_markup=build_confirmation_keyboard("habits", lang),
             parse_mode=ParseMode.HTML,
         )

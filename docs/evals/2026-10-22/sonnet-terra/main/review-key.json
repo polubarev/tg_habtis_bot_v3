@@ -1,0 +1,217 @@
+[
+  {
+    "id": "003f3860c7",
+    "records": [
+      {
+        "model": "anthropic/claude-sonnet-5.5",
+        "repeat": 1,
+        "case": "sensitive_and_uncertain"
+      },
+      {
+        "model": "anthropic/claude-sonnet-5.5",
+        "repeat": 2,
+        "case": "sensitive_and_uncertain"
+      }
+    ]
+  },
+  {
+    "id": "0471c84676",
+    "records": [
+      {
+        "model": "openai/gpt-5.6-terra",
+        "repeat": 1,
+        "case": "legacy_markers"
+      },
+      {
+        "model": "anthropic/claude-sonnet-5.5",
+        "repeat": 1,
+        "case": "legacy_markers"
+      }
+    ]
+  },
+  {
+    "id": "1add260561",
+    "records": [
+      {
+        "model": "openai/gpt-5.6-terra",
+        "repeat": 1,
+        "case": "explicit_corrections"
+      },
+      {
+        "model": "openai/gpt-5.6-terra",
+        "repeat": 2,
+        "case": "explicit_corrections"
+      }
+    ]
+  },
+  {
+    "id": "20cc194631",
+    "records": [
+      {
+        "model": "openai/gpt-5.6-terra",
+        "repeat": 1,
+        "case": "ambiguous_time"
+      },
+      {
+        "model": "anthropic/claude-sonnet-5.5",
+        "repeat": 1,
+        "case": "ambiguous_time"
+      }
+    ]
+  },
+  {
+    "id": "548695586d",
+    "records": [
+      {
+        "model": "anthropic/claude-sonnet-5.5",
+        "repeat": 1,
+        "case": "mixed_and_counts"
+      }
+    ]
+  },
+  {
+    "id": "6f123cb4c8",
+    "records": [
+      {
+        "model": "anthropic/claude-sonnet-5.5",
+        "repeat": 1,
+        "case": "spoken_russian"
+      }
+    ]
+  },
+  {
+    "id": "814c672fda",
+    "records": [
+      {
+        "model": "openai/gpt-5.6-terra",
+        "repeat": 1,
+        "case": "fields_only"
+      },
+      {
+        "model": "anthropic/claude-sonnet-5.5",
+        "repeat": 1,
+        "case": "fields_only"
+      }
+    ]
+  },
+  {
+    "id": "99a3e905a8",
+    "records": [
+      {
+        "model": "openai/gpt-5.6-terra",
+        "repeat": 1,
+        "case": "spoken_russian"
+      }
+    ]
+  },
+  {
+    "id": "b68279916e",
+    "records": [
+      {
+        "model": "openai/gpt-5.6-terra",
+        "repeat": 1,
+        "case": "morning_and_ratings"
+      },
+      {
+        "model": "anthropic/claude-sonnet-5.5",
+        "repeat": 1,
+        "case": "morning_and_ratings"
+      },
+      {
+        "model": "openai/gpt-5.6-terra",
+        "repeat": 2,
+        "case": "morning_and_ratings"
+      },
+      {
+        "model": "anthropic/claude-sonnet-5.5",
+        "repeat": 2,
+        "case": "morning_and_ratings"
+      }
+    ]
+  },
+  {
+    "id": "b8b95655a6",
+    "records": [
+      {
+        "model": "openai/gpt-5.6-terra",
+        "repeat": 2,
+        "case": "negations_other_people"
+      }
+    ]
+  },
+  {
+    "id": "bb7e8b3d5c",
+    "records": [
+      {
+        "model": "anthropic/claude-sonnet-5.5",
+        "repeat": 1,
+        "case": "negations_other_people"
+      }
+    ]
+  },
+  {
+    "id": "bd6bf75a80",
+    "records": [
+      {
+        "model": "openai/gpt-5.6-terra",
+        "repeat": 1,
+        "case": "mixed_and_counts"
+      }
+    ]
+  },
+  {
+    "id": "c90d840e86",
+    "records": [
+      {
+        "model": "openai/gpt-5.6-terra",
+        "repeat": 1,
+        "case": "negations_other_people"
+      }
+    ]
+  },
+  {
+    "id": "c9316010db",
+    "records": [
+      {
+        "model": "anthropic/claude-sonnet-5.5",
+        "repeat": 1,
+        "case": "explicit_corrections"
+      }
+    ]
+  },
+  {
+    "id": "dabd79b360",
+    "records": [
+      {
+        "model": "openai/gpt-5.6-terra",
+        "repeat": 1,
+        "case": "sensitive_and_uncertain"
+      },
+      {
+        "model": "openai/gpt-5.6-terra",
+        "repeat": 2,
+        "case": "sensitive_and_uncertain"
+      }
+    ]
+  },
+  {
+    "id": "df5e05d6ed",
+    "records": [
+      {
+        "model": "anthropic/claude-sonnet-5.5",
+        "repeat": 2,
+        "case": "explicit_corrections"
+      }
+    ]
+  },
+  {
+    "id": "ed41c84b6f",
+    "records": [
+      {
+        "model": "anthropic/claude-sonnet-5.5",
+        "repeat": 2,
+        "case": "negations_other_people"
+      }
+    ]
+  }
+]

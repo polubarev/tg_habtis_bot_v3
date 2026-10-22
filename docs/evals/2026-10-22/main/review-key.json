@@ -1,0 +1,437 @@
+[
+  {
+    "id": "0d1e75e5e7",
+    "records": [
+      {
+        "model": "openai/gpt-6-luna",
+        "repeat": 1,
+        "case": "mixed_and_counts"
+      },
+      {
+        "model": "openai/gpt-6-luna",
+        "repeat": 2,
+        "case": "mixed_and_counts"
+      }
+    ]
+  },
+  {
+    "id": "1269172d12",
+    "records": [
+      {
+        "model": "qwen/qwen3.8-flash",
+        "repeat": 1,
+        "case": "sensitive_and_uncertain"
+      }
+    ]
+  },
+  {
+    "id": "1896f7cc6a",
+    "records": [
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 1,
+        "case": "spoken_russian"
+      }
+    ]
+  },
+  {
+    "id": "1fe1b1420f",
+    "records": [
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 2,
+        "case": "negations_other_people"
+      }
+    ]
+  },
+  {
+    "id": "295ce11870",
+    "records": [
+      {
+        "model": "openai/gpt-6-luna",
+        "repeat": 1,
+        "case": "legacy_markers"
+      },
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 2,
+        "case": "legacy_markers"
+      }
+    ]
+  },
+  {
+    "id": "2b4d2b2664",
+    "records": [
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 2,
+        "case": "spoken_russian"
+      }
+    ]
+  },
+  {
+    "id": "32147058cd",
+    "records": [
+      {
+        "model": "openai/gpt-6-luna",
+        "repeat": 1,
+        "case": "negations_other_people"
+      }
+    ]
+  },
+  {
+    "id": "340170dc55",
+    "records": [
+      {
+        "model": "openai/gpt-6-luna",
+        "repeat": 1,
+        "case": "spoken_russian"
+      },
+      {
+        "model": "openai/gpt-6-luna",
+        "repeat": 2,
+        "case": "spoken_russian"
+      }
+    ]
+  },
+  {
+    "id": "3fd31f6282",
+    "records": [
+      {
+        "model": "qwen/qwen3.8-flash",
+        "repeat": 1,
+        "case": "mixed_and_counts"
+      }
+    ]
+  },
+  {
+    "id": "4625ecc68e",
+    "records": [
+      {
+        "model": "qwen/qwen3.8-flash",
+        "repeat": 2,
+        "case": "mixed_and_counts"
+      }
+    ]
+  },
+  {
+    "id": "47717ad506",
+    "records": [
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 1,
+        "case": "sensitive_and_uncertain"
+      }
+    ]
+  },
+  {
+    "id": "4ac17c8c29",
+    "records": [
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 1,
+        "case": "ambiguous_time"
+      }
+    ]
+  },
+  {
+    "id": "513f67a2f4",
+    "records": [
+      {
+        "model": "openai/gpt-6-luna",
+        "repeat": 1,
+        "case": "ambiguous_time"
+      },
+      {
+        "model": "qwen/qwen3.8-flash",
+        "repeat": 1,
+        "case": "ambiguous_time"
+      },
+      {
+        "model": "openai/gpt-6-luna",
+        "repeat": 2,
+        "case": "ambiguous_time"
+      },
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 2,
+        "case": "ambiguous_time"
+      },
+      {
+        "model": "qwen/qwen3.8-flash",
+        "repeat": 2,
+        "case": "ambiguous_time"
+      }
+    ]
+  },
+  {
+    "id": "5273b58fce",
+    "records": [
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 1,
+        "case": "negations_other_people"
+      }
+    ]
+  },
+  {
+    "id": "5edf4f5bbf",
+    "records": [
+      {
+        "model": "qwen/qwen3.8-flash",
+        "repeat": 1,
+        "case": "morning_and_ratings"
+      }
+    ]
+  },
+  {
+    "id": "61300c1a9b",
+    "records": [
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 2,
+        "case": "explicit_corrections"
+      }
+    ]
+  },
+  {
+    "id": "643ad8ea0c",
+    "records": [
+      {
+        "model": "qwen/qwen3.8-flash",
+        "repeat": 1,
+        "case": "spoken_russian"
+      }
+    ]
+  },
+  {
+    "id": "70ed15f0d3",
+    "records": [
+      {
+        "model": "qwen/qwen3.8-flash",
+        "repeat": 1,
+        "case": "legacy_markers"
+      }
+    ]
+  },
+  {
+    "id": "814c672fda",
+    "records": [
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 1,
+        "case": "fields_only"
+      },
+      {
+        "model": "openai/gpt-6-luna",
+        "repeat": 1,
+        "case": "fields_only"
+      },
+      {
+        "model": "qwen/qwen3.8-flash",
+        "repeat": 1,
+        "case": "fields_only"
+      },
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 2,
+        "case": "fields_only"
+      },
+      {
+        "model": "openai/gpt-6-luna",
+        "repeat": 2,
+        "case": "fields_only"
+      },
+      {
+        "model": "qwen/qwen3.8-flash",
+        "repeat": 2,
+        "case": "fields_only"
+      }
+    ]
+  },
+  {
+    "id": "840a1db22b",
+    "records": [
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 2,
+        "case": "sensitive_and_uncertain"
+      }
+    ]
+  },
+  {
+    "id": "9628c324bb",
+    "records": [
+      {
+        "model": "openai/gpt-6-luna",
+        "repeat": 1,
+        "case": "explicit_corrections"
+      }
+    ]
+  },
+  {
+    "id": "9b575dce80",
+    "records": [
+      {
+        "model": "qwen/qwen3.8-flash",
+        "repeat": 2,
+        "case": "negations_other_people"
+      }
+    ]
+  },
+  {
+    "id": "a42b9a4c69",
+    "records": [
+      {
+        "model": "openai/gpt-6-luna",
+        "repeat": 2,
+        "case": "negations_other_people"
+      }
+    ]
+  },
+  {
+    "id": "a8d167458b",
+    "records": [
+      {
+        "model": "qwen/qwen3.8-flash",
+        "repeat": 2,
+        "case": "explicit_corrections"
+      }
+    ]
+  },
+  {
+    "id": "a95d34a26e",
+    "records": [
+      {
+        "model": "qwen/qwen3.8-flash",
+        "repeat": 1,
+        "case": "explicit_corrections"
+      },
+      {
+        "model": "openai/gpt-6-luna",
+        "repeat": 2,
+        "case": "explicit_corrections"
+      }
+    ]
+  },
+  {
+    "id": "ae2f88674b",
+    "records": [
+      {
+        "model": "qwen/qwen3.8-flash",
+        "repeat": 2,
+        "case": "legacy_markers"
+      }
+    ]
+  },
+  {
+    "id": "b68279916e",
+    "records": [
+      {
+        "model": "openai/gpt-6-luna",
+        "repeat": 1,
+        "case": "morning_and_ratings"
+      },
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 1,
+        "case": "morning_and_ratings"
+      },
+      {
+        "model": "openai/gpt-6-luna",
+        "repeat": 2,
+        "case": "morning_and_ratings"
+      },
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 2,
+        "case": "morning_and_ratings"
+      },
+      {
+        "model": "qwen/qwen3.8-flash",
+        "repeat": 2,
+        "case": "morning_and_ratings"
+      }
+    ]
+  },
+  {
+    "id": "c644ab27ce",
+    "records": [
+      {
+        "model": "openai/gpt-6-luna",
+        "repeat": 2,
+        "case": "sensitive_and_uncertain"
+      }
+    ]
+  },
+  {
+    "id": "c8fe900b54",
+    "records": [
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 1,
+        "case": "legacy_markers"
+      }
+    ]
+  },
+  {
+    "id": "d0ea5e31a7",
+    "records": [
+      {
+        "model": "openai/gpt-6-luna",
+        "repeat": 1,
+        "case": "sensitive_and_uncertain"
+      }
+    ]
+  },
+  {
+    "id": "d4df12794e",
+    "records": [
+      {
+        "model": "qwen/qwen3.8-flash",
+        "repeat": 2,
+        "case": "spoken_russian"
+      }
+    ]
+  },
+  {
+    "id": "dabd79b360",
+    "records": [
+      {
+        "model": "qwen/qwen3.8-flash",
+        "repeat": 2,
+        "case": "sensitive_and_uncertain"
+      }
+    ]
+  },
+  {
+    "id": "dc19aeda96",
+    "records": [
+      {
+        "model": "google/gemini-3.8-flash",
+        "repeat": 1,
+        "case": "explicit_corrections"
+      }
+    ]
+  },
+  {
+    "id": "ef1e86a99f",
+    "records": [
+      {
+        "model": "openai/gpt-6-luna",
+        "repeat": 2,
+        "case": "legacy_markers"
+      }
+    ]
+  },
+  {
+    "id": "faebe81cd7",
+    "records": [
+      {
+        "model": "qwen/qwen3.8-flash",
+        "repeat": 1,
+        "case": "negations_other_people"
+      }
+    ]
+  }
+]

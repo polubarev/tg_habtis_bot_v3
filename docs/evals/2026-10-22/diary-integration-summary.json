@@ -1,0 +1,15 @@
+{
+  "requests": 16,
+  "valid_responses": 15,
+  "processing_failures": 1,
+  "recheck_successful": true,
+  "field_mismatches_in_valid_responses": 0,
+  "reviewed_final_cases": [
+    "morning_and_ratings",
+    "explicit_corrections",
+    "sensitive_and_uncertain",
+    "ambiguous_time",
+    "long_diary",
+    "long_varied_holdout"
+  ]
+}

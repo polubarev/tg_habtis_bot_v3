@@ -15,7 +15,7 @@ DEFAULT_HABIT_SCHEMA = HabitSchema(
     fields={
         "diary": HabitFieldConfig(
             type="string",
-            description="Full original diary text, preserved exactly without AI editing.",
+            description="Full detailed diary in the author’s language and voice. Integrate additions without summarizing; omit bot commands. Original input is preserved separately.",
             required=False,
         ),
     },  # base fields (timestamp, date, raw_record) are always present
@@ -204,6 +204,7 @@ INLINE_BUTTONS_EN = {
 
 # Message templates (Russian)
 MESSAGES_RU = {
+    "diary_integration_failed": "Не удалось автоматически обработать запись. Исходный материал сохранён в черновике; дополнение оставлено дословно отдельным абзацем. Поля могут требовать проверки. Проверьте весь текст перед сохранением или нажмите «Нет» и дополните черновик для новой обработки.",
     "transcription_prompt": (
         "🎙 Отправь или перешли до 10 голосовых сообщений, аудиофайлов или видео. "
         "Общая длительность — до 60 минут. Когда закончишь, нажми «Расшифровать»."
@@ -452,7 +453,7 @@ MESSAGES_RU = {
         "Выбери поле для редактирования или напиши его название. Пример: вода."
     ),
     "habit_edit_not_found": "Не нашёл такое поле. Проверь название и попробуй ещё раз.",
-    "habit_diary_fixed": "Поле «дневник» сохраняет полный исходный текст без изменений. Его можно удалить или добавить снова, но описание не редактируется.",
+    "habit_diary_fixed": "Поле «дневник» сохраняет подробный рассказ вашим языком: дополнения встраиваются по смыслу, команды боту не включаются. Исходный текст хранится отдельно. Поле можно удалить или добавить снова; правила обработки фиксированы.",
     "habit_edit_details": (
         "Текущие значения поля:\n"
         "• Название: *{name}*\n"
@@ -682,6 +683,7 @@ MESSAGES_RU = {
 
 # Message templates (English)
 MESSAGES_EN = {
+    "diary_integration_failed": "Automatic processing failed. All original material is retained in the draft; the addition is kept verbatim as a separate paragraph. Fields may need review. Check the full text before saving, or choose “No” and add to the draft to process it again.",
     "transcription_prompt": (
         "🎙 Send or forward up to 10 voice messages, audio files, or videos. "
         "The combined duration can be up to 60 minutes. Press Transcribe when finished."
@@ -918,7 +920,7 @@ MESSAGES_EN = {
     "habit_remove_error": "I couldn't find that field. Check the name and try again. Example: water.",
     "habit_edit_prompt": "Choose a field to edit or send its name. Example: water.",
     "habit_edit_not_found": "I couldn't find that field. Check the name and try again.",
-    "habit_diary_fixed": "The diary field saves the complete original text unchanged. You can remove or add it again, but its description cannot be edited.",
+    "habit_diary_fixed": "The diary field preserves your detailed story and voice, integrates additions and omits bot commands. Original input is stored separately. You can remove or add the field; processing rules are fixed.",
     "habit_edit_details": (
         "Current field details:\n"
         "• Name: *{name}*\n"

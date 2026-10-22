@@ -1,0 +1,429 @@
+{
+  "createdAt": "2026-10-22T05:40:45.146Z",
+  "recordedCalls": 18,
+  "expectedCalls": 18,
+  "totalBilledCostUsd": 0.077342675,
+  "labelAmbiguity": "sensitive_and_uncertain, turn 1, общение: spouse leaving a note can be interpreted as family communication; exclude this one field from unambiguous metric for all models/phases/repeats",
+  "metrics": [
+    {
+      "model": "google/gemini-3.8-flash",
+      "phase": "baseline",
+      "expectedCalls": 2,
+      "attemptedCalls": 2,
+      "validCalls": 2,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 2,
+      "extraction": {
+        "all": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        },
+        "known": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 0,
+          "total": 0,
+          "percent": null
+        },
+        "explicitZeroOrFalse": {
+          "matched": 12,
+          "total": 12,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": null,
+      "checkTotals": {},
+      "failedChecks": [],
+      "shortLatencyP50Ms": null,
+      "shortLatencyP90Ms": null,
+      "billedCostUsd": 0.004974,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 0,
+      "failures": [],
+      "longOutputs": []
+    },
+    {
+      "model": "google/gemini-3.8-flash",
+      "phase": "unified",
+      "expectedCalls": 4,
+      "attemptedCalls": 4,
+      "validCalls": 4,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 4,
+      "extraction": {
+        "all": {
+          "matched": 40,
+          "total": 40,
+          "percent": 100
+        },
+        "known": {
+          "matched": 40,
+          "total": 40,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 0,
+          "total": 0,
+          "percent": null
+        },
+        "explicitZeroOrFalse": {
+          "matched": 24,
+          "total": 24,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 40,
+          "total": 40,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": 2,
+      "checkTotals": {
+        "fact": {
+          "passed": 110,
+          "total": 110
+        },
+        "no_update_marker": {
+          "passed": 4,
+          "total": 4
+        },
+        "order": {
+          "passed": 2,
+          "total": 2
+        }
+      },
+      "failedChecks": [],
+      "shortLatencyP50Ms": null,
+      "shortLatencyP90Ms": null,
+      "billedCostUsd": 0.04906065,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 0,
+      "failures": [],
+      "longOutputs": [
+        {
+          "repeat": 1,
+          "turn": 1,
+          "chars": 8008,
+          "seconds": 15.056,
+          "factsMatched": 26,
+          "factsTotal": 26
+        },
+        {
+          "repeat": 1,
+          "turn": 2,
+          "chars": 8285,
+          "seconds": 15.247,
+          "factsMatched": 29,
+          "factsTotal": 29
+        },
+        {
+          "repeat": 2,
+          "turn": 1,
+          "chars": 8053,
+          "seconds": 14.918,
+          "factsMatched": 26,
+          "factsTotal": 26
+        },
+        {
+          "repeat": 2,
+          "turn": 2,
+          "chars": 8167,
+          "seconds": 15.331,
+          "factsMatched": 29,
+          "factsTotal": 29
+        }
+      ]
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "phase": "baseline",
+      "expectedCalls": 2,
+      "attemptedCalls": 2,
+      "validCalls": 2,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 2,
+      "extraction": {
+        "all": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        },
+        "known": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 0,
+          "total": 0,
+          "percent": null
+        },
+        "explicitZeroOrFalse": {
+          "matched": 12,
+          "total": 12,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": null,
+      "checkTotals": {},
+      "failedChecks": [],
+      "shortLatencyP50Ms": null,
+      "shortLatencyP90Ms": null,
+      "billedCostUsd": 0.000531955,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 0,
+      "failures": [],
+      "longOutputs": []
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "phase": "unified",
+      "expectedCalls": 4,
+      "attemptedCalls": 4,
+      "validCalls": 4,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 4,
+      "extraction": {
+        "all": {
+          "matched": 40,
+          "total": 40,
+          "percent": 100
+        },
+        "known": {
+          "matched": 40,
+          "total": 40,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 0,
+          "total": 0,
+          "percent": null
+        },
+        "explicitZeroOrFalse": {
+          "matched": 24,
+          "total": 24,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 40,
+          "total": 40,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": 2,
+      "checkTotals": {
+        "fact": {
+          "passed": 110,
+          "total": 110
+        },
+        "no_update_marker": {
+          "passed": 4,
+          "total": 4
+        },
+        "order": {
+          "passed": 2,
+          "total": 2
+        }
+      },
+      "failedChecks": [],
+      "shortLatencyP50Ms": null,
+      "shortLatencyP90Ms": null,
+      "billedCostUsd": 0.0061049,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 161,
+      "failures": [],
+      "longOutputs": [
+        {
+          "repeat": 1,
+          "turn": 1,
+          "chars": 8098,
+          "seconds": 14.174,
+          "factsMatched": 26,
+          "factsTotal": 26
+        },
+        {
+          "repeat": 1,
+          "turn": 2,
+          "chars": 8212,
+          "seconds": 15.021,
+          "factsMatched": 29,
+          "factsTotal": 29
+        },
+        {
+          "repeat": 2,
+          "turn": 1,
+          "chars": 8053,
+          "seconds": 16.096,
+          "factsMatched": 26,
+          "factsTotal": 26
+        },
+        {
+          "repeat": 2,
+          "turn": 2,
+          "chars": 8167,
+          "seconds": 14.62,
+          "factsMatched": 29,
+          "factsTotal": 29
+        }
+      ]
+    },
+    {
+      "model": "qwen/qwen3.8-flash",
+      "phase": "baseline",
+      "expectedCalls": 2,
+      "attemptedCalls": 2,
+      "validCalls": 2,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 2,
+      "extraction": {
+        "all": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        },
+        "known": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 0,
+          "total": 0,
+          "percent": null
+        },
+        "explicitZeroOrFalse": {
+          "matched": 12,
+          "total": 12,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 20,
+          "total": 20,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": null,
+      "checkTotals": {},
+      "failedChecks": [],
+      "shortLatencyP50Ms": null,
+      "shortLatencyP90Ms": null,
+      "billedCostUsd": 0.0015720180000000001,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 2135,
+      "failures": [],
+      "longOutputs": []
+    },
+    {
+      "model": "qwen/qwen3.8-flash",
+      "phase": "unified",
+      "expectedCalls": 4,
+      "attemptedCalls": 4,
+      "validCalls": 4,
+      "endToEndSuccessPercent": 100,
+      "perfectExtractionTurns": 4,
+      "extraction": {
+        "all": {
+          "matched": 40,
+          "total": 40,
+          "percent": 100
+        },
+        "known": {
+          "matched": 40,
+          "total": 40,
+          "percent": 100
+        },
+        "unknown": {
+          "matched": 0,
+          "total": 0,
+          "percent": null
+        },
+        "explicitZeroOrFalse": {
+          "matched": 24,
+          "total": 24,
+          "percent": 100
+        },
+        "unambiguous": {
+          "matched": 40,
+          "total": 40,
+          "percent": 100
+        }
+      },
+      "mismatches": [],
+      "fullChains": 2,
+      "checkTotals": {
+        "fact": {
+          "passed": 110,
+          "total": 110
+        },
+        "no_update_marker": {
+          "passed": 4,
+          "total": 4
+        },
+        "order": {
+          "passed": 2,
+          "total": 2
+        }
+      },
+      "failedChecks": [],
+      "shortLatencyP50Ms": null,
+      "shortLatencyP90Ms": null,
+      "billedCostUsd": 0.015099152,
+      "missingBillingCalls": 0,
+      "reasoningTokens": 20317,
+      "failures": [],
+      "longOutputs": [
+        {
+          "repeat": 1,
+          "turn": 1,
+          "chars": 8098,
+          "seconds": 163.395,
+          "factsMatched": 26,
+          "factsTotal": 26
+        },
+        {
+          "repeat": 2,
+          "turn": 1,
+          "chars": 8098,
+          "seconds": 136.725,
+          "factsMatched": 26,
+          "factsTotal": 26
+        },
+        {
+          "repeat": 1,
+          "turn": 2,
+          "chars": 8212,
+          "seconds": 49.468,
+          "factsMatched": 29,
+          "factsTotal": 29
+        },
+        {
+          "repeat": 2,
+          "turn": 2,
+          "chars": 8212,
+          "seconds": 106.285,
+          "factsMatched": 29,
+          "factsTotal": 29
+        }
+      ]
+    }
+  ]
+}
