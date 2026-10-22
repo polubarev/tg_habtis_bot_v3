@@ -45,6 +45,9 @@ THOUGHTS_SHEET_COLUMNS = [
 
 # Button labels
 BUTTONS_RU = {
+    "records": "📓 Записи",
+    "review": "📊 Обзор",
+    "tools": "🧰 Инструменты",
     "habits": "📝 Привычки / День",
     "dream": "😴 Сон",
     "thought": "💭 Мысль",
@@ -77,6 +80,9 @@ BUTTONS_RU = {
 }
 
 BUTTONS_EN = {
+    "records": "📓 Records",
+    "review": "📊 Review",
+    "tools": "🧰 Tools",
     "habits": "📝 Habits / Day",
     "dream": "😴 Dream",
     "thought": "💭 Thought",
@@ -324,7 +330,11 @@ MESSAGES_RU = {
         "• 🤔 *Рефлексия* — задам список вопросов (настраиваются).\n"
         "• 🔔 *Напоминания* — ежедневное напоминание (Настройки → 🔔 Напоминания).\n"
         "• ⚙️ *Настройки* — подключение таблицы и редактирование полей.\n\n"
-        "Если бот «завис» или ведёт себя странно — нажми ❌ *Отмена*."
+        "Главное меню: 📓 *Записи*, 📊 *Обзор*, 🧰 *Инструменты*, ⚙️ *Настройки*.\n"
+        "Запись дня, сон, мысль и рефлексия находятся в разделе 📓 *Записи*.\n"
+        "Анализ недели и «В этот день» — в 📊 *Обзоре*.\n"
+        "Расшифровка и помощь — в 🧰 *Инструментах*.\n\n"
+        "Чтобы отменить текущее действие, нажми ❌ *Отмена* или отправь /cancel."
     ),
     "habit_config_intro": (
         "Текущие поля:\n{fields}\n\n"
@@ -607,6 +617,13 @@ MESSAGES_RU = {
     "feedback_saved": "✅ Спасибо! Отзыв сохранён.",
     "feedback_error": "⚠️ Не удалось сохранить отзыв (Firestore недоступен). Попробуй позже.",
     "main_menu": "Главное меню",
+    "records_menu": "📓 Записи — что хочешь записать?",
+    "review_menu": "📊 Обзор — что хочешь посмотреть?",
+    "tools_menu": "🧰 Инструменты — выбери действие.",
+    "menu_finish_current": (
+        "Сначала заверши текущее действие или отмени его кнопкой «Отмена» либо /cancel. "
+        "Затем можно перейти в другой раздел."
+    ),
     "admin_denied": "Эта команда доступна только администратору.",
     "admin_menu": "Админ-меню",
     "admin_storage_unavailable": "⚠️ Хранилище недоступно.",
@@ -785,7 +802,11 @@ MESSAGES_EN = {
         "• 🤔 *Reflection* — answer Q&A check-ins.\n"
         "• 🔔 *Reminders* — daily reminders (Config → 🔔 Reminders).\n"
         "• ⚙️ *Config* — setup Sheet and custom fields.\n\n"
-        "If stuck — press ❌ *Cancel*."
+        "Main menu: 📓 *Records*, 📊 *Review*, 🧰 *Tools*, ⚙️ *Config*.\n"
+        "Habits / Day, Dream, Thought, and Reflection are in 📓 *Records*.\n"
+        "Week Analysis and On this day are in 📊 *Review*.\n"
+        "Transcription and Help are in 🧰 *Tools*.\n\n"
+        "To stop the current action, press ❌ *Cancel* or send /cancel."
     ),
     "habit_config_intro": (
         "Current fields:\n{fields}\n\n"
@@ -1062,6 +1083,13 @@ MESSAGES_EN = {
     "feedback_saved": "✅ Thanks! Your feedback was saved.",
     "feedback_error": "⚠️ Couldn't save feedback (Firestore unavailable). Please try again later.",
     "main_menu": "Main Menu",
+    "records_menu": "📓 Records — what would you like to record?",
+    "review_menu": "📊 Review — what would you like to see?",
+    "tools_menu": "🧰 Tools — choose an action.",
+    "menu_finish_current": (
+        "Finish the current action first, or cancel it with the Cancel button or /cancel. "
+        "Then you can open another section."
+    ),
     "admin_denied": "This command is only available to admins.",
     "admin_menu": "Admin menu",
     "admin_storage_unavailable": "⚠️ Storage is unavailable.",

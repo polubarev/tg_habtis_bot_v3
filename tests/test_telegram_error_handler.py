@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from telegram import Update
+from telegram.ext import CommandHandler
 
 from src.config.constants import MESSAGES_EN
 from src.config.settings import Settings
@@ -49,3 +50,10 @@ async def test_bot_registers_global_error_handler(monkeypatch):
     await service._ensure_app()
 
     app.add_error_handler.assert_called_once_with(bot_module.handle_telegram_error)
+    commands = {
+        command: call.args[0].callback
+        for call in app.add_handler.call_args_list
+        if isinstance(call.args[0], CommandHandler)
+        for command in call.args[0].commands
+    }
+    assert commands["cancel"] is bot_module.cancel_command

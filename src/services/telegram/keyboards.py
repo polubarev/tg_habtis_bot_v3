@@ -46,16 +46,46 @@ def build_existing_habits_keyboard(language: str = "en") -> InlineKeyboardMarkup
 
 
 def build_main_menu_keyboard(language: str = "en") -> ReplyKeyboardMarkup:
-    """Main menu 2x2 grid + Week Analysis + Config + Help + Cancel."""
+    """Compact main menu with four categories."""
     btns = BUTTONS_RU if language == "ru" else BUTTONS_EN
-    
+
+    keyboard = [
+        [btns["records"], btns["review"]],
+        [btns["tools"], btns["config"]],
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=False)
+
+
+def build_records_keyboard(language: str = "en") -> ReplyKeyboardMarkup:
+    """Entry actions and a return to the main menu."""
+    btns = BUTTONS_RU if language == "ru" else BUTTONS_EN
+
     keyboard = [
         [btns["habits"], btns["dream"]],
         [btns["thought"], btns["reflect"]],
+        [btns["back"]],
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=False)
+
+
+def build_review_keyboard(language: str = "en") -> ReplyKeyboardMarkup:
+    """Analysis and memories with a return to the main menu."""
+    btns = BUTTONS_RU if language == "ru" else BUTTONS_EN
+
+    keyboard = [
         [btns["week_analysis"], btns["on_this_day"]],
-        [btns["transcription"]],
-        [btns["config"], btns["help"]],
-        [btns["cancel"]],
+        [btns["back"]],
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=False)
+
+
+def build_tools_keyboard(language: str = "en") -> ReplyKeyboardMarkup:
+    """Utilities and help with a return to the main menu."""
+    btns = BUTTONS_RU if language == "ru" else BUTTONS_EN
+
+    keyboard = [
+        [btns["transcription"], btns["help"]],
+        [btns["back"]],
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=False)
 

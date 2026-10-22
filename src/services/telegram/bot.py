@@ -35,7 +35,7 @@ from src.services.telegram.handlers.admin import admin_command, handle_admin_bro
 from src.services.telegram.handlers.config import config_command, handle_reset_confirm
 from src.services.telegram.handlers.config import handle_reminders_menu_callback, handle_smart_nudges_callback
 from src.services.telegram.handlers.language import handle_language_select
-from src.services.telegram.handlers.router import route_media, route_text
+from src.services.telegram.handlers.router import cancel_command, route_media, route_text
 from src.services.telegram.handlers.entry_collection import handle_entry_collection_callback
 from src.services.telegram.handlers.transcription import transcription_command
 from src.services.telegram.handlers.habits_config import (
@@ -165,6 +165,7 @@ class TelegramBotService:
         self.app.add_handler(CommandHandler("on_this_day", on_this_day_command))
         self.app.add_handler(CommandHandler("transcription", transcription_command))
         self.app.add_handler(CommandHandler("help", help_command))
+        self.app.add_handler(CommandHandler("cancel", cancel_command))
         self.app.add_handler(CommandHandler("admin", admin_command))
         self.app.add_handler(
             CallbackQueryHandler(handle_habits_date_callback, pattern="^habits_date:|^habits_cancel$")

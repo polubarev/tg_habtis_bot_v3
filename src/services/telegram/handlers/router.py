@@ -30,7 +30,13 @@ from src.services.telegram.handlers.feedback import feedback_command, handle_fee
 from src.services.telegram.handlers.week_analysis import week_analysis_command
 from src.services.telegram.handlers.on_this_day import on_this_day_command
 from src.services.telegram.handlers.admin import handle_admin_broadcast_text, handle_admin_text
-from src.services.telegram.keyboards import build_main_menu_keyboard, build_config_keyboard
+from src.services.telegram.keyboards import (
+    build_config_keyboard,
+    build_main_menu_keyboard,
+    build_records_keyboard,
+    build_review_keyboard,
+    build_tools_keyboard,
+)
 from src.services.transcription.whisper import WhisperClient
 from src.models.session import ConversationState, SessionData
 from src.models.enums import InputType
@@ -65,6 +71,11 @@ def _messages_for_lang(lang: str):
     return MESSAGES_RU if lang == "ru" else MESSAGES_EN
 
 
+async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Use the same cancellation path as the reply keyboard, including transcription."""
+    await route_text(update, context, text_override=BUTTONS_EN["cancel"])
+
+
 async def route_text(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -85,6 +96,26 @@ async def route_text(
     # Helper to check against all languages
     def matched(key: str) -> bool:
         return text in (BUTTONS_RU.get(key), BUTTONS_EN.get(key))
+
+    # Categories are navigation, never diary content. Keep unfinished flows intact.
+    category_menus = {
+        "records": ("records_menu", build_records_keyboard),
+        "review": ("review_menu", build_review_keyboard),
+        "tools": ("tools_menu", build_tools_keyboard),
+        "config": ("config_menu", build_config_keyboard),
+    }
+    for key, (message_key, build_keyboard) in category_menus.items():
+        if not matched(key):
+            continue
+        session_repo = get_session_repo(context)
+        session = await session_repo.get(update.effective_user.id) if session_repo else None
+        if session and session.state != ConversationState.IDLE:
+            await update.message.reply_text(msgs["menu_finish_current"])
+        else:
+            await update.message.reply_text(
+                msgs[message_key], reply_markup=build_keyboard(lang)
+            )
+        return
 
     if await handle_transcription_text(update, context, text):
         return
@@ -108,10 +139,6 @@ async def route_text(
     # 2. Navigation
     if matched("back"):
         await update.message.reply_text(msgs["main_menu"], reply_markup=build_main_menu_keyboard(lang))
-        return
-
-    if matched("config"):
-        await update.message.reply_text(msgs["config_menu"], reply_markup=build_config_keyboard(lang))
         return
 
     # 3. Main Action Buttons

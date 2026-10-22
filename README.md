@@ -172,6 +172,25 @@ recent part, or **Cancel** to discard it. Combined entries are limited to
 30,000 Telegram UTF-16 units; long confirmations are returned in safe chunks.
 
 ## Menu actions (main/config keyboard)
+
+The main menu has four sections in two rows:
+
+| 📓 Records | 📊 Review |
+| --- | --- |
+| 🧰 Tools | ⚙️ Config |
+
+- **Records:** Habits / Day, Dream, Thought, and Reflection.
+- **Review:** Week Analysis and On this day.
+- **Tools:** Transcription and Help.
+- **Config:** existing settings, including Sheet, habit fields, questions, and reminders.
+
+Each section has a **Back** button to return to the main menu. Finish or cancel an
+active input flow before switching sections; category buttons are never added to
+entry text. Use the flow's **Cancel** control or `/cancel` to stop the current action.
+Existing commands and action buttons from older keyboards continue to work.
+
+Settings and review actions:
+
 - Week analysis — weekly LLM summary from the last 7 days
 - Language — switch interface language
 - Feedback — send feedback to maintainers
@@ -189,7 +208,8 @@ recent part, or **Cancel** to discard it. Combined entries are limited to
 - option to choose habit for deletion using buttons
 # Batched transcription
 
-The main menu includes `🎙 Расшифровка / 🎙 Transcription`. It collects up to ten
+Open `🧰 Инструменты / 🧰 Tools` → `🎙 Расшифровка / 🎙 Transcription`, or use
+`/transcription`. It collects up to ten
 Telegram voice notes, audio files, videos, or video notes and processes them through a
 dedicated Cloud Tasks queue.
 
