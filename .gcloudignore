@@ -1,7 +1,10 @@
 #!include:.gitignore
 
-# Include service account json in Cloud Build context (still ignored by git).
-!src/secrets/*.json
+# Keep local credentials out of Cloud Build source archives.
+/src/secrets/*.json
+/.env
+/.env.*
+!/.env.example
 
 # Local dependency/test environments are never part of the runtime image.
 .test-venv/

@@ -69,14 +69,6 @@ On Windows PowerShell, use the native equivalent:
    gcloud projects add-iam-policy-binding "$GCP_PROJECT_ID" \
      --member="serviceAccount:tg-habits-bot@$GCP_PROJECT_ID.iam.gserviceaccount.com" \
      --role="roles/datastore.user"
-
-   gcloud projects add-iam-policy-binding "$GCP_PROJECT_ID" \
-     --member="serviceAccount:tg-habits-bot@$GCP_PROJECT_ID.iam.gserviceaccount.com" \
-     --role="roles/cloudtasks.enqueuer"
-
-   gcloud projects add-iam-policy-binding "$GCP_PROJECT_ID" \
-     --member="serviceAccount:tg-habits-bot@$GCP_PROJECT_ID.iam.gserviceaccount.com" \
-     --role="roles/secretmanager.secretAccessor"
    ```
 
 5. Copy `.env.example` to `.env` and set at least:
@@ -85,6 +77,8 @@ On Windows PowerShell, use the native equivalent:
    GCP_REGION=europe-west1
    TELEGRAM_BOT_TOKEN=...
    TELEGRAM_WEBHOOK_SECRET=...
+   REMINDERS_DISPATCH_SECRET=...
+   TRANSCRIPTION_DISPATCH_SECRET=...
    OPENROUTER_API_KEY=...
    OPENAI_API_KEY=...
    SERVICE_NAME=habits-diary-bot
@@ -102,13 +96,40 @@ On Windows PowerShell, use the native equivalent:
    ```bash
    printf '%s' "$TELEGRAM_BOT_TOKEN" | gcloud secrets create TELEGRAM_BOT_TOKEN --data-file=-
    printf '%s' "$TELEGRAM_WEBHOOK_SECRET" | gcloud secrets create TELEGRAM_WEBHOOK_SECRET --data-file=-
+   printf '%s' "$REMINDERS_DISPATCH_SECRET" | gcloud secrets create REMINDERS_DISPATCH_SECRET --data-file=-
+   printf '%s' "$TRANSCRIPTION_DISPATCH_SECRET" | gcloud secrets create TRANSCRIPTION_DISPATCH_SECRET --data-file=-
    printf '%s' "$OPENROUTER_API_KEY" | gcloud secrets create OPENROUTER_API_KEY --data-file=-
    printf '%s' "$OPENAI_API_KEY" | gcloud secrets create OPENAI_API_KEY --data-file=-
+
+   BOT_PRINCIPAL="serviceAccount:tg-habits-bot@$GCP_PROJECT_ID.iam.gserviceaccount.com"
+   for secret in TELEGRAM_BOT_TOKEN TELEGRAM_WEBHOOK_SECRET REMINDERS_DISPATCH_SECRET \
+     TRANSCRIPTION_DISPATCH_SECRET OPENROUTER_API_KEY OPENAI_API_KEY; do
+     gcloud secrets add-iam-policy-binding "$secret" --project="$GCP_PROJECT_ID" \
+       --member="$BOT_PRINCIPAL" --role=roles/secretmanager.secretAccessor
+   done
    ```
 
    For a quick test without Secret Manager, set `USE_SECRET_MANAGER=false` in `.env`; this passes secrets as Cloud Run env vars.
 
-7. Deploy:
+7. Create the bot's Cloud Tasks queues in a new project and grant access on each queue.
+   The reminders queue also needs task deletion so the bot can cancel or reschedule a reminder.
+   ```bash
+   REMINDERS_QUEUE="${REMINDERS_QUEUE_NAME:-reminders}"
+   TRANSCRIPTION_QUEUE="${TRANSCRIPTION_QUEUE_NAME:-transcriptions}"
+   BOT_PRINCIPAL="serviceAccount:tg-habits-bot@$GCP_PROJECT_ID.iam.gserviceaccount.com"
+   gcloud tasks queues create "$REMINDERS_QUEUE" --location="$GCP_REGION" --project="$GCP_PROJECT_ID"
+   gcloud tasks queues create "$TRANSCRIPTION_QUEUE" --location="$GCP_REGION" --project="$GCP_PROJECT_ID" \
+     --max-concurrent-dispatches=2 --max-dispatches-per-second=1 \
+     --max-attempts="${TRANSCRIPTION_TASK_MAX_ATTEMPTS:-5}"
+   for queue in "$REMINDERS_QUEUE" "$TRANSCRIPTION_QUEUE"; do
+     gcloud tasks queues add-iam-policy-binding "$queue" --location="$GCP_REGION" \
+       --project="$GCP_PROJECT_ID" --member="$BOT_PRINCIPAL" --role=roles/cloudtasks.enqueuer
+   done
+   gcloud tasks queues add-iam-policy-binding "$REMINDERS_QUEUE" --location="$GCP_REGION" \
+     --project="$GCP_PROJECT_ID" --member="$BOT_PRINCIPAL" --role=roles/cloudtasks.taskDeleter
+   ```
+
+8. Deploy:
    ```bash
    bash scripts/deploy_cloud_run.sh
    ```

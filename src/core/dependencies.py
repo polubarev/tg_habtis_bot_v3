@@ -1,3 +1,4 @@
+from hmac import compare_digest
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, Request
@@ -51,7 +52,9 @@ async def verify_telegram_webhook(
     settings = get_settings()
     if not settings.telegram_webhook_secret:
         raise HTTPException(status_code=500, detail="Service misconfigured")
-    if x_telegram_bot_api_secret_token != settings.telegram_webhook_secret:
+    if not x_telegram_bot_api_secret_token or not compare_digest(
+        x_telegram_bot_api_secret_token.encode(), settings.telegram_webhook_secret.encode()
+    ):
         raise HTTPException(status_code=403, detail="Forbidden")
     return True
 
@@ -64,7 +67,9 @@ async def verify_reminder_dispatch(
     settings = get_settings()
     if not settings.reminders_dispatch_secret:
         raise HTTPException(status_code=500, detail="Service misconfigured")
-    if x_reminder_secret != settings.reminders_dispatch_secret:
+    if not x_reminder_secret or not compare_digest(
+        x_reminder_secret.encode(), settings.reminders_dispatch_secret.encode()
+    ):
         raise HTTPException(status_code=403, detail="Forbidden")
     return True
 
@@ -75,7 +80,9 @@ async def verify_transcription_dispatch(
     settings = get_settings()
     if not settings.transcription_dispatch_secret:
         raise HTTPException(status_code=500, detail="Service misconfigured")
-    if x_transcription_secret != settings.transcription_dispatch_secret:
+    if not x_transcription_secret or not compare_digest(
+        x_transcription_secret.encode(), settings.transcription_dispatch_secret.encode()
+    ):
         raise HTTPException(status_code=403, detail="Forbidden")
     return True
 
