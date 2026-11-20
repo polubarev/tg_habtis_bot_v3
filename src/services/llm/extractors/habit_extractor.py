@@ -15,7 +15,7 @@ from src.core.analytics import log_event
 from src.core.exceptions import ExternalResponseError, ExternalTimeoutError, ExtractionError
 from src.core.logging import get_logger
 from src.models.habit import HabitFieldConfig, HabitSchema
-from src.services.llm.client import LLMClient, diary_processing_timeout
+from src.services.llm.client import LLMClient, diary_processing_timeout, llm_http_timing
 from src.services.llm.prompts.habits import HABIT_EXTRACTION_SYSTEM_PROMPT
 
 logger = get_logger(__name__)
@@ -147,21 +147,26 @@ class HabitExtractor:
         ]
         # Conservative UTF-8 budget covers even long Russian text, JSON escaping
         # and reasoning overhead. The provider's 65k cap is checked via finish_reason.
+        settings = get_settings()
         max_tokens = min(65_536, max(
-            get_settings().llm_max_tokens, 4096,
+            settings.llm_max_tokens, 4096,
             len(raw_text.encode("utf-8")) + len(json.dumps(fields_for_prompt)) + 2048,
         ))
+        timeout = diary_processing_timeout(raw_text, settings.llm_timeout_seconds)
         logger.info("Habit LLM request", language=language,
                     schema_field_count=len(structured_model.model_fields),
-                    text_length=len(raw_text), max_tokens=max_tokens)
+                    text_length=len(raw_text), max_tokens=max_tokens, timeout_seconds=timeout)
         started = time.monotonic()
-        ok = False
+        http_metrics: dict[str, int] = {}
+        trace_token = llm_http_timing.set((started, http_metrics))
+        outcome = "request_error"
+        error_type: str | None = None
         try:
             chain = self.client.with_structured_output(
-                structured_model, max_tokens=max_tokens,
-                timeout=diary_processing_timeout(raw_text, get_settings().llm_timeout_seconds),
+                structured_model, max_tokens=max_tokens, timeout=timeout,
             )
             result = await chain.ainvoke(messages)
+            outcome = "invalid_response"
             if isinstance(result, dict) and "raw" in result and "parsed" in result:
                 raw = result["raw"]
                 metadata = getattr(raw, "response_metadata", {}) or {}
@@ -184,18 +189,31 @@ class HabitExtractor:
                     raise ExternalResponseError("Empty diary for narrative input")
                 if "[Update]" in payload["diary"]:
                     raise ExternalResponseError("Generated diary contains technical markers")
-            ok = True
+            outcome = "success"
             return payload
-        except (ExternalTimeoutError, ExternalResponseError):
+        except asyncio.CancelledError:
+            outcome = "cancelled"
+            raise
+        except (ExternalTimeoutError, ExternalResponseError) as exc:
+            error_type = type(exc).__name__
+            if isinstance(exc, ExternalTimeoutError):
+                outcome = "transport_timeout"
             raise
         except Exception as exc:
-            logger.warning("Habit extraction failed", error_type=type(exc).__name__)
+            error_type = type(exc).__name__
+            logger.warning("Habit extraction failed", error_type=error_type)
             if self._is_timeout_error(exc):
+                outcome = "transport_timeout"
                 raise ExternalTimeoutError("LLM request timed out") from exc
+            if http_metrics.get("http_status", 0) >= 400:
+                outcome = "http_error"
             raise ExternalResponseError("LLM request failed") from exc
         finally:
-            log_event("llm.call", extractor="habit", model=get_settings().llm_model,
-                      latency_ms=int((time.monotonic() - started) * 1000), ok=ok)
+            llm_http_timing.reset(trace_token)
+            log_event("llm.call", extractor="habit", model=settings.llm_model,
+                      latency_ms=int((time.monotonic() - started) * 1000),
+                      ok=outcome == "success", outcome=outcome, error_type=error_type,
+                      timeout_seconds=timeout, **http_metrics)
 
 
 def fields_only_input(text: str, schema: HabitSchema) -> bool:

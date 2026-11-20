@@ -1,9 +1,13 @@
+import time
+from contextvars import ContextVar
 from typing import Any
 
+import httpx
 from pydantic import SecretStr
 
 try:
     from langchain_openai import ChatOpenAI as ChatOpenAIType
+    from openai import DefaultAsyncHttpxClient
     _IMPORT_ERROR = None
 except Exception as exc:  # pragma: no cover - optional import path compatibility
     ChatOpenAIType: Any = None  # type: ignore[no-redef]
@@ -13,6 +17,35 @@ from src.config.settings import get_settings
 from src.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+llm_http_timing: ContextVar[tuple[float, dict[str, int]] | None] = ContextVar(
+    "llm_http_timing", default=None
+)
+
+
+async def _track_http_request(request: httpx.Request) -> None:
+    timing = llm_http_timing.get()
+    if timing is None:
+        return
+    started, metrics = timing
+    metrics["http_request_start_ms"] = int((time.monotonic() - started) * 1000)
+
+    async def track_transfer(event: str, _info: dict[str, Any]) -> None:
+        # Only record milestones. Trace data can contain the authenticated request.
+        if event.endswith(".send_request_body.complete"):
+            metrics["http_request_sent_ms"] = int((time.monotonic() - started) * 1000)
+        elif event.endswith(".receive_response_body.complete"):
+            metrics["http_response_body_ms"] = int((time.monotonic() - started) * 1000)
+
+    request.extensions["trace"] = track_transfer
+
+
+async def _track_http_response(response: httpx.Response) -> None:
+    timing = llm_http_timing.get()
+    if timing is not None:
+        started, metrics = timing
+        metrics["http_response_headers_ms"] = int((time.monotonic() - started) * 1000)
+        metrics["http_status"] = response.status_code
 
 
 def diary_processing_timeout(text: str, base_seconds: float) -> float:
@@ -43,6 +76,10 @@ class LLMClient:
             temperature=settings.llm_temperature,
             max_completion_tokens=settings.llm_max_tokens,
             timeout=settings.llm_timeout_seconds,
+            http_async_client=DefaultAsyncHttpxClient(
+                timeout=settings.llm_timeout_seconds,
+                event_hooks={"request": [_track_http_request], "response": [_track_http_response]},
+            ),
             default_headers={
                 "HTTP-Referer": "https://habits-diary-bot.app",
                 "X-Title": "Habits Diary Bot",

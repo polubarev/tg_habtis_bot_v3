@@ -422,6 +422,55 @@ async def test_provider_payment_failure_makes_one_http_request():
     assert len(calls) == 1
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [402, None], ids=["payment_required", "deadline"])
+async def test_habit_http_diagnostics(monkeypatch, status):
+    from openai import DefaultAsyncHttpxClient
+
+    from src.services.llm import client as llm_client_module
+    from src.services.llm.extractors import habit_extractor
+
+    request_sent = asyncio.Event()
+    events = []
+    private_text = "Synthetic diary detail"
+    private_error = "Synthetic provider response body"
+
+    async def respond(request):
+        trace = request.extensions.get("trace")
+        if trace:
+            await trace("http11.send_request_body.complete", {})
+        request_sent.set()
+        if status is None:
+            await asyncio.Future()
+        return httpx.Response(status, json={"error": {"message": private_error}})
+
+    async with DefaultAsyncHttpxClient(transport=httpx.MockTransport(respond)) as http_client:
+        def make_http_client(**kwargs):
+            http_client.event_hooks = kwargs["event_hooks"]
+            return http_client
+
+        monkeypatch.setattr(llm_client_module, "DefaultAsyncHttpxClient", make_http_client)
+        settings = llm_client_module.get_settings().model_copy(update={"openrouter_api_key": "synthetic"})
+        monkeypatch.setattr(llm_client_module, "get_settings", lambda: settings)
+        monkeypatch.setattr(habit_extractor, "log_event", lambda name, **metadata: events.append(metadata))
+        task = asyncio.create_task(HabitExtractor(LLMClient()).extract(private_text, schema=HabitSchema()))
+        if status is None:
+            await asyncio.wait_for(request_sent.wait(), timeout=5)
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+        else:
+            with pytest.raises(ExternalResponseError):
+                await task
+
+    (event,) = events
+    assert event["outcome"] == ("http_error" if status else "cancelled")
+    assert 0 <= event["http_request_start_ms"] <= event["http_request_sent_ms"] <= event["latency_ms"]
+    assert event.get("http_status") == status
+    assert ("http_response_headers_ms" in event) == bool(status)
+    assert all(text not in repr(event) for text in (private_text, private_error, "synthetic"))
+
+
 def test_existing_fixed_diary_description_is_refreshed():
     from src.config.constants import DEFAULT_HABIT_SCHEMA
     from src.services.telegram.handlers.habits_config import _ensure_diary_field
