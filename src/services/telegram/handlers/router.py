@@ -71,6 +71,16 @@ def _messages_for_lang(lang: str):
     return MESSAGES_RU if lang == "ru" else MESSAGES_EN
 
 
+def _entry_input_handler(state: ConversationState):
+    return {
+        ConversationState.HABITS_AWAITING_DATE: handle_habits_date_text,
+        ConversationState.HABITS_AWAITING_CONTENT: handle_habits_text,
+        ConversationState.DREAM_AWAITING_CONTENT: handle_dream_text,
+        ConversationState.THOUGHT_AWAITING_CONTENT: handle_thought_text,
+        ConversationState.REFLECT_ANSWERING_QUESTIONS: handle_reflect_text,
+    }.get(state)
+
+
 async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Use the same cancellation path as the reply keyboard, including transcription."""
     await route_text(update, context, text_override=BUTTONS_EN["cancel"])
@@ -260,16 +270,8 @@ async def route_text(
             handled = await handle_habits_config_text(update, context)
         elif state == ConversationState.CONFIG_ADDING_QUESTION:
             handled = await handle_questions_text(update, context)
-        elif state == ConversationState.HABITS_AWAITING_DATE:
-            handled = await handle_habits_date_text(update, context, text)
-        elif state == ConversationState.HABITS_AWAITING_CONTENT:
-            handled = await handle_habits_text(update, context, text)
-        elif state == ConversationState.DREAM_AWAITING_CONTENT:
-            handled = await handle_dream_text(update, context, text)
-        elif state == ConversationState.THOUGHT_AWAITING_CONTENT:
-            handled = await handle_thought_text(update, context, text)
-        elif state == ConversationState.REFLECT_ANSWERING_QUESTIONS:
-            handled = await handle_reflect_text(update, context, text)
+        elif entry_handler := _entry_input_handler(state):
+            handled = await entry_handler(update, context, text)
 
     if not handled and update.message:
         await update.message.reply_text(
@@ -280,10 +282,16 @@ async def route_text(
 
 
 async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Route voice messages: transcribe then reuse text handlers."""
+    """Transcribe a voice note and route it to an active voice-input step, if any."""
 
     if not update.message or not update.message.voice or not update.effective_user:
         return
+    user_id = update.effective_user.id
+    session_repo = get_session_repo(context)
+    session = await session_repo.get(user_id) if session_repo else None
+    state = session.state if session else ConversationState.IDLE
+    last_activity = session.last_activity if session else None
+    entry_handler = _entry_input_handler(state)
     voice = update.message.voice
     duration = voice.duration
     duration_seconds = (
@@ -423,22 +431,25 @@ async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await safe_delete_message(progress_message)
         await update.message.reply_text(msgs["voice_transcription_error"])
         return
-    session_repo = get_session_repo(context)
-    session = await session_repo.get(update.effective_user.id) if session_repo else None
-    if session and session.state == ConversationState.ENTRY_COLLECTING:
-        await safe_delete_message(progress_message)
-        await handle_entry_collection_text(
-            update,
-            context,
-            result.text,
-            input_type=InputType.VOICE,
-        )
-        return
     await safe_delete_message(progress_message)
+
+    async def step_is_current() -> bool:
+        # A slow transcription can complete after the user closes or replaces the step.
+        current = await session_repo.get(user_id) if session_repo else None
+        return current is not None and current.state == state and current.last_activity == last_activity
+
+    if state == ConversationState.ENTRY_COLLECTING and await step_is_current():
+        if await handle_entry_collection_text(
+            update, context, result.text, input_type=InputType.VOICE
+        ):
+            return
+
     try:
         await reply_text_chunked(
             update.message,
             msgs["voice_transcribed"].format(text=result.text),
+            reply_to_message_id=update.message.message_id,
+            allow_sending_without_reply=True,
         )
     except Exception as exc:
         logger.warning(
@@ -447,15 +458,16 @@ async def route_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             error=type(exc).__name__,
         )
 
-    # Route with preference: habits voice handling first.
-    if session and session.state == ConversationState.HABITS_AWAITING_CONTENT:
-        await handle_habits_text(update, context, result.text, input_type=InputType.VOICE)
+    if entry_handler is None or not await step_is_current():
         return
-    await route_text(update, context, text_override=result.text, input_type=InputType.VOICE)
+    if state == ConversationState.HABITS_AWAITING_CONTENT:
+        await handle_habits_text(update, context, result.text, input_type=InputType.VOICE)
+    else:
+        await entry_handler(update, context, result.text)
 
 
 async def route_media(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Collect supported media in transcription mode; preserve legacy voice routing otherwise."""
+    """Collect media for an explicit batch or transcribe a voice note directly."""
     if await handle_transcription_media(update, context):
         return
     if update.message and update.message.voice:

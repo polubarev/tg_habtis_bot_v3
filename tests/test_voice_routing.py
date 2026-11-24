@@ -6,9 +6,10 @@ import pytest
 from telegram.constants import FileSizeLimit
 from telegram.error import BadRequest, NetworkError
 
-from src.config.constants import MESSAGES_EN
+from src.config.constants import BUTTONS_EN, MESSAGES_EN
 from src.config.settings import Settings
 from src.models.enums import InputType
+from src.models.session import ConversationState, SessionData
 from src.services.telegram.handlers import router as router_module
 from src.services.telegram.utils import TELEGRAM_TEXT_CHUNK_SIZE, telegram_text_length
 from src.services.transcription.interfaces import TranscriptionResult
@@ -21,8 +22,9 @@ class FakeSentMessage:
 
 
 class FakeMessage:
-    def __init__(self, voice, *, fail_transcript_echo: bool = False) -> None:
+    def __init__(self, voice, *, message_id: int, fail_transcript_echo: bool = False) -> None:
         self.voice = voice
+        self.message_id = message_id
         self.text = None
         self.fail_transcript_echo = fail_transcript_echo
         self.replies: list[tuple[str, dict, FakeSentMessage]] = []
@@ -62,12 +64,15 @@ class FakeTranscriber:
 
 
 class FakeDeps:
-    def __init__(self, transcriber: FakeTranscriber, settings: Settings) -> None:
+    def __init__(
+        self, transcriber: FakeTranscriber, settings: Settings, session: SessionData | None
+    ) -> None:
         self._transcriber = transcriber
+        self._session_repo = SimpleNamespace(get=AsyncMock(return_value=session), save=AsyncMock())
         self.settings = settings
 
     def session_repo(self):
-        return None
+        return self._session_repo
 
     def user_repo(self):
         return None
@@ -82,6 +87,8 @@ def build_voice_case(
     file_size: int = 1024,
     download_error: Exception | None = None,
     fail_transcript_echo: bool = False,
+    session: SessionData | None = None,
+    message_id: int = 1,
 ):
     settings = Settings(
         _env_file=None,
@@ -89,7 +96,7 @@ def build_voice_case(
         transcription_timeout_seconds=1,
     )
     transcriber = FakeTranscriber(transcript)
-    deps = FakeDeps(transcriber, settings)
+    deps = FakeDeps(transcriber, settings, session)
     telegram_file = FakeTelegramFile(error=download_error)
     bot = FakeBot(telegram_file)
     context = SimpleNamespace(
@@ -101,7 +108,7 @@ def build_voice_case(
         file_size=file_size,
         file_id="voice-file-id",
     )
-    message = FakeMessage(voice, fail_transcript_echo=fail_transcript_echo)
+    message = FakeMessage(voice, message_id=message_id, fail_transcript_echo=fail_transcript_echo)
     update = SimpleNamespace(
         effective_user=SimpleNamespace(id=123),
         message=message,
@@ -110,13 +117,10 @@ def build_voice_case(
 
 
 @pytest.mark.asyncio
-async def test_long_voice_transcript_is_chunked_and_routed_in_full(monkeypatch):
+async def test_long_standalone_voice_transcript_is_chunked_and_replies_to_note():
     transcript = "x" * 4504
     update, context, transcriber, bot = build_voice_case(transcript=transcript)
-    route_text = AsyncMock()
-    monkeypatch.setattr(router_module, "route_text", route_text)
-
-    await router_module.route_voice(update, context)
+    await router_module.route_media(update, context)
 
     assert update.message.replies[0][0] == MESSAGES_EN["processing"]
     transcript_chunks = [text for text, _, _ in update.message.replies[1:]]
@@ -128,12 +132,81 @@ async def test_long_voice_transcript_is_chunked_and_routed_in_full(monkeypatch):
     assert "".join(transcript_chunks) == MESSAGES_EN["voice_transcribed"].format(
         text=transcript
     )
-    route_text.assert_awaited_once_with(
-        update, context, text_override=transcript, input_type=InputType.VOICE
+    assert all(
+        options["reply_to_message_id"] == update.message.message_id
+        for _, options, _ in update.message.replies[1:]
     )
     transcriber.transcribe.assert_awaited_once()
     bot.get_file.assert_awaited_once()
     update.message.replies[0][2].delete.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "state",
+    [
+        ConversationState.IDLE,
+        ConversationState.CONFIG_TIMEZONE,
+        ConversationState.HABITS_AWAITING_CONFIRMATION,
+    ],
+)
+async def test_standalone_voice_notes_leave_session_untouched(state):
+    session = SessionData(user_id=123, state=state)
+    transcript = BUTTONS_EN["cancel"]
+    notes = [
+        build_voice_case(transcript=transcript, session=session, message_id=message_id)
+        for message_id in (11, 12)
+    ]
+    await asyncio.gather(
+        *(router_module.route_media(update, context) for update, context, _, _ in notes)
+    )
+
+    for update, context, transcriber, _ in notes:
+        transcriber.transcribe.assert_awaited_once()
+        assert [text for text, _, _ in update.message.replies] == [
+            MESSAGES_EN["processing"],
+            MESSAGES_EN["voice_transcribed"].format(text=transcript),
+        ]
+        assert update.message.replies[-1][1]["reply_to_message_id"] == update.message.message_id
+        router_module.get_session_repo(context).save.assert_not_awaited()
+    assert session.state == state
+
+
+@pytest.mark.asyncio
+async def test_voice_note_still_appends_to_active_entry_collection(monkeypatch):
+    session = SessionData(user_id=123, state=ConversationState.ENTRY_COLLECTING)
+    update, context, _, _ = build_voice_case(transcript="my entry", session=session)
+    append = AsyncMock(return_value=True)
+    monkeypatch.setattr(router_module, "handle_entry_collection_text", append)
+
+    await router_module.route_media(update, context)
+
+    append.assert_awaited_once_with(update, context, "my entry", input_type=InputType.VOICE)
+    assert [text for text, _, _ in update.message.replies] == [MESSAGES_EN["processing"]]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "starting_state", [ConversationState.IDLE, ConversationState.ENTRY_COLLECTING]
+)
+async def test_voice_note_cannot_enter_new_collection_during_transcription(
+    monkeypatch, starting_state
+):
+    session = SessionData(user_id=123, state=starting_state)
+    update, context, transcriber, _ = build_voice_case(session=session)
+    append = AsyncMock()
+    monkeypatch.setattr(router_module, "handle_entry_collection_text", append)
+
+    async def start_new_collection(*args, **kwargs):
+        session.state = ConversationState.ENTRY_COLLECTING
+        session.refresh_expiry(ttl_minutes=60)
+        return TranscriptionResult(text="hello", language="en")
+
+    transcriber.transcribe.side_effect = start_new_collection
+    await router_module.route_media(update, context)
+
+    append.assert_not_awaited()
+    assert update.message.replies[-1][0] == MESSAGES_EN["voice_transcribed"].format(text="hello")
 
 
 @pytest.mark.asyncio
@@ -215,12 +288,11 @@ async def test_transcript_display_failure_does_not_block_routing(monkeypatch):
     update, context, _, _ = build_voice_case(
         transcript=transcript,
         fail_transcript_echo=True,
+        session=SessionData(user_id=123, state=ConversationState.HABITS_AWAITING_CONTENT),
     )
-    route_text = AsyncMock()
-    monkeypatch.setattr(router_module, "route_text", route_text)
+    habits = AsyncMock()
+    monkeypatch.setattr(router_module, "handle_habits_text", habits)
 
     await router_module.route_voice(update, context)
 
-    route_text.assert_awaited_once_with(
-        update, context, text_override=transcript, input_type=InputType.VOICE
-    )
+    habits.assert_awaited_once_with(update, context, transcript, input_type=InputType.VOICE)

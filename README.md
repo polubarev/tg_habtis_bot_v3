@@ -227,7 +227,9 @@ Settings and review actions:
 # TODOs
 - update habit feature
 - option to choose habit for deletion using buttons
-# Batched transcription
+# Voice transcription
+
+Send voice notes directly when the bot is idle to get a transcript in reply to each note.
 
 Open `🧰 Инструменты / 🧰 Tools` → `🎙 Расшифровка / 🎙 Transcription`, or use
 `/transcription`. It collects up to ten

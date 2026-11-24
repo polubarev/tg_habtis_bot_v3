@@ -14,9 +14,9 @@ from src.config.settings import Settings
 from src.models.session import ConversationState
 from src.models.session import SessionData
 from src.services.storage.firestore.transcription_batch_repo import TranscriptionBatchRepository
+from src.services.telegram.handlers.router import route_media
 from src.services.telegram.handlers.transcription import (
     extract_supported_media,
-    handle_transcription_media,
     transcription_command,
 )
 from src.services.transcription.processor import format_batch_result, split_result_text
@@ -261,10 +261,9 @@ async def test_tenth_item_queues_automatically_and_resets_session():
             duration=10,
             mime_type="audio/ogg",
         )
-        handled = await handle_transcription_media(
-            _update(_Message(message_id=index, voice=voice)), context
-        )
-        assert handled is True
+        message = _Message(message_id=index, voice=voice)
+        await route_media(_update(message), context)
+        assert message.replies
 
     assert len(deps.scheduler.calls) == 1
     assert deps.sessions.value is not None
